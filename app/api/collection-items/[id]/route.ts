@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
-import { collectionOptionDataForDb, parseCollectionItemPayload } from '@/lib/collectionPayload'
+import { collectionOptionDataForDb, parseCollectionItemPayloadAsync } from '@/lib/collectionPayload'
 import { toCollectionItemDto } from '@/lib/collectionItem'
 import { ensureCollectionSchema } from '@/lib/collectionSchema'
 import { collectionItems } from '@/lib/schema'
@@ -18,7 +18,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     const body = (await request.json()) as Record<string, unknown>
-    const payload = parseCollectionItemPayload(body)
+    const payload = await parseCollectionItemPayloadAsync(body)
     if (!payload) {
       return NextResponse.json({ message: 'invalid request' }, { status: 400 })
     }
@@ -31,6 +31,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         subCategory: payload.subCategory,
         brand: payload.brand,
         name: payload.name,
+        nameSuffix: payload.nameSuffix,
         model: payload.model,
         size: payload.size,
         description: payload.description,

@@ -27,6 +27,7 @@ export const collectionItems = sqliteTable('collection_items', {
   subCategory: text('sub_category').notNull(),
   brand: text('brand').notNull().default(''),
   name: text('name').notNull(),
+  nameSuffix: text('name_suffix').notNull().default(''),
   model: text('model').notNull().default(''),
   size: text('size').notNull().default(''),
   description: text('description').notNull().default(''),

@@ -22,15 +22,40 @@ export const AMOUNT_UNITS = ['mg', 'g', 'kg', 'ml'] as const
 
 export type AmountUnit = (typeof AMOUNT_UNITS)[number]
 
+/** 소모(food) 용량 — 없음 선택 시 amount 0 */
+export const COLLECTION_AMOUNT_UNIT_NONE = 'none' as const
+
+export type CollectionAmountUnit = AmountUnit | typeof COLLECTION_AMOUNT_UNIT_NONE
+
+export const COLLECTION_AMOUNT_UNIT_OPTIONS = [
+  { key: COLLECTION_AMOUNT_UNIT_NONE, label: '없음' },
+  ...AMOUNT_UNITS.map((unit) => ({ key: unit, label: unit })),
+] as const
+
+export function hasCollectionAmount(amount: number, unit: string): boolean {
+  return unit !== COLLECTION_AMOUNT_UNIT_NONE && amount > 0
+}
+
 /** 구매 단위 — 낱개(개) 또는 박스 */
 export const PACK_TYPES = [
   { key: 'piece', label: '개' },
   { key: 'box', label: '박스' },
 ] as const
 
-export type PackType = (typeof PACK_TYPES)[number]['key']
+export type PackType = (typeof PACK_TYPES)[number]['key'] | 'bundle'
 
-export function getPackTypeLabel(packType: PackType) {
+export function isMultiUnitPackType(packType: PackType | string | undefined): boolean {
+  return packType === 'box' || packType === 'bundle'
+}
+
+export function normalizePackType(packType: string | null | undefined): PackType {
+  if (packType === 'box') return 'box'
+  if (packType === 'bundle') return 'bundle'
+  return 'piece'
+}
+
+export function getPackTypeLabel(packType: PackType | string) {
+  if (packType === 'bundle') return '묶음상품'
   return PACK_TYPES.find((p) => p.key === packType)?.label ?? packType
 }
 

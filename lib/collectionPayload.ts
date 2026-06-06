@@ -1,8 +1,9 @@
 // 수정: Auto — 2026-06-05 (푸드 필드)
 
-import type { CollectionMainKey, CollectionSubKey } from '@/config/collectionCategories'
+import type { CollectionMainKey, CollectionSubKey, CollectionSubEntry } from '@/config/collectionCategories'
 import {
   COLLECTION_STORES,
+  isCollectionPackDetailCategory,
   isFashionMainCategory,
   isFoodMainCategory,
   isValidCollectionPair,
@@ -11,9 +12,14 @@ import {
 import {
   AMOUNT_UNITS,
   PACK_TYPES,
+  COLLECTION_AMOUNT_UNIT_NONE,
+  isMultiUnitPackType,
+  normalizePackType,
   type AmountUnit,
+  type CollectionAmountUnit,
   type PackType,
 } from '@/config/shoppingCategories'
+import { loadSubEntries } from '@/lib/collectionSubcategoryStore'
 import {
   isValidCollectionOptionType,
   parseCollectionOptionData,
@@ -33,6 +39,7 @@ export type CollectionItemPayload = {
   subCategory: CollectionSubKey
   brand: string
   name: string
+  nameSuffix: string
   model: string
   size: string
   description: string
@@ -41,7 +48,7 @@ export type CollectionItemPayload = {
   storeCustom: string | null
   purchaseDate: string
   amount: number
-  amountUnit: AmountUnit
+  amountUnit: CollectionAmountUnit
   packType: PackType
   packCount: number
   unitsPerPack: number
@@ -54,7 +61,7 @@ function trimOptional(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function defaultFoodFields(): Pick<
+function defaultPackFields(): Pick<
   CollectionItemPayload,
   'amount' | 'amountUnit' | 'packType' | 'packCount' | 'unitsPerPack'
 > {
@@ -67,6 +74,31 @@ function defaultFoodFields(): Pick<
   }
 }
 
+function parseCollectionPackDetailFields(
+  mainKey: CollectionMainKey,
+  body: Record<string, unknown>,
+): Pick<
+  CollectionItemPayload,
+  'amount' | 'amountUnit' | 'packType' | 'packCount' | 'unitsPerPack'
+> | null {
+  if (!isCollectionPackDetailCategory(mainKey)) return null
+
+  const packType = normalizePackType(String(body.packType ?? 'piece'))
+  if (!isMultiUnitPackType(packType)) return defaultPackFields()
+
+  const unitsPerPackRaw = Number(body.unitsPerPack ?? 1)
+  if (!Number.isFinite(unitsPerPackRaw) || unitsPerPackRaw < 1) return null
+  const unitsPerPack = Math.round(unitsPerPackRaw)
+  if (unitsPerPack < 1) return null
+
+  return {
+    ...defaultPackFields(),
+    packType,
+    packCount: 1,
+    unitsPerPack,
+  }
+}
+
 function parseFoodFields(
   mainKey: CollectionMainKey,
   body: Record<string, unknown>,
@@ -74,16 +106,13 @@ function parseFoodFields(
   CollectionItemPayload,
   'amount' | 'amountUnit' | 'packType' | 'packCount' | 'unitsPerPack'
 > | null {
-  if (!isFoodMainCategory(mainKey)) return defaultFoodFields()
+  if (!isFoodMainCategory(mainKey)) return null
 
-  const amount = Number(body.amount)
-  const amountUnit = body.amountUnit
+  const amountUnitRaw = String(body.amountUnit ?? COLLECTION_AMOUNT_UNIT_NONE)
   const packType = String(body.packType ?? 'piece')
   const packCountRaw = Number(body.packCount ?? 1)
   const unitsPerPackRaw = Number(body.unitsPerPack ?? 1)
 
-  if (!Number.isFinite(amount) || amount <= 0) return null
-  if (!amountUnitSet.has(String(amountUnit))) return null
   if (!packTypeKeys.has(packType)) return null
   if (!Number.isFinite(packCountRaw) || packCountRaw < 1) return null
   const packCount = Math.round(packCountRaw)
@@ -91,22 +120,39 @@ function parseFoodFields(
 
   const typedPackType = packType as PackType
   let unitsPerPack = 1
-  if (typedPackType === 'box') {
+  if (isMultiUnitPackType(typedPackType)) {
     if (!Number.isFinite(unitsPerPackRaw) || unitsPerPackRaw < 1) return null
     unitsPerPack = Math.round(unitsPerPackRaw)
     if (unitsPerPack < 1) return null
   }
 
+  if (amountUnitRaw === COLLECTION_AMOUNT_UNIT_NONE) {
+    return {
+      amount: 0,
+      amountUnit: COLLECTION_AMOUNT_UNIT_NONE,
+      packType: typedPackType,
+      packCount,
+      unitsPerPack,
+    }
+  }
+
+  const amount = Number(body.amount)
+  if (!Number.isFinite(amount) || amount <= 0) return null
+  if (!amountUnitSet.has(amountUnitRaw)) return null
+
   return {
     amount,
-    amountUnit: amountUnit as AmountUnit,
+    amountUnit: amountUnitRaw as AmountUnit,
     packType: typedPackType,
     packCount,
     unitsPerPack,
   }
 }
 
-export function parseCollectionItemPayload(body: Record<string, unknown>): CollectionItemPayload | null {
+export function parseCollectionItemPayload(
+  body: Record<string, unknown>,
+  subs?: CollectionSubEntry[],
+): CollectionItemPayload | null {
   const mainCategory = body.mainCategory
   const subCategory = body.subCategory
   const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -115,7 +161,7 @@ export function parseCollectionItemPayload(body: Record<string, unknown>): Colle
   const storeCustom = trimOptional(body.storeCustom)
   const optionTypeRaw = body.optionType ?? 'none'
 
-  if (!isValidCollectionPair(mainCategory, subCategory)) return null
+  if (!isValidCollectionPair(mainCategory, subCategory, subs)) return null
   if (!name) return null
   if (!Number.isFinite(purchasePrice) || purchasePrice < 0) return null
   if (!storeKeys.has(String(storeKey))) return null
@@ -123,7 +169,16 @@ export function parseCollectionItemPayload(body: Record<string, unknown>): Colle
 
   const mainKey = mainCategory as CollectionMainKey
   const foodFields = parseFoodFields(mainKey, body)
-  if (!foodFields) return null
+  const packDetailFields = parseCollectionPackDetailFields(mainKey, body)
+  const packFields = foodFields ?? packDetailFields ?? defaultPackFields()
+  if (isFoodMainCategory(mainKey) && !foodFields) return null
+  if (
+    isCollectionPackDetailCategory(mainKey) &&
+    isMultiUnitPackType(String(body.packType ?? '')) &&
+    !packDetailFields
+  ) {
+    return null
+  }
 
   const optionType = isFashionMainCategory(mainKey) ? optionTypeRaw : 'none'
   const optionData = parseCollectionOptionData(optionType, body.optionData)
@@ -141,6 +196,7 @@ export function parseCollectionItemPayload(body: Record<string, unknown>): Colle
     subCategory: subCategory as CollectionSubKey,
     brand: trimOptional(body.brand),
     name,
+    nameSuffix: trimOptional(body.nameSuffix),
     model: trimOptional(body.model),
     size: trimOptional(body.size),
     description: trimOptional(body.description),
@@ -148,11 +204,20 @@ export function parseCollectionItemPayload(body: Record<string, unknown>): Colle
     storeKey: storeKey as CollectionStoreKey,
     storeCustom: storeKey === 'custom' ? storeCustom || null : null,
     purchaseDate,
-    ...foodFields,
+    ...packFields,
     optionType,
     optionData,
     imageData,
   }
+}
+
+export async function parseCollectionItemPayloadAsync(
+  body: Record<string, unknown>,
+): Promise<CollectionItemPayload | null> {
+  const mainCategory = body.mainCategory
+  if (typeof mainCategory !== 'string') return null
+  const subs = await loadSubEntries(mainCategory as CollectionMainKey)
+  return parseCollectionItemPayload(body, subs)
 }
 
 export function collectionOptionDataForDb(data: CollectionOptionData): string {

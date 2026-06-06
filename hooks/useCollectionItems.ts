@@ -7,7 +7,7 @@ import type {
   CollectionMainKey,
   CollectionSubKey,
 } from '@/config/collectionCategories'
-import type { AmountUnit, PackType } from '@/config/shoppingCategories'
+import type { CollectionAmountUnit, PackType } from '@/config/shoppingCategories'
 import type {
   CollectionOptionData,
   CollectionOptionType,
@@ -20,6 +20,7 @@ export interface CollectionItem {
   subCategory: CollectionSubKey
   brand: string
   name: string
+  nameSuffix: string
   model: string
   size: string
   description: string
@@ -28,7 +29,7 @@ export interface CollectionItem {
   storeCustom: string | null
   purchaseDate: string
   amount: number
-  amountUnit: AmountUnit
+  amountUnit: CollectionAmountUnit
   packType: PackType
   packCount: number
   unitsPerPack: number

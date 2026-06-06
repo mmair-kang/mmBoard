@@ -37,6 +37,7 @@ async function migrateShoppingToCollection() {
       subCategory: row.category,
       brand: row.brand ?? '',
       name: row.name,
+      nameSuffix: '',
       model: '',
       size: '',
       description: '',
@@ -112,6 +113,11 @@ export async function ensureCollectionSchema() {
       }
       try {
         await db.run(sql`ALTER TABLE collection_items ADD COLUMN size TEXT NOT NULL DEFAULT ''`)
+      } catch {
+        /* column already exists */
+      }
+      try {
+        await db.run(sql`ALTER TABLE collection_items ADD COLUMN name_suffix TEXT NOT NULL DEFAULT ''`)
       } catch {
         /* column already exists */
       }

@@ -16,6 +16,7 @@ import {
 import { ListSearchField } from '@/components/common/ListSearchField'
 import { CollectionItemDetailDialog } from '@/components/collection/CollectionItemDetailDialog'
 import { CollectionItemFormDialog } from '@/components/collection/CollectionItemFormDialog'
+import { CollectionSubcategoryEditDialog } from '@/components/collection/CollectionSubcategoryEditDialog'
 import { ShoppingItemThumbnail } from '@/components/shopping/ShoppingItemThumbnail'
 import {
   COLLECTION_MAIN_CATEGORIES,
@@ -26,6 +27,7 @@ import {
   getFirstSubcategory,
   getSubcategoryLabel,
   isFoodMainCategory,
+  isCollectionPackDetailCategory,
   type CollectionMainKey,
   type CollectionSubKey,
 } from '@/config/collectionCategories'
@@ -35,11 +37,13 @@ import {
   useAllCollectionItems,
   useCollectionItems,
 } from '@/hooks/useCollectionItems'
+import { useCollectionSubcategories } from '@/hooks/useCollectionSubcategories'
+import { useLongPress } from '@/hooks/useLongPress'
 import { formatLastPurchaseDateDisplay } from '@/lib/shoppingDate'
+import { formatCollectionFoodListSubline, formatCollectionPackListSubline } from '@/lib/collectionDetail'
 import { upsertCollectionItemSorted } from '@/lib/collectionItem'
 import type { CollectionItemPayload } from '@/lib/collectionPayload'
 import { matchesAnySearch } from '@/lib/koreanSearch'
-import { formatAmountWithPackCount } from '@/lib/shoppingUnitPrice'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -48,7 +52,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useSWRConfig } from 'swr'
 
 function formatPrice(price: number) {
@@ -63,17 +67,13 @@ const COLLECTION_LIST_THUMB_SIZE = 68
 
 function matchesCollectionItem(item: CollectionItem, query: string) {
   const amountLabel = isFoodMainCategory(item.mainCategory)
-    ? formatAmountWithPackCount(
-        item.amount,
-        item.amountUnit,
-        item.packType === 'box' ? 'box' : 'piece',
-        item.packCount,
-      )
+    ? formatCollectionFoodListSubline(item)
     : ''
   return matchesAnySearch(
     [
       item.brand,
       item.name,
+      item.nameSuffix,
       item.model,
       item.size,
       item.description,
@@ -98,11 +98,16 @@ function CollectionItemCard({
   const purchaseLabel = formatLastPurchaseDateDisplay(item.purchaseDate)
   const brand = item.brand.trim()
   const name = item.name.trim()
+  const nameSuffix = item.nameSuffix.trim()
   const isFood = isFoodMainCategory(item.mainCategory)
-  const packType = item.packType === 'box' ? 'box' : 'piece'
+  const isPackDetail = isCollectionPackDetailCategory(item.mainCategory)
+  const modelLine = [item.model.trim(), item.size.trim()].filter(Boolean).join(' · ')
+  const packDetailLine = isPackDetail ? formatCollectionPackListSubline(item) : ''
   const secondLineText = isFood
-    ? formatAmountWithPackCount(item.amount, item.amountUnit, packType, item.packCount)
-    : [item.model.trim(), item.size.trim()].filter(Boolean).join(' · ')
+    ? formatCollectionFoodListSubline(item)
+    : isPackDetail
+      ? [modelLine, packDetailLine].filter(Boolean).join(' · ')
+      : modelLine
   const showSecondLine = Boolean(brand || secondLineText)
   return (
     <Paper
@@ -130,7 +135,7 @@ function CollectionItemCard({
           />
         ) : null}
         <Box sx={{ minWidth: 0, flex: 1 }}>
-          {name ? (
+          {(name || nameSuffix) ? (
             <Typography
               sx={{
                 fontSize: 15,
@@ -141,7 +146,19 @@ function CollectionItemCard({
                 whiteSpace: 'nowrap',
               }}
             >
-              {name}
+              {name ? <Box component="span">{name}</Box> : null}
+              {nameSuffix ? (
+                <Box
+                  component="span"
+                  sx={{
+                    color: 'text.secondary',
+                    fontWeight: 500,
+                    ml: name ? 0.75 : 0,
+                  }}
+                >
+                  {nameSuffix}
+                </Box>
+              ) : null}
             </Typography>
           ) : null}
           {showSecondLine ? (
@@ -208,8 +225,13 @@ export function CollectionPageContent() {
   const [formOpen, setFormOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<CollectionItem | null>(null)
   const [detailItem, setDetailItem] = useState<CollectionItem | null>(null)
+  const [subEditOpen, setSubEditOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const { mutate: globalMutate } = useSWRConfig()
+  const { subs, saveSubs } = useCollectionSubcategories(mainCategory)
+  const { pointerHandlers: subChipLongPress, wrapClick: wrapSubChipClick } = useLongPress({
+    onLongPress: () => setSubEditOpen(true),
+  })
   const { items, isLoading, mutate } = useCollectionItems(mainCategory, subCategory)
   const { items: allItems, isLoading: allLoading, mutate: mutateAll } = useAllCollectionItems()
 
@@ -221,6 +243,11 @@ export function CollectionPageContent() {
   }, [items, allItems, trimmedQuery])
 
   const listLoading = isSearching ? allLoading && allItems.length === 0 : isLoading
+
+  useEffect(() => {
+    if (subs.some((s) => s.key === subCategory)) return
+    setSubCategory(getFirstSubcategory(mainCategory, subs))
+  }, [subs, mainCategory, subCategory])
 
   const formSubCategory = editingItem?.subCategory ?? subCategory
 
@@ -245,7 +272,10 @@ export function CollectionPageContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-    if (!res.ok) throw new Error('추가 실패')
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string }
+      throw new Error(body.message ?? '추가 실패')
+    }
     const newItem = (await res.json()) as CollectionItem
     if (isInCurrentList(newItem, mainCategory, subCategory)) {
       await mutate((prev) => upsertCollectionItemSorted(prev, newItem), { revalidate: false })
@@ -263,7 +293,10 @@ export function CollectionPageContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-    if (!res.ok) throw new Error('수정 실패')
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string }
+      throw new Error(body.message ?? '수정 실패')
+    }
     const updated = (await res.json()) as CollectionItem
 
     if (isInCurrentList(updated, mainCategory, subCategory)) {
@@ -313,7 +346,7 @@ export function CollectionPageContent() {
   }
 
   const mainMeta = getCollectionMainMeta(mainCategory)
-  const subLabel = getSubcategoryLabel(mainCategory, subCategory)
+  const subLabel = getSubcategoryLabel(mainCategory, subCategory, subs)
   const chipButtonSx = sxCollectionChipButton()
   const subChipButtonSx = sxCollectionChipButton(true)
 
@@ -383,15 +416,17 @@ export function CollectionPageContent() {
             </Box>
           ) : (
             <Box sx={sxCollectionSubChipPanel(mainCategory)}>
-              {getCollectionSubFilters(mainCategory).map((c) => (
+              {getCollectionSubFilters(mainCategory, subs).map((c) => (
                 <Box
                   key={c.key}
                   component="button"
                   type="button"
-                  onClick={() => setSubCategory(c.key as CollectionSubKey)}
+                  {...subChipLongPress}
+                  onClick={wrapSubChipClick(() => setSubCategory(c.key as CollectionSubKey))}
                   sx={{
                     ...sxCollectionSubChip(mainCategory, subCategory === c.key),
                     ...subChipButtonSx,
+                    touchAction: 'manipulation',
                   }}
                 >
                   {c.label}
@@ -457,6 +492,21 @@ export function CollectionPageContent() {
         open={detailItem != null}
         item={detailItem}
         onClose={() => setDetailItem(null)}
+      />
+
+      <CollectionSubcategoryEditDialog
+        open={subEditOpen}
+        mainCategory={mainCategory}
+        subs={subs}
+        onClose={() => setSubEditOpen(false)}
+        onSave={async (rows) => {
+          const saved = await saveSubs(rows)
+          setSubCategory((prev) => {
+            if (saved.some((s) => s.key === prev)) return prev
+            return saved[0]?.key ?? prev
+          })
+          return saved
+        }}
       />
     </Box>
   )

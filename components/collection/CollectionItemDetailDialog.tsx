@@ -10,13 +10,15 @@ import {
   getSubcategoryLabel,
   isFashionMainCategory,
   isFoodMainCategory,
+  isCollectionPackDetailCategory,
 } from '@/config/collectionCategories'
 import {
   COLLECTION_OPTION_FIELDS,
   getCollectionOptionLabel,
 } from '@/config/collectionOptions'
 import type { CollectionItem } from '@/hooks/useCollectionItems'
-import { getCollectionFoodDetailLabels } from '@/lib/collectionDetail'
+import { useCollectionSubcategories } from '@/hooks/useCollectionSubcategories'
+import { getCollectionPackDetailLabels, getCollectionFoodDetailLabels } from '@/lib/collectionDetail'
 import { formatLastPurchaseDateDisplay } from '@/lib/shoppingDate'
 import Box from '@mui/material/Box'
 import DialogContent from '@mui/material/DialogContent'
@@ -52,15 +54,20 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
+  const { subs } = useCollectionSubcategories(item?.mainCategory ?? 'personal')
   if (!item) return null
 
   const mainMeta = getCollectionMainMeta(item.mainCategory)
-  const subLabel = getSubcategoryLabel(item.mainCategory, item.subCategory)
+  const subLabel = getSubcategoryLabel(item.mainCategory, item.subCategory, subs)
+  const displayName = item.name.trim()
+  const displayNameSuffix = item.nameSuffix.trim()
   const storeLabel = getCollectionStoreLabel(item.storeKey, item.storeCustom)
   const purchaseLabel = formatLastPurchaseDateDisplay(item.purchaseDate)
   const isFood = isFoodMainCategory(item.mainCategory)
+  const isPackDetail = isCollectionPackDetailCategory(item.mainCategory)
   const isFashion = isFashionMainCategory(item.mainCategory)
   const foodDetails = isFood ? getCollectionFoodDetailLabels(item) : []
+  const packDetails = isPackDetail ? getCollectionPackDetailLabels(item) : []
   const optionFields =
     isFashion && item.optionType !== 'none' ? COLLECTION_OPTION_FIELDS[item.optionType] : []
 
@@ -82,7 +89,25 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
     >
       <FormDialogHeader onClose={onClose}>
         <Typography component="span" sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.35 }}>
-          {item.name.trim() || '소장품'}
+          {displayName || displayNameSuffix ? (
+            <>
+              {displayName ? <Box component="span">{displayName}</Box> : null}
+              {displayNameSuffix ? (
+                <Box
+                  component="span"
+                  sx={{
+                    color: 'text.secondary',
+                    fontWeight: 500,
+                    ml: displayName ? 0.75 : 0,
+                  }}
+                >
+                  {displayNameSuffix}
+                </Box>
+              ) : null}
+            </>
+          ) : (
+            '소장품'
+          )}
         </Typography>
       </FormDialogHeader>
 
@@ -152,6 +177,33 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
               </Typography>
               <Stack spacing={0.5}>
                 {foodDetails.map((part) => (
+                  <Typography
+                    key={part}
+                    variant="body2"
+                    sx={{
+                      fontWeight: part.includes('당') ? 700 : 500,
+                      color: part.includes('당') ? 'primary.main' : 'text.primary',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {part}
+                  </Typography>
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
+
+          {isPackDetail && packDetails.length > 0 ? (
+            <Box>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontWeight: 700, display: 'block', mb: 0.75 }}
+              >
+                상세 · 단가
+              </Typography>
+              <Stack spacing={0.5}>
+                {packDetails.map((part) => (
                   <Typography
                     key={part}
                     variant="body2"

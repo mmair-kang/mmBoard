@@ -1,12 +1,13 @@
 // 수정: Auto — 2026-06-05 (푸드 2depth: 음식·간식·건강)
 
+import type { PackType } from '@/config/shoppingCategories'
 import { SHOPPING_STORES } from '@/config/shoppingCategories'
 
 export const COLLECTION_MAIN_CATEGORIES = [
   { key: 'personal', label: '개인', color: '#f97316' },
   { key: 'home', label: '아파트', color: '#22c55e' },
   { key: 'car', label: '자동차', color: '#0ea5e9' },
-  { key: 'food', label: '푸드', color: '#f59e0b' },
+  { key: 'food', label: '소모', color: '#f59e0b' },
   { key: 'fashion', label: '패션', color: '#8b5cf6' },
 ] as const
 
@@ -54,11 +55,11 @@ export const COLLECTION_SUBCATEGORIES = {
   ],
 } as const satisfies Record<CollectionMainKey, readonly { key: string; label: string }[]>
 
-export type CollectionSubKey = {
-  [K in CollectionMainKey]: (typeof COLLECTION_SUBCATEGORIES)[K][number]['key']
-}[CollectionMainKey]
+export type CollectionSubKey = string
 
 export type CollectionSubFilterKey = CollectionSubKey | typeof COLLECTION_SUB_ALL
+
+export type CollectionSubEntry = { key: string; label: string }
 
 const mainKeys = new Set<string>(COLLECTION_MAIN_CATEGORIES.map((c) => c.key))
 
@@ -68,6 +69,37 @@ export function isFashionMainCategory(main: CollectionMainKey): boolean {
 
 export function isFoodMainCategory(main: CollectionMainKey): boolean {
   return main === 'food'
+}
+
+export function isCarMainCategory(main: CollectionMainKey): boolean {
+  return main === 'car'
+}
+
+const COLLECTION_PACK_DETAIL_MAINS = new Set<CollectionMainKey>(['personal', 'home', 'car'])
+
+/** 개인 · 아파트 · 자동차 — 상세옵션(없음/박스/묶음상품) */
+export function isCollectionPackDetailCategory(main: CollectionMainKey): boolean {
+  return COLLECTION_PACK_DETAIL_MAINS.has(main)
+}
+
+export const COLLECTION_DETAIL_PACK_OPTIONS = [
+  { key: 'none', label: '없음' },
+  { key: 'box', label: '박스' },
+  { key: 'bundle', label: '묶음상품' },
+] as const
+
+export type CollectionDetailPackOptionKey = (typeof COLLECTION_DETAIL_PACK_OPTIONS)[number]['key']
+
+export function toCollectionDetailOptionKey(packType: string): CollectionDetailPackOptionKey {
+  if (packType === 'box') return 'box'
+  if (packType === 'bundle') return 'bundle'
+  return 'none'
+}
+
+export function packTypeFromCollectionDetailOption(key: string): PackType {
+  if (key === 'box') return 'box'
+  if (key === 'bundle') return 'bundle'
+  return 'piece'
 }
 
 /** DB에 personal + 패션 소분류로 남아 있는 레거시 데이터 보정 */
@@ -88,43 +120,63 @@ export function getCollectionMainMeta(key: CollectionMainKey) {
   return COLLECTION_MAIN_CATEGORIES.find((c) => c.key === key)!
 }
 
-export function getCollectionSubcategories(main: CollectionMainKey) {
-  return COLLECTION_SUBCATEGORIES[main]
+export function getCollectionSubcategories(main: CollectionMainKey, subs?: CollectionSubEntry[]) {
+  return subs ?? COLLECTION_SUBCATEGORIES[main]
 }
 
 /** 2depth 목록 (전체 없음) */
-export function getCollectionSubFilters(main: CollectionMainKey) {
-  return COLLECTION_SUBCATEGORIES[main]
+export function getCollectionSubFilters(main: CollectionMainKey, subs?: CollectionSubEntry[]) {
+  return getCollectionSubcategories(main, subs)
 }
 
-export function getDefaultSubcategory(main: CollectionMainKey): CollectionSubKey {
-  return getFirstSubcategory(main)
+export function getDefaultSubcategory(main: CollectionMainKey, subs?: CollectionSubEntry[]): CollectionSubKey {
+  return getFirstSubcategory(main, subs)
 }
 
-export function getFirstSubcategory(main: CollectionMainKey): CollectionSubKey {
-  return COLLECTION_SUBCATEGORIES[main][0].key as CollectionSubKey
+export function getFirstSubcategory(main: CollectionMainKey, subs?: CollectionSubEntry[]): CollectionSubKey {
+  const list = getCollectionSubcategories(main, subs)
+  return list[0]?.key ?? COLLECTION_SUBCATEGORIES[main][0].key
 }
 
-export function getSubcategoryLabel(main: CollectionMainKey, sub: CollectionSubKey): string {
-  return COLLECTION_SUBCATEGORIES[main].find((c) => c.key === sub)?.label ?? sub
+export function getSubcategoryLabel(
+  main: CollectionMainKey,
+  sub: CollectionSubKey,
+  subs?: CollectionSubEntry[],
+): string {
+  const list = subs ?? COLLECTION_SUBCATEGORIES[main]
+  return list.find((c) => c.key === sub)?.label ?? sub
 }
 
-export function getSubFilterLabel(main: CollectionMainKey, sub: CollectionSubFilterKey): string {
+export function getSubFilterLabel(
+  main: CollectionMainKey,
+  sub: CollectionSubFilterKey,
+  subs?: CollectionSubEntry[],
+): string {
   if (sub === COLLECTION_SUB_ALL) return '전체'
-  return getSubcategoryLabel(main, sub)
+  return getSubcategoryLabel(main, sub, subs)
 }
 
-export function isValidSubFilter(main: unknown, sub: unknown): main is CollectionMainKey {
+export function isValidSubFilter(
+  main: unknown,
+  sub: unknown,
+  subs?: CollectionSubEntry[],
+): main is CollectionMainKey {
   if (!mainKeys.has(String(main))) return false
   if (sub === COLLECTION_SUB_ALL) return true
   const mainKey = main as CollectionMainKey
-  return COLLECTION_SUBCATEGORIES[mainKey].some((c) => c.key === sub)
+  const list = subs ?? COLLECTION_SUBCATEGORIES[mainKey]
+  return list.some((c) => c.key === sub)
 }
 
-export function isValidCollectionPair(main: unknown, sub: unknown): main is CollectionMainKey {
+export function isValidCollectionPair(
+  main: unknown,
+  sub: unknown,
+  subs?: CollectionSubEntry[],
+): main is CollectionMainKey {
   if (!mainKeys.has(String(main))) return false
   const mainKey = main as CollectionMainKey
-  return COLLECTION_SUBCATEGORIES[mainKey].some((c) => c.key === sub)
+  const list = subs ?? COLLECTION_SUBCATEGORIES[mainKey]
+  return list.some((c) => c.key === sub)
 }
 
 /** 소장 전용 구매처 — 쇼핑 목록 + 맨 아래 오프라인 */

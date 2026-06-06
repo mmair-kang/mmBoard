@@ -14,7 +14,9 @@ import {
   type CollectionSubKey,
 } from '@/config/collectionCategories'
 import type { CollectionStoreKey } from '@/config/collectionCategories'
-import type { AmountUnit, PackType } from '@/config/shoppingCategories'
+import type { CollectionAmountUnit, PackType } from '@/config/shoppingCategories'
+import { COLLECTION_AMOUNT_UNIT_NONE } from '@/config/shoppingCategories'
+import { normalizePackType } from '@/config/shoppingCategories'
 import type { collectionItems } from '@/lib/schema'
 
 type CollectionRow = typeof collectionItems.$inferSelect
@@ -25,6 +27,7 @@ export type CollectionItemDto = {
   subCategory: CollectionSubKey
   brand: string
   name: string
+  nameSuffix: string
   model: string
   size: string
   description: string
@@ -33,7 +36,7 @@ export type CollectionItemDto = {
   storeCustom: string | null
   purchaseDate: string
   amount: number
-  amountUnit: AmountUnit
+  amountUnit: CollectionAmountUnit
   packType: PackType
   packCount: number
   unitsPerPack: number
@@ -85,6 +88,7 @@ export function toCollectionItemDto(row: CollectionRow): CollectionItemDto {
     subCategory,
     brand: row.brand ?? '',
     name: row.name,
+    nameSuffix: row.nameSuffix ?? '',
     model: row.model ?? '',
     size,
     description: row.description ?? '',
@@ -93,8 +97,10 @@ export function toCollectionItemDto(row: CollectionRow): CollectionItemDto {
     storeCustom: row.storeCustom,
     purchaseDate: row.purchaseDate,
     amount: row.amount ?? 0,
-    amountUnit: (row.amountUnit ?? 'g') as AmountUnit,
-    packType: (row.packType === 'box' ? 'box' : 'piece') as PackType,
+    amountUnit: (row.amountUnit === COLLECTION_AMOUNT_UNIT_NONE
+      ? COLLECTION_AMOUNT_UNIT_NONE
+      : (row.amountUnit ?? 'g')) as CollectionAmountUnit,
+    packType: normalizePackType(row.packType),
     packCount: row.packCount ?? 1,
     unitsPerPack: row.unitsPerPack ?? 1,
     optionType,

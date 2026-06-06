@@ -3,9 +3,10 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import { isValidCollectionPair } from '@/config/collectionCategories'
+import { isValidCollectionPair, type CollectionMainKey } from '@/config/collectionCategories'
 import { db } from '@/lib/db'
-import { collectionOptionDataForDb, parseCollectionItemPayload } from '@/lib/collectionPayload'
+import { loadSubEntries } from '@/lib/collectionSubcategoryStore'
+import { collectionOptionDataForDb, parseCollectionItemPayloadAsync } from '@/lib/collectionPayload'
 import { toCollectionItemDto } from '@/lib/collectionItem'
 import { ensureCollectionSchema } from '@/lib/collectionSchema'
 import { collectionItems } from '@/lib/schema'
@@ -29,7 +30,8 @@ export async function GET(request: Request) {
   if (!main || !sub) {
     return NextResponse.json({ message: 'main and sub required' }, { status: 400 })
   }
-  if (!isValidCollectionPair(main, sub)) {
+  const subs = await loadSubEntries(main as CollectionMainKey)
+  if (!isValidCollectionPair(main, sub, subs)) {
     return NextResponse.json({ message: 'invalid category' }, { status: 400 })
   }
 
@@ -45,7 +47,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>
-    const payload = parseCollectionItemPayload(body)
+    const payload = await parseCollectionItemPayloadAsync(body)
     if (!payload) {
       return NextResponse.json({ message: 'invalid request' }, { status: 400 })
     }
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
         subCategory: payload.subCategory,
         brand: payload.brand,
         name: payload.name,
+        nameSuffix: payload.nameSuffix,
         model: payload.model,
         size: payload.size,
         description: payload.description,

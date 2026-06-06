@@ -34,6 +34,14 @@ import {
 
   getSubcategoryLabel,
 
+  isCollectionPackDetailCategory,
+
+  COLLECTION_DETAIL_PACK_OPTIONS,
+
+  toCollectionDetailOptionKey,
+
+  packTypeFromCollectionDetailOption,
+
   isFashionMainCategory,
 
   isFoodMainCategory,
@@ -45,6 +53,8 @@ import {
   type CollectionSubKey,
 
 } from '@/config/collectionCategories'
+
+import { useCollectionSubcategories } from '@/hooks/useCollectionSubcategories'
 
 import {
 
@@ -90,7 +100,15 @@ import {
 
   PACK_TYPES,
 
-  type AmountUnit,
+  COLLECTION_AMOUNT_UNIT_OPTIONS,
+
+  COLLECTION_AMOUNT_UNIT_NONE,
+
+  hasCollectionAmount,
+
+  isMultiUnitPackType,
+
+  type CollectionAmountUnit,
 
   type PackType,
 
@@ -101,6 +119,8 @@ import type { CollectionItem } from '@/hooks/useCollectionItems'
 import type { CollectionItemPayload } from '@/lib/collectionPayload'
 
 import { todayIsoDate } from '@/lib/shoppingDate'
+
+import { formatPerPiecePriceLabel, formatUnitsPerPackLabel } from '@/lib/shoppingUnitPrice'
 
 import Box from '@mui/material/Box'
 
@@ -136,6 +156,8 @@ type FormState = {
 
   name: string
 
+  nameSuffix: string
+
   model: string
 
   size: string
@@ -146,7 +168,7 @@ type FormState = {
 
   amount: string
 
-  amountUnit: AmountUnit
+  amountUnit: CollectionAmountUnit
 
   packType: PackType
 
@@ -190,6 +212,8 @@ const emptyForm = (): FormState => ({
 
   name: '',
 
+  nameSuffix: '',
+
   model: '',
 
   size: '',
@@ -200,7 +224,7 @@ const emptyForm = (): FormState => ({
 
   amount: '',
 
-  amountUnit: 'g',
+  amountUnit: COLLECTION_AMOUNT_UNIT_NONE,
 
   packType: 'piece',
 
@@ -228,6 +252,8 @@ function formFromItem(item: CollectionItem): FormState {
 
     name: item.name,
 
+    nameSuffix: item.nameSuffix,
+
     model: item.model,
 
     size: item.size,
@@ -236,7 +262,7 @@ function formFromItem(item: CollectionItem): FormState {
 
     purchasePrice: String(item.purchasePrice),
 
-    amount: item.amount > 0 ? String(item.amount) : '',
+    amount: hasCollectionAmount(item.amount, item.amountUnit) ? String(item.amount) : '',
 
     amountUnit: item.amountUnit,
 
@@ -314,7 +340,7 @@ export function CollectionItemFormDialog({
 
   const [deleting, setDeleting] = useState(false)
 
-
+  const { subs: formSubs } = useCollectionSubcategories(formMain)
 
   const activeMain = isEdit ? formMain : mainCategory
 
@@ -322,11 +348,17 @@ export function CollectionItemFormDialog({
 
   const mainMeta = getCollectionMainMeta(activeMain)
 
-  const subLabel = getSubcategoryLabel(activeMain, activeSub)
+  const subLabel = getSubcategoryLabel(activeMain, activeSub, formSubs)
 
   const showFoodFields = isFoodMainCategory(activeMain)
 
+  const showPackDetailOptions = isCollectionPackDetailCategory(activeMain)
+
   const isBox = form.packType === 'box'
+
+  const isMultiUnitPack = form.packType === 'box' || form.packType === 'bundle'
+
+  const unitsPerPackPrefix = form.packType === 'bundle' ? '1묶음당' : '1박스당'
 
 
 
@@ -364,7 +396,11 @@ export function CollectionItemFormDialog({
 
   }, [open, item, mainCategory, subCategory])
 
-
+  useEffect(() => {
+    if (!open) return
+    if (formSubs.some((s) => s.key === formSub)) return
+    setFormSub(getFirstSubcategory(formMain, formSubs))
+  }, [open, formMain, formSubs, formSub])
 
   const handleOptionTypeChange = (next: CollectionOptionType) => {
 
@@ -398,6 +434,22 @@ export function CollectionItemFormDialog({
 
     }
 
+    if (!isFoodMainCategory(nextMain) && !isCollectionPackDetailCategory(nextMain)) {
+
+      setForm((prev) => ({
+
+        ...prev,
+
+        packType: 'piece',
+
+        packCount: '1',
+
+        unitsPerPack: '1',
+
+      }))
+
+    }
+
   }
 
 
@@ -406,15 +458,25 @@ export function CollectionItemFormDialog({
 
   const showCustomStore = form.storeKey === 'custom'
 
+  const isNoAmount = form.amountUnit === COLLECTION_AMOUNT_UNIT_NONE
+
   const foodValid =
 
-    Number(form.amount) > 0 &&
+    (isNoAmount || Number(form.amount) > 0) &&
 
     Number.isInteger(Number(form.packCount)) &&
 
     Number(form.packCount) >= 1 &&
 
     (!isBox || (Number.isInteger(Number(form.unitsPerPack)) && Number(form.unitsPerPack) >= 1))
+
+  const packDetailValid =
+
+    !showPackDetailOptions ||
+
+    !isMultiUnitPack ||
+
+    (Number.isInteger(Number(form.unitsPerPack)) && Number(form.unitsPerPack) >= 1)
 
   const canSubmit =
 
@@ -424,7 +486,9 @@ export function CollectionItemFormDialog({
 
     form.purchaseDate?.isValid() &&
 
-    (!showFoodFields || foodValid)
+    (!showFoodFields || foodValid) &&
+
+    (!showPackDetailOptions || packDetailValid)
 
 
 
@@ -448,9 +512,11 @@ export function CollectionItemFormDialog({
 
         name: form.name.trim(),
 
+        nameSuffix: form.nameSuffix.trim(),
+
         model: showFoodFields ? '' : form.model.trim(),
 
-        size: showFoodFields ? '' : form.size.trim(),
+        size: showFoodFields || showPackDetailOptions ? '' : form.size.trim(),
 
         description: showFoodFields ? '' : form.description.trim(),
 
@@ -462,15 +528,21 @@ export function CollectionItemFormDialog({
 
         purchaseDate: form.purchaseDate.format('YYYY-MM-DD'),
 
-        amount: showFoodFields ? Number(form.amount) : 0,
+        amount: showFoodFields && !isNoAmount ? Number(form.amount) : 0,
 
         amountUnit: form.amountUnit,
 
-        packType: showFoodFields ? form.packType : 'piece',
+        packType: showFoodFields || showPackDetailOptions ? form.packType : 'piece',
 
         packCount: showFoodFields ? Math.round(Number(form.packCount)) : 1,
 
-        unitsPerPack: showFoodFields && isBox ? Math.round(Number(form.unitsPerPack)) : 1,
+        unitsPerPack:
+
+          (showFoodFields && isBox) || (showPackDetailOptions && isMultiUnitPack)
+
+            ? Math.round(Number(form.unitsPerPack))
+
+            : 1,
 
         optionType: showFashionOptions ? optionType : 'none',
 
@@ -616,7 +688,7 @@ export function CollectionItemFormDialog({
 
                     <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
 
-                      {getCollectionSubcategories(formMain).map((c) => (
+                      {getCollectionSubcategories(formMain, formSubs).map((c) => (
 
                         <Box
 
@@ -664,21 +736,24 @@ export function CollectionItemFormDialog({
 
               />
 
-              <TextField
-
-                label="이름"
-
-                value={form.name}
-
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-
-                required
-
-                fullWidth
-
-                {...formDialogCompactTextFieldProps}
-
-              />
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  label="이름"
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  required
+                  fullWidth
+                  {...formDialogCompactTextFieldProps}
+                />
+                <TextField
+                  label="덧붙일말"
+                  value={form.nameSuffix}
+                  onChange={(e) => setForm((prev) => ({ ...prev, nameSuffix: e.target.value }))}
+                  fullWidth
+                  placeholder="선택"
+                  {...formDialogCompactTextFieldProps}
+                />
+              </Stack>
 
               {showFoodFields ? (
 
@@ -696,7 +771,9 @@ export function CollectionItemFormDialog({
 
                       onChange={(e) => setForm((prev) => ({ ...prev, amount: e.target.value }))}
 
-                      required
+                      required={!isNoAmount}
+
+                      disabled={isNoAmount}
 
                       fullWidth
 
@@ -718,19 +795,29 @@ export function CollectionItemFormDialog({
 
                         value={form.amountUnit}
 
-                        onChange={(e) =>
+                        onChange={(e) => {
 
-                          setForm((prev) => ({ ...prev, amountUnit: e.target.value as AmountUnit }))
+                          const amountUnit = e.target.value as CollectionAmountUnit
 
-                        }
+                          setForm((prev) => ({
+
+                            ...prev,
+
+                            amountUnit,
+
+                            amount: amountUnit === COLLECTION_AMOUNT_UNIT_NONE ? '' : prev.amount,
+
+                          }))
+
+                        }}
 
                       >
 
-                        {AMOUNT_UNITS.map((unit) => (
+                        {COLLECTION_AMOUNT_UNIT_OPTIONS.map((unit) => (
 
-                          <MenuItem key={unit} value={unit} dense>
+                          <MenuItem key={unit.key} value={unit.key} dense>
 
-                            {unit}
+                            {unit.label}
 
                           </MenuItem>
 
@@ -859,6 +946,172 @@ export function CollectionItemFormDialog({
                       </Stack>
 
                     </Box>
+
+                  ) : null}
+
+                </>
+
+              ) : showPackDetailOptions ? (
+
+                <>
+
+                  <FormControl fullWidth size="small" margin="dense" sx={compactFormControlSx}>
+
+                    <InputLabel id="collection-detail-pack-label">상세옵션</InputLabel>
+
+                    <Select
+
+                      labelId="collection-detail-pack-label"
+
+                      label="상세옵션"
+
+                      value={toCollectionDetailOptionKey(form.packType)}
+
+                      onChange={(e) => {
+
+                        const next = e.target.value
+
+                        const packType = packTypeFromCollectionDetailOption(next)
+
+                        setForm((prev) => ({
+
+                          ...prev,
+
+                          packType,
+
+                          packCount: '1',
+
+                          unitsPerPack: isMultiUnitPackType(packType) ? prev.unitsPerPack : '1',
+
+                        }))
+
+                      }}
+
+                    >
+
+                      {COLLECTION_DETAIL_PACK_OPTIONS.map((opt) => (
+
+                        <MenuItem key={opt.key} value={opt.key} dense>
+
+                          {opt.label}
+
+                        </MenuItem>
+
+                      ))}
+
+                    </Select>
+
+                  </FormControl>
+
+                  {isMultiUnitPack ? (
+
+                    <Stack direction="row" alignItems="center" spacing={1}>
+
+                      <Typography
+
+                        variant="body2"
+
+                        color="text.secondary"
+
+                        sx={{ flexShrink: 0, fontWeight: 600, minWidth: 64 }}
+
+                      >
+
+                        {unitsPerPackPrefix}
+
+                      </Typography>
+
+                      <TextField
+
+                        type="number"
+
+                        value={form.unitsPerPack}
+
+                        onChange={(e) => setForm((prev) => ({ ...prev, unitsPerPack: e.target.value }))}
+
+                        required
+
+                        size="small"
+
+                        margin="dense"
+
+                        sx={{ width: 72, ...formDialogCompactFieldSx }}
+
+                        inputProps={{ min: 1, step: 1 }}
+
+                      />
+
+                      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+
+                        개
+
+                      </Typography>
+
+                    </Stack>
+
+                  ) : null}
+
+                  <TextField
+
+                    label="모델명"
+
+                    value={form.model}
+
+                    onChange={(e) => setForm((prev) => ({ ...prev, model: e.target.value }))}
+
+                    fullWidth
+
+                    {...formDialogCompactTextFieldProps}
+
+                  />
+
+                  <TextField
+
+                    label="설명"
+
+                    value={form.description}
+
+                    onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+
+                    fullWidth
+
+                    multiline
+
+                    minRows={2}
+
+                    maxRows={4}
+
+                    {...formDialogCompactTextFieldProps}
+
+                  />
+
+                  {isMultiUnitPack && Number(form.purchasePrice) >= 0 && Number(form.unitsPerPack) >= 1 ? (
+
+                    <Typography variant="caption" color="primary.main" sx={{ fontWeight: 700, display: 'block' }}>
+
+                      {[
+
+                        formatUnitsPerPackLabel(form.packType, Number(form.unitsPerPack)),
+
+                        formatPerPiecePriceLabel(
+
+                          Math.round(Number(form.purchasePrice)),
+
+                          form.packType,
+
+                          1,
+
+                          Number(form.unitsPerPack),
+
+                        ),
+
+                      ]
+
+                        .filter(Boolean)
+
+                        .join(' · ')}
+
+                    </Typography>
 
                   ) : null}
 
