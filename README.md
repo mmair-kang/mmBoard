@@ -1,10 +1,8 @@
 # mmBoard
 
-개인 관리 앱 (mmRider 스타일 기반)
+개인 관리 앱
 
 ## 시작하기
-
-
 
 1. `.env.example`을 `.env`로 복사하고 Turso 정보를 입력합니다.
 2. `npm install`
