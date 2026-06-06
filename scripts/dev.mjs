@@ -1,13 +1,29 @@
-// 수정: Auto — 2026-06-05 (webpack dev — Turbopack manifest 오류 회피)
+// 수정: Auto — 2026-06-05 (손상된 .next 자동 정리 후 dev)
 /**
  * Windows에서 안정적인 webpack dev.
- * 시작 시 .next 를 지우지 않음 → 재시작 없이 HMR 유지.
+ * routes-manifest 없으면 .next 가 깨진 상태 → 삭제 후 시작.
  */
 import { spawn } from 'child_process'
+import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const nextDir = path.join(root, '.next')
+const routesManifest = path.join(nextDir, 'routes-manifest.json')
+
+function cleanBrokenNextCache() {
+  if (!fs.existsSync(nextDir)) return
+  if (fs.existsSync(routesManifest)) return
+  try {
+    fs.rmSync(nextDir, { recursive: true, force: true })
+    console.log('손상된 .next 캐시를 삭제했습니다. (routes-manifest.json 없음)')
+  } catch {
+    /* 무시 */
+  }
+}
+
+cleanBrokenNextCache()
 
 const env = {
   ...process.env,

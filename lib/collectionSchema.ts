@@ -2,7 +2,7 @@
 
 import { sql } from 'drizzle-orm'
 
-import { db } from '@/lib/db'
+import { db, getDbClient } from '@/lib/db'
 import { ensureShoppingSchema } from '@/lib/shoppingSchema'
 import { collectionItems, shoppingItems } from '@/lib/schema'
 import { todayIsoDate } from '@/lib/shoppingDate'
@@ -15,7 +15,7 @@ async function migrateShoppingToCollection() {
     value TEXT NOT NULL
   )`)
 
-  const flagResult = await db.$client.execute({
+  const flagResult = await getDbClient().execute({
     sql: `SELECT value FROM app_meta WHERE key = ? LIMIT 1`,
     args: ['shopping_migrated'],
   })
