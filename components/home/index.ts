@@ -1,4 +1,7 @@
 export { HomePageContent } from './HomePageContent'
+export { MonthlyTaskWidget } from './MonthlyTaskWidget'
+export { MonthlyTaskItemRow } from './MonthlyTaskItemRow'
+export { MonthlyTaskFormDialog } from './MonthlyTaskFormDialog'
 export { DdayWidget } from './DdayWidget'
 export { DdayItemCard } from './DdayItemCard'
 export { DdayItemFormDialog } from './DdayItemFormDialog'

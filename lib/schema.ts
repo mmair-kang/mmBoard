@@ -57,3 +57,18 @@ export const ddayItems = sqliteTable('dday_items', {
   intervalUnit: text('interval_unit').notNull(),
   createdAt: text('created_at').notNull(),
 })
+
+export const monthlyTaskItems = sqliteTable('monthly_task_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  /** 1–31, null = 이번 달 안에 */
+  dayOfMonth: integer('day_of_month'),
+  /** card_target | switch */
+  optionType: text('option_type').notNull(),
+  targetAmount: integer('target_amount'),
+  currentAmount: integer('current_amount').notNull().default(0),
+  switchOn: integer('switch_on').notNull().default(0),
+  /** YYYY-MM — 진행 상태가 속한 달 */
+  progressMonth: text('progress_month').notNull(),
+  createdAt: text('created_at').notNull(),
+})
