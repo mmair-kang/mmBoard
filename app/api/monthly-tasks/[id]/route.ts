@@ -3,8 +3,13 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
-import { normalizeMonthlyTaskForCurrentMonth } from '@/lib/monthlyTaskMonth'
 import { parseMonthlyTaskPayload } from '@/lib/monthlyTaskPayload'
+import {
+  attachCardExtras,
+  deleteCardExtrasForTask,
+  getMonthlyTaskWithExtras,
+  syncCardExtras,
+} from '@/lib/monthlyTaskQuery'
 import { ensureMonthlyTaskSchema } from '@/lib/monthlyTaskSchema'
 import { monthlyTaskItems } from '@/lib/schema'
 
@@ -37,7 +42,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ message: 'not found' }, { status: 404 })
   }
 
-  return NextResponse.json(normalizeMonthlyTaskForCurrentMonth(rows[0]))
+  if (payload.optionType === 'card_target') {
+    await syncCardExtras(itemId, payload.cardExtras)
+  } else {
+    await deleteCardExtrasForTask(itemId)
+  }
+
+  const updated = await getMonthlyTaskWithExtras(itemId)
+  if (!updated) {
+    return NextResponse.json({ message: 'not found' }, { status: 404 })
+  }
+
+  return NextResponse.json(updated)
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -48,6 +64,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
 
   await ensureMonthlyTaskSchema()
+  await deleteCardExtrasForTask(itemId)
   await db.delete(monthlyTaskItems).where(eq(monthlyTaskItems.id, itemId))
   return NextResponse.json({ ok: true })
 }

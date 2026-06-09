@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { currentYearMonth, normalizeMonthlyTaskForCurrentMonth } from '@/lib/monthlyTaskMonth'
 import { parseMonthlyTaskPayload } from '@/lib/monthlyTaskPayload'
+import { attachCardExtras, syncCardExtras } from '@/lib/monthlyTaskQuery'
 import { ensureMonthlyTaskSchema } from '@/lib/monthlyTaskSchema'
 import { monthlyTaskItems } from '@/lib/schema'
 
@@ -12,7 +13,8 @@ export async function GET() {
   await ensureMonthlyTaskSchema()
   const rows = await db.select().from(monthlyTaskItems).orderBy(asc(monthlyTaskItems.createdAt))
   const normalized = rows.map((row) => normalizeMonthlyTaskForCurrentMonth(row))
-  return NextResponse.json(normalized)
+  const withExtras = await attachCardExtras(normalized)
+  return NextResponse.json(withExtras)
 }
 
 export async function POST(request: Request) {
@@ -42,7 +44,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'insert failed' }, { status: 500 })
     }
 
-    return NextResponse.json(normalizeMonthlyTaskForCurrentMonth(rows[0]))
+    if (payload.optionType === 'card_target' && payload.cardExtras.length > 0) {
+      await syncCardExtras(rows[0].id, payload.cardExtras)
+    }
+
+    const created = await attachCardExtras([normalizeMonthlyTaskForCurrentMonth(rows[0])])
+    return NextResponse.json(created[0])
   } catch (error) {
     console.error('[monthly-tasks POST]', error)
     return NextResponse.json({ message: 'server error' }, { status: 500 })

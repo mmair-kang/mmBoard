@@ -19,6 +19,19 @@ export async function ensureMonthlyTaskSchema() {
         progress_month TEXT NOT NULL,
         created_at TEXT NOT NULL
       )`)
+      await db.run(sql`CREATE TABLE IF NOT EXISTS monthly_task_card_extras (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        extra_type TEXT NOT NULL,
+        title TEXT,
+        day_of_month INTEGER NOT NULL,
+        amount INTEGER NOT NULL,
+        checked INTEGER NOT NULL DEFAULT 0,
+        switch_on INTEGER NOT NULL DEFAULT 0,
+        progress_month TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )`)
     })().catch((e) => {
       schemaReady = null
       throw e

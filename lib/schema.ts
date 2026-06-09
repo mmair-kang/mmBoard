@@ -72,3 +72,94 @@ export const monthlyTaskItems = sqliteTable('monthly_task_items', {
   progressMonth: text('progress_month').notNull(),
   createdAt: text('created_at').notNull(),
 })
+
+export const mainAccounts = sqliteTable('main_accounts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  balance: integer('balance').notNull().default(0),
+  updatedAt: text('updated_at').notNull(),
+})
+
+export const accountOutflows = sqliteTable('account_outflows', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  accountId: integer('account_id').notNull(),
+  /** 0 = 수시, 1–30·31(말일) */
+  dayOfMonth: integer('day_of_month').notNull(),
+  title: text('title').notNull(),
+  amount: integer('amount').notNull(),
+  switchOn: integer('switch_on').notNull().default(0),
+  progressMonth: text('progress_month').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+})
+
+export const annualPayments = sqliteTable('annual_payments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  /** 1–12 */
+  month: integer('month').notNull(),
+  /** null = 해당 월만, 1–30·31(말일) */
+  dayOfMonth: integer('day_of_month'),
+  amount: integer('amount').notNull(),
+  switchOn: integer('switch_on').notNull().default(0),
+  /** YYYY */
+  progressYear: text('progress_year').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+})
+
+export const dividendHoldings = sqliteTable('dividend_holdings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  ticker: text('ticker').notNull(),
+  defaultShares: integer('default_shares').notNull().default(0),
+  perShareDividendUsd: real('per_share_dividend_usd').notNull().default(0),
+  referencePriceUsd: real('reference_price_usd').notNull().default(0),
+  referenceExchangeRate: real('reference_exchange_rate').notNull().default(0),
+  sortOrder: integer('sort_order').notNull().default(0),
+})
+
+export const dividendMonths = sqliteTable('dividend_months', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  yearMonth: text('year_month').notNull(),
+  createdAt: text('created_at').notNull(),
+})
+
+export const dividendEntries = sqliteTable('dividend_entries', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  monthId: integer('month_id').notNull(),
+  dayOfMonth: integer('day_of_month').notNull(),
+  ticker: text('ticker').notNull(),
+  shares: integer('shares').notNull().default(0),
+  exchangeRate: real('exchange_rate').notNull(),
+  foreignSettlement: real('foreign_settlement').notNull(),
+  foreignTax: real('foreign_tax').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+})
+
+export const monthlyFixedExpenses = sqliteTable('monthly_fixed_expenses', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  /** 0 = 수시, 1–30·31(말일) */
+  dayOfMonth: integer('day_of_month').notNull(),
+  amount: integer('amount').notNull(),
+  /** card | cash */
+  payType: text('pay_type').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+})
+
+export const monthlyTaskCardExtras = sqliteTable('monthly_task_card_extras', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  taskId: integer('task_id').notNull(),
+  /** scheduled = 결제예정(체크박스), payment_switch = 결제 스위치 */
+  extraType: text('extra_type').notNull(),
+  title: text('title'),
+  /** 0 = 수시, 1–30·31(말일) */
+  dayOfMonth: integer('day_of_month').notNull(),
+  amount: integer('amount').notNull(),
+  checked: integer('checked').notNull().default(0),
+  switchOn: integer('switch_on').notNull().default(0),
+  progressMonth: text('progress_month').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+})

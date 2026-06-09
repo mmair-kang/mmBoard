@@ -1,6 +1,7 @@
 'use client'
-// 수정: Auto — 2026-06-05 (소장으로 통합)
+// 수정: Auto — 2026-06-08
 
+import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded'
 import CollectionsBookmarkRoundedIcon from '@mui/icons-material/CollectionsBookmarkRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
@@ -14,7 +15,8 @@ export function AppBottomNav() {
   const pathname = usePathname()
 
   const tab: number | false = (() => {
-    if (pathname === '/settings') return 2
+    if (pathname === '/settings') return 3
+    if (pathname === '/calc') return 2
     if (pathname === '/collection') return 1
     return 0
   })()
@@ -32,13 +34,14 @@ export function AppBottomNav() {
       elevation={8}
     >
       <BottomNavigation value={tab} showLabels>
-        <BottomNavigationAction label="홈" icon={<HomeRoundedIcon />} component={Link} href="/" />
+        <BottomNavigationAction label="관리" icon={<HomeRoundedIcon />} component={Link} href="/" />
         <BottomNavigationAction
           label="소장"
           icon={<CollectionsBookmarkRoundedIcon />}
           component={Link}
           href="/collection"
         />
+        <BottomNavigationAction label="계산" icon={<CalculateRoundedIcon />} component={Link} href="/calc" />
         <BottomNavigationAction label="설정" icon={<SettingsRoundedIcon />} component={Link} href="/settings" />
       </BottomNavigation>
     </Paper>

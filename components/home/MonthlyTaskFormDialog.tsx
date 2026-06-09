@@ -1,6 +1,13 @@
 'use client'
 // 수정: Auto — 2026-06-08
 
+import {
+  CardExtrasEditor,
+  cardExtrasToDrafts,
+  draftsToCardExtras,
+  type CardExtraDraft,
+} from '@/components/home/CardExtrasEditor'
+import { MonthlyDaySelect } from '@/components/home/MonthlyDaySelect'
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogFooter } from '@/components/common/FormDialogFooter'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
@@ -18,13 +25,9 @@ import type { MonthlyTask } from '@/hooks/useMonthlyTasks'
 import type { MonthlyTaskOptionType, MonthlyTaskPayload } from '@/lib/monthlyTaskPayload'
 import Box from '@mui/material/Box'
 import DialogContent from '@mui/material/DialogContent'
-import FormControl from '@mui/material/FormControl'
 import FormControlLabel from '@mui/material/FormControlLabel'
-import InputLabel from '@mui/material/InputLabel'
-import MenuItem from '@mui/material/MenuItem'
 import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
-import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
@@ -38,15 +41,17 @@ type Props = {
   onDelete?: () => Promise<void>
 }
 
-const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => i + 1)
+function validateCardExtras(drafts: CardExtraDraft[]): boolean {
+  return drafts.every((row) => row.amount >= 1 && Boolean(row.title?.trim()))
+}
 
 export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete }: Props) {
   const isEdit = item != null
   const [title, setTitle] = useState('')
-  const [dayMode, setDayMode] = useState<'anytime' | 'specific'>('anytime')
-  const [dayOfMonth, setDayOfMonth] = useState('1')
+  const [taskDayOfMonth, setTaskDayOfMonth] = useState<number | null>(null)
   const [optionType, setOptionType] = useState<MonthlyTaskOptionType>('switch')
   const [targetAmount, setTargetAmount] = useState('')
+  const [cardExtraDrafts, setCardExtraDrafts] = useState<CardExtraDraft[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -54,10 +59,10 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
   useEffect(() => {
     if (!open) {
       setTitle('')
-      setDayMode('anytime')
-      setDayOfMonth('1')
+      setTaskDayOfMonth(null)
       setOptionType('switch')
       setTargetAmount('')
+      setCardExtraDrafts([])
       setSubmitting(false)
       setDeleting(false)
       setFormError(null)
@@ -65,30 +70,27 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
     }
     if (item) {
       setTitle(item.title)
-      if (item.dayOfMonth != null) {
-        setDayMode('specific')
-        setDayOfMonth(String(item.dayOfMonth))
-      } else {
-        setDayMode('anytime')
-        setDayOfMonth('1')
-      }
+      setTaskDayOfMonth(item.dayOfMonth)
       setOptionType(item.optionType)
       setTargetAmount(item.targetAmount != null ? String(item.targetAmount) : '')
+      setCardExtraDrafts(cardExtrasToDrafts(item.cardExtras ?? []))
     } else {
       setTitle('')
-      setDayMode('anytime')
-      setDayOfMonth('1')
+      setTaskDayOfMonth(null)
       setOptionType('switch')
       setTargetAmount('')
+      setCardExtraDrafts([])
     }
   }, [open, item])
 
+  const cardExtrasValid = optionType !== 'card_target' || validateCardExtras(cardExtraDrafts)
+
   const canSubmit =
     title.trim() &&
-    (dayMode === 'anytime' || (Number.isInteger(Number(dayOfMonth)) && Number(dayOfMonth) >= 1)) &&
     (optionType !== 'card_target' ||
       (Number.isFinite(Number(targetAmount.replace(/,/g, ''))) &&
-        Number(targetAmount.replace(/,/g, '')) >= 1))
+        Number(targetAmount.replace(/,/g, '')) >= 1)) &&
+    cardExtrasValid
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,12 +100,13 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
     try {
       await onSubmit({
         title: title.trim(),
-        dayOfMonth: dayMode === 'specific' ? Math.round(Number(dayOfMonth)) : null,
+        dayOfMonth: taskDayOfMonth,
         optionType,
         targetAmount:
           optionType === 'card_target'
             ? Math.round(Number(targetAmount.replace(/,/g, '')))
             : null,
+        cardExtras: optionType === 'card_target' ? draftsToCardExtras(cardExtraDrafts) : [],
       })
       onClose()
     } catch (e) {
@@ -129,14 +132,14 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
       open={open}
       onClose={onClose}
       fullWidth
-      maxWidth="xs"
+      maxWidth={optionType === 'card_target' ? 'sm' : 'xs'}
       disableAutoFocus
       slotProps={formDialogSlotProps}
     >
       <Box component="form" onSubmit={handleSubmit} sx={formDialogFormSx}>
         <FormDialogHeader onClose={onClose} closeDisabled={submitting || deleting}>
           <Typography sx={{ fontSize: '1.05rem', fontWeight: 700 }}>
-            {isEdit ? '할일 수정' : '할일 추가'}
+            {isEdit ? '카드 수정' : '카드 추가'}
           </Typography>
         </FormDialogHeader>
         <DialogContent sx={formDialogContentSx} dividers={false}>
@@ -144,7 +147,7 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
             <Stack spacing={formDialogFieldStackSpacing} sx={formDialogFieldStackSx}>
               <TextField
                 label="제목"
-                placeholder="카드 실적 채우기"
+                placeholder="롯데카드 1834"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
@@ -154,40 +157,14 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
                 sx={formDialogFirstFieldSx}
               />
 
-              <FormControl size="small" margin="dense" fullWidth>
-                <InputLabel id="day-mode-label">일정</InputLabel>
-                <Select
-                  labelId="day-mode-label"
-                  label="일정"
-                  value={dayMode}
-                  onChange={(e) => setDayMode(e.target.value as 'anytime' | 'specific')}
-                >
-                  <MenuItem value="anytime" dense>
-                    이번 달 안에
-                  </MenuItem>
-                  <MenuItem value="specific" dense>
-                    매달 특정일
-                  </MenuItem>
-                </Select>
-              </FormControl>
-
-              {dayMode === 'specific' ? (
-                <FormControl size="small" margin="dense" fullWidth>
-                  <InputLabel id="day-of-month-label">날짜</InputLabel>
-                  <Select
-                    labelId="day-of-month-label"
-                    label="날짜"
-                    value={dayOfMonth}
-                    onChange={(e) => setDayOfMonth(e.target.value)}
-                  >
-                    {DAY_OPTIONS.map((day) => (
-                      <MenuItem key={day} value={String(day)} dense>
-                        매달 {day}일
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              ) : null}
+              <MonthlyDaySelect
+                labelId="task-day-label"
+                label="일정"
+                value={taskDayOfMonth}
+                includeAnytime
+                fullWidth
+                onChange={setTaskDayOfMonth}
+              />
 
               <Box>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>
@@ -195,7 +172,11 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
                 </Typography>
                 <RadioGroup
                   value={optionType}
-                  onChange={(e) => setOptionType(e.target.value as MonthlyTaskOptionType)}
+                  onChange={(e) => {
+                    const next = e.target.value as MonthlyTaskOptionType
+                    setOptionType(next)
+                    if (next === 'switch') setCardExtraDrafts([])
+                  }}
                 >
                   <FormControlLabel
                     value="card_target"
@@ -211,17 +192,20 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
               </Box>
 
               {optionType === 'card_target' ? (
-                <TextField
-                  label="목표 금액"
-                  placeholder="3000000"
-                  value={targetAmount}
-                  onChange={(e) => setTargetAmount(e.target.value.replace(/[^\d]/g, ''))}
-                  required
-                  fullWidth
-                  inputProps={{ inputMode: 'numeric' }}
-                  InputProps={{ endAdornment: <Typography variant="body2">원</Typography> }}
-                  {...formDialogCompactTextFieldProps}
-                />
+                <>
+                  <TextField
+                    label="목표 금액"
+                    placeholder="500000"
+                    value={targetAmount}
+                    onChange={(e) => setTargetAmount(e.target.value.replace(/[^\d]/g, ''))}
+                    required
+                    fullWidth
+                    inputProps={{ inputMode: 'numeric' }}
+                    InputProps={{ endAdornment: <Typography variant="body2">원</Typography> }}
+                    {...formDialogCompactTextFieldProps}
+                  />
+                  <CardExtrasEditor drafts={cardExtraDrafts} onChange={setCardExtraDrafts} />
+                </>
               ) : null}
 
               {formError ? (

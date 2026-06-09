@@ -3,8 +3,9 @@ import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import { db } from '@/lib/db'
-import { currentYearMonth, normalizeMonthlyTaskForCurrentMonth } from '@/lib/monthlyTaskMonth'
+import { currentYearMonth } from '@/lib/monthlyTaskMonth'
 import { parseMonthlyTaskProgressPayload } from '@/lib/monthlyTaskPayload'
+import { getMonthlyTaskWithExtras } from '@/lib/monthlyTaskQuery'
 import { ensureMonthlyTaskSchema } from '@/lib/monthlyTaskSchema'
 import { monthlyTaskItems } from '@/lib/schema'
 
@@ -64,5 +65,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ message: 'update failed' }, { status: 500 })
   }
 
-  return NextResponse.json(normalizeMonthlyTaskForCurrentMonth(rows[0]))
+  const updated = await getMonthlyTaskWithExtras(itemId)
+  return NextResponse.json(updated)
 }

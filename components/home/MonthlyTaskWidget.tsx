@@ -1,9 +1,9 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-08 (매달 카드 실적 관리 위젯)
 
 import { MonthlyTaskFormDialog } from '@/components/home/MonthlyTaskFormDialog'
 import { MonthlyTaskItemRow } from '@/components/home/MonthlyTaskItemRow'
-import { type MonthlyTask, useMonthlyTasks } from '@/hooks/useMonthlyTasks'
+import { type MonthlyTask, type MonthlyTaskCardExtra, useMonthlyTasks } from '@/hooks/useMonthlyTasks'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import { sortMonthlyTasks } from '@/lib/monthlyTaskMonth'
 import type { MonthlyTaskPayload } from '@/lib/monthlyTaskPayload'
@@ -17,6 +17,10 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
+
+function replaceTask(prev: MonthlyTask[] | undefined, updated: MonthlyTask) {
+  return (prev ?? []).map((row) => (row.id === updated.id ? updated : row))
+}
 
 export function MonthlyTaskWidget() {
   const { items, isLoading, mutate } = useMonthlyTasks()
@@ -62,10 +66,7 @@ export function MonthlyTaskWidget() {
     })
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
     const updated = (await res.json()) as MonthlyTask
-    await mutate(
-      (prev) => (prev ?? []).map((row) => (row.id === updated.id ? updated : row)),
-      { revalidate: false },
-    )
+    await mutate((prev) => replaceTask(prev, updated), { revalidate: false })
     await mutate()
   }
 
@@ -88,10 +89,23 @@ export function MonthlyTaskWidget() {
     })
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
     const updated = (await res.json()) as MonthlyTask
-    await mutate(
-      (prev) => (prev ?? []).map((row) => (row.id === updated.id ? updated : row)),
-      { revalidate: false },
-    )
+    await mutate((prev) => replaceTask(prev, updated), { revalidate: false })
+    await mutate()
+  }
+
+  const handleExtraProgressChange = async (
+    item: MonthlyTask,
+    extra: MonthlyTaskCardExtra,
+    patch: { checked?: boolean; switchOn?: boolean },
+  ) => {
+    const res = await fetch(`/api/monthly-tasks/${item.id}/extras/${extra.id}/progress`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
+    const updated = (await res.json()) as MonthlyTask
+    await mutate((prev) => replaceTask(prev, updated), { revalidate: false })
     await mutate()
   }
 
@@ -113,13 +127,13 @@ export function MonthlyTaskWidget() {
           sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}
         >
           <Stack direction="row" alignItems="baseline" spacing={0.75}>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>한달할일</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>카드 실적</Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
               {monthLabel}
             </Typography>
           </Stack>
-          <Tooltip title="할일 추가">
-            <IconButton size="small" color="primary" onClick={openAdd} aria-label="할일 추가">
+          <Tooltip title="카드 추가">
+            <IconButton size="small" color="primary" onClick={openAdd} aria-label="카드 추가">
               <AddRoundedIcon />
             </IconButton>
           </Tooltip>
@@ -131,8 +145,8 @@ export function MonthlyTaskWidget() {
             </Stack>
           ) : sortedItems.length === 0 ? (
             <Stack alignItems="center" py={3} spacing={0.5} color="text.secondary">
-              <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>등록된 할일이 없습니다</Typography>
-              <Typography variant="caption">+ 버튼으로 이번 달 할일을 추가해 보세요</Typography>
+              <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>등록된 카드가 없습니다</Typography>
+              <Typography variant="caption">+ 버튼으로 매달 관리할 카드를 추가해 보세요</Typography>
             </Stack>
           ) : (
             <Stack spacing={1}>
@@ -142,6 +156,7 @@ export function MonthlyTaskWidget() {
                   item={item}
                   onEdit={() => openEdit(item)}
                   onProgressChange={(patch) => handleProgressChange(item, patch)}
+                  onExtraProgressChange={(extra, patch) => handleExtraProgressChange(item, extra, patch)}
                 />
               ))}
             </Stack>

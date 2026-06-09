@@ -1,5 +1,8 @@
 // 수정: Auto — 2026-06-08
 
+import type { CardExtraPayload } from '@/lib/monthlyTaskCardExtraPayload'
+import { parseCardExtrasPayload } from '@/lib/monthlyTaskCardExtraPayload'
+
 export const MONTHLY_TASK_OPTION_TYPES = ['card_target', 'switch'] as const
 export type MonthlyTaskOptionType = (typeof MONTHLY_TASK_OPTION_TYPES)[number]
 
@@ -10,6 +13,11 @@ export type MonthlyTaskPayload = {
   dayOfMonth: number | null
   optionType: MonthlyTaskOptionType
   targetAmount: number | null
+  cardExtras?: CardExtraPayload[]
+}
+
+export type ParsedMonthlyTaskPayload = MonthlyTaskPayload & {
+  cardExtras: CardExtraPayload[]
 }
 
 export type MonthlyTaskProgressPayload = {
@@ -17,7 +25,7 @@ export type MonthlyTaskProgressPayload = {
   switchOn?: boolean
 }
 
-export function parseMonthlyTaskPayload(body: Record<string, unknown>): MonthlyTaskPayload | null {
+export function parseMonthlyTaskPayload(body: Record<string, unknown>): ParsedMonthlyTaskPayload | null {
   const title = typeof body.title === 'string' ? body.title.trim() : ''
   const optionType = String(body.optionType ?? '')
 
@@ -38,11 +46,16 @@ export function parseMonthlyTaskPayload(body: Record<string, unknown>): MonthlyT
     targetAmount = Math.round(raw)
   }
 
+  const cardExtras = parseCardExtrasPayload(body)
+  if (cardExtras === null) return null
+  if (optionType !== 'card_target' && cardExtras.length > 0) return null
+
   return {
     title,
     dayOfMonth,
     optionType: optionType as MonthlyTaskOptionType,
     targetAmount,
+    cardExtras,
   }
 }
 
