@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08 (총합 행)
+// 수정: Auto — 2026-06-08
 
 import type { DividendHolding } from '@/hooks/useDividends'
 import { formatUsd, formatYieldPercent } from '@/lib/dividendCalc'

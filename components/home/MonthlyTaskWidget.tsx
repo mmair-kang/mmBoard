@@ -54,7 +54,6 @@ export function MonthlyTaskWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '추가에 실패했습니다'))
     const created = (await res.json()) as MonthlyTask
     await mutate((prev) => [created, ...(prev ?? [])], { revalidate: false })
-    await mutate()
   }
 
   const handleUpdate = async (payload: MonthlyTaskPayload) => {
@@ -67,7 +66,6 @@ export function MonthlyTaskWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
     const updated = (await res.json()) as MonthlyTask
     await mutate((prev) => replaceTask(prev, updated), { revalidate: false })
-    await mutate()
   }
 
   const handleDelete = async () => {
@@ -75,7 +73,6 @@ export function MonthlyTaskWidget() {
     const id = editingItem.id
     await mutate((prev) => (prev ?? []).filter((row) => row.id !== id), { revalidate: false })
     await fetch(`/api/monthly-tasks/${id}`, { method: 'DELETE' })
-    await mutate()
   }
 
   const handleProgressChange = async (
@@ -90,7 +87,6 @@ export function MonthlyTaskWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
     const updated = (await res.json()) as MonthlyTask
     await mutate((prev) => replaceTask(prev, updated), { revalidate: false })
-    await mutate()
   }
 
   const handleExtraProgressChange = async (
@@ -106,7 +102,6 @@ export function MonthlyTaskWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
     const updated = (await res.json()) as MonthlyTask
     await mutate((prev) => replaceTask(prev, updated), { revalidate: false })
-    await mutate()
   }
 
   return (

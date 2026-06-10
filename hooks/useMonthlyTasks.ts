@@ -1,9 +1,9 @@
 'use client'
 // 수정: Auto — 2026-06-08
 
-import useSWR from 'swr'
-
+import { swrJsonFetch } from '@/lib/swrFetch'
 import type { MonthlyTaskOptionType } from '@/lib/monthlyTaskPayload'
+import useSWR from 'swr'
 
 export const monthlyTasksSwrKey = '/api/monthly-tasks' as const
 
@@ -35,21 +35,15 @@ export interface MonthlyTask {
 }
 
 async function monthlyTasksFetcher(): Promise<MonthlyTask[]> {
-  const res = await fetch(monthlyTasksSwrKey)
-  if (!res.ok) throw new Error('카드 실적 목록을 불러오지 못했습니다.')
-  return res.json() as Promise<MonthlyTask[]>
+  return swrJsonFetch<MonthlyTask[]>(monthlyTasksSwrKey, '카드 실적 목록을 불러오지 못했습니다.')
 }
 
 export function useMonthlyTasks() {
-  const swr = useSWR<MonthlyTask[]>(monthlyTasksSwrKey, monthlyTasksFetcher, {
-    revalidateOnFocus: true,
-    dedupingInterval: 3000,
-    keepPreviousData: true,
-  })
+  const swr = useSWR<MonthlyTask[]>(monthlyTasksSwrKey, monthlyTasksFetcher)
 
   return {
     items: swr.data ?? [],
-    isLoading: swr.isLoading,
+    isLoading: swr.isLoading && !swr.data,
     isValidating: swr.isValidating,
     error: swr.error,
     mutate: swr.mutate,

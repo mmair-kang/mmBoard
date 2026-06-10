@@ -106,7 +106,6 @@ export function AnnualPaymentWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '추가에 실패했습니다'))
     const updated = (await res.json()) as AnnualPayment[]
     await mutate(updated, { revalidate: false })
-    await mutate()
   }
 
   const handleSettingsSave = async (payload: AnnualPaymentPayload[]) => {
@@ -118,7 +117,6 @@ export function AnnualPaymentWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
     const updated = (await res.json()) as AnnualPayment[]
     await mutate(updated, { revalidate: false })
-    await mutate()
   }
 
   const handleSwitch = async (paymentId: number, switchOn: boolean) => {
@@ -132,7 +130,6 @@ export function AnnualPaymentWidget() {
       if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
       const updated = (await res.json()) as AnnualPayment[]
       await mutate(updated, { revalidate: false })
-      await mutate()
     } finally {
       setSaving(false)
     }

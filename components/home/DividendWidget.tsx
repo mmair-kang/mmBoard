@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-08 (금융소득 요약 통합)
 
 import { DividendHoldingsCard } from '@/components/home/DividendHoldingsCard'
 import { DividendHoldingsEditDialog } from '@/components/home/DividendHoldingsEditDialog'
@@ -37,6 +37,18 @@ export function DividendWidget() {
 
   const existingYearMonths = useMemo(() => months.map((row) => row.yearMonth), [months])
 
+  const holdingsYearEstimate = useMemo(() => {
+    let grossKrw = 0
+    let hasKrw = false
+    for (const row of holdings) {
+      if (row.grossKrw != null) {
+        grossKrw += row.grossKrw
+        hasKrw = true
+      }
+    }
+    return hasKrw ? grossKrw * 12 : null
+  }, [holdings])
+
   const openAdd = () => {
     setEditingMonth(null)
     setFormOpen(true)
@@ -61,7 +73,6 @@ export function DividendWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '보유 정보 저장에 실패했습니다'))
     const updated = await res.json()
     await mutate(updated, { revalidate: false })
-    await mutate()
   }
 
   const handleAdd = async (payload: DividendMonthFormPayload) => {
@@ -73,7 +84,6 @@ export function DividendWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '추가에 실패했습니다'))
     const updated = await res.json()
     await mutate(updated, { revalidate: false })
-    await mutate()
   }
 
   const handleUpdate = async (payload: DividendMonthFormPayload) => {
@@ -86,7 +96,6 @@ export function DividendWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
     const updated = await res.json()
     await mutate(updated, { revalidate: false })
-    await mutate()
   }
 
   const handleDelete = async () => {
@@ -103,7 +112,6 @@ export function DividendWidget() {
       { revalidate: false },
     )
     await fetch(`/api/dividends/months/${id}`, { method: 'DELETE' })
-    await mutate()
   }
 
   if (isLoading) {
@@ -120,31 +128,37 @@ export function DividendWidget() {
         <Paper
           variant="outlined"
           sx={{
-            p: 1.15,
+            px: 1,
+            py: 0.85,
             borderRadius: 2,
-            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05),
-            borderColor: 'primary.light',
+            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
+            borderColor: 'divider',
           }}
         >
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.35 }}>
-            {yearLabel} 연 금융소득 (세전)
-          </Typography>
-          <Typography sx={{ fontWeight: 900, fontSize: '1.15rem', color: 'primary.main' }}>
-            {formatWon(yearFinancialIncome)}
-          </Typography>
+          <Stack direction="row" divider={<Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', mx: 0.5 }} />}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', lineHeight: 1.3 }}>
+                {yearLabel} 현재 금융소득
+              </Typography>
+              <Typography sx={{ fontWeight: 900, fontSize: '0.95rem', color: 'primary.main', lineHeight: 1.35, mt: 0.15 }}>
+                {formatWon(yearFinancialIncome)}
+              </Typography>
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', lineHeight: 1.3 }}>
+                보유 참고 예상 소득
+              </Typography>
+              <Typography sx={{ fontWeight: 900, fontSize: '0.95rem', color: 'secondary.dark', lineHeight: 1.35, mt: 0.15 }}>
+                {holdingsYearEstimate != null ? formatWon(holdingsYearEstimate) : '—'}
+              </Typography>
+            </Box>
+          </Stack>
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{
-              fontWeight: 600,
-              mt: 0.35,
-              display: 'block',
-              lineHeight: 1.45,
-              wordBreak: 'keep-all',
-              overflowWrap: 'break-word',
-            }}
+            sx={{ fontWeight: 600, mt: 0.5, display: 'block', lineHeight: 1.35, fontSize: '0.68rem' }}
           >
-            월별 금융소득은 {(MONTHLY_FINANCIAL_INCOME_LIMIT / 10_000).toLocaleString('ko-KR')}만원 이하 유지
+            세전 · 월별 {(MONTHLY_FINANCIAL_INCOME_LIMIT / 10_000).toLocaleString('ko-KR')}만원 이하 유지
           </Typography>
         </Paper>
 

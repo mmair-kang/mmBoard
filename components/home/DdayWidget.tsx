@@ -46,7 +46,6 @@ export function DdayWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '추가에 실패했습니다'))
     const created = (await res.json()) as DdayItem
     await mutate((prev) => [created, ...(prev ?? [])], { revalidate: false })
-    await mutate()
   }
 
   const handleUpdate = async (payload: DdayItemPayload) => {
@@ -62,7 +61,6 @@ export function DdayWidget() {
       (prev) => (prev ?? []).map((row) => (row.id === updated.id ? updated : row)),
       { revalidate: false },
     )
-    await mutate()
   }
 
   const handleDelete = async () => {
@@ -70,7 +68,6 @@ export function DdayWidget() {
     const id = editingItem.id
     await mutate((prev) => (prev ?? []).filter((row) => row.id !== id), { revalidate: false })
     await fetch(`/api/dday-items/${id}`, { method: 'DELETE' })
-    await mutate()
   }
 
   return (

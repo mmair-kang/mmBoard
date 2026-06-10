@@ -1,8 +1,9 @@
 'use client'
+// 수정: Auto — 2026-06-08
 
+import type { AmountUnit, PackType, ShoppingCategoryKey, ShoppingStoreKey } from '@/config/shoppingCategories'
+import { swrJsonFetch } from '@/lib/swrFetch'
 import useSWR from 'swr'
-
-import type { ShoppingCategoryKey, ShoppingStoreKey, AmountUnit, PackType } from '@/config/shoppingCategories'
 
 export interface ShoppingItem {
   id: number
@@ -27,22 +28,16 @@ export function shoppingItemsKey(category: ShoppingCategoryKey) {
 }
 
 async function shoppingItemsFetcher(url: string): Promise<ShoppingItem[]> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error('쇼핑 목록을 불러오지 못했습니다.')
-  return res.json() as Promise<ShoppingItem[]>
+  return swrJsonFetch<ShoppingItem[]>(url, '쇼핑 목록을 불러오지 못했습니다.')
 }
 
 export function useShoppingItems(category: ShoppingCategoryKey) {
   const key = shoppingItemsKey(category)
-  const swr = useSWR<ShoppingItem[]>(key, shoppingItemsFetcher, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-    keepPreviousData: true,
-  })
+  const swr = useSWR<ShoppingItem[]>(key, shoppingItemsFetcher)
 
   return {
     items: swr.data ?? [],
-    isLoading: swr.isLoading,
+    isLoading: swr.isLoading && !swr.data,
     error: swr.error,
     mutate: swr.mutate,
   }

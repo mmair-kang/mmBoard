@@ -227,16 +227,15 @@ export function CollectionPageContent() {
   const [detailItem, setDetailItem] = useState<CollectionItem | null>(null)
   const [subEditOpen, setSubEditOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const trimmedQuery = searchQuery.trim()
+  const isSearching = Boolean(trimmedQuery)
   const { mutate: globalMutate } = useSWRConfig()
   const { subs, saveSubs } = useCollectionSubcategories(mainCategory)
   const { pointerHandlers: subChipLongPress, wrapClick: wrapSubChipClick } = useLongPress({
     onLongPress: () => setSubEditOpen(true),
   })
   const { items, isLoading, mutate } = useCollectionItems(mainCategory, subCategory)
-  const { items: allItems, isLoading: allLoading, mutate: mutateAll } = useAllCollectionItems()
-
-  const trimmedQuery = searchQuery.trim()
-  const isSearching = Boolean(trimmedQuery)
+  const { items: allItems, isLoading: allLoading, mutate: mutateAll } = useAllCollectionItems(isSearching)
   const displayItems = useMemo(() => {
     if (!trimmedQuery) return items
     return allItems.filter((item) => matchesCollectionItem(item, trimmedQuery))

@@ -64,7 +64,6 @@ export function MonthlyExpenseWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '추가에 실패했습니다'))
     const created = (await res.json()) as MonthlyExpense
     await mutate((prev) => [...(prev ?? []), created], { revalidate: false })
-    await mutate()
   }
 
   const handleUpdate = async (payload: MonthlyExpensePayload) => {
@@ -77,7 +76,6 @@ export function MonthlyExpenseWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
     const updated = (await res.json()) as MonthlyExpense
     await mutate((prev) => replaceItem(prev, updated), { revalidate: false })
-    await mutate()
   }
 
   const handleDelete = async () => {
@@ -85,7 +83,6 @@ export function MonthlyExpenseWidget() {
     const id = editingItem.id
     await mutate((prev) => (prev ?? []).filter((row) => row.id !== id), { revalidate: false })
     await fetch(`/api/monthly-expenses/${id}`, { method: 'DELETE' })
-    await mutate()
   }
 
   const handleSaveOrder = async (order: number[]) => {
@@ -97,7 +94,6 @@ export function MonthlyExpenseWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '순서 저장에 실패했습니다'))
     const updated = (await res.json()) as MonthlyExpense[]
     await mutate(updated, { revalidate: false })
-    await mutate()
   }
 
   return (

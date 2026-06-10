@@ -117,7 +117,6 @@ export function AccountWidget() {
       if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
       const updated = (await res.json()) as MainAccount
       await mutate(updated, { revalidate: false })
-      await mutate()
     } finally {
       setSaving(false)
     }
@@ -132,7 +131,6 @@ export function AccountWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '추가에 실패했습니다'))
     const updated = (await res.json()) as MainAccount
     await mutate(updated, { revalidate: false })
-    await mutate()
   }
 
   const handleSettingsSave = async (payload: { name: string; outflows: OutflowPayload[] }) => {
@@ -144,7 +142,6 @@ export function AccountWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
     const updated = (await res.json()) as MainAccount
     await mutate(updated, { revalidate: false })
-    await mutate()
   }
 
   const handleOutflowSwitch = async (outflowId: number, switchOn: boolean) => {
@@ -159,20 +156,22 @@ export function AccountWidget() {
       if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
       const updated = (await res.json()) as MainAccount
       await mutate(updated, { revalidate: false })
-      await mutate()
     } finally {
       setSaving(false)
     }
   }
 
-  if (isLoading || !account) {
-    return (
-      <Paper variant="outlined" sx={{ borderRadius: 2.5, p: 3 }}>
-        <Stack alignItems="center">
-          <CircularProgress size={28} />
-        </Stack>
-      </Paper>
-    )
+  if (!account) {
+    if (isLoading) {
+      return (
+        <Paper variant="outlined" sx={{ borderRadius: 2.5, p: 3 }}>
+          <Stack alignItems="center">
+            <CircularProgress size={28} />
+          </Stack>
+        </Paper>
+      )
+    }
+    return null
   }
 
   const projectedLow = projection.projectedBalance < 0

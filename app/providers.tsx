@@ -1,6 +1,7 @@
 'use client'
-// 수정: Auto — 2026-06-05 (MUI Emotion hydration)
+// 수정: Auto — 2026-06-08 (SWR IndexedDB 영속)
 
+import { SWRPersistProvider } from '@/components/providers/SWRPersistProvider'
 import { AppShell } from '@/components/layout/AppShell'
 import { appTheme } from '@/theme/appTheme'
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter'
@@ -19,7 +20,9 @@ export default function Providers({ children }: { children: ReactNode }) {
       <ThemeProvider theme={appTheme}>
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="ko">
           <CssBaseline />
-          <AppShell>{children}</AppShell>
+          <SWRPersistProvider>
+            <AppShell>{children}</AppShell>
+          </SWRPersistProvider>
         </LocalizationProvider>
       </ThemeProvider>
     </AppRouterCacheProvider>

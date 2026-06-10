@@ -1,18 +1,15 @@
 'use client'
-// 수정: Auto — 2026-06-05 (전체 검색)
-
-import useSWR from 'swr'
+// 수정: Auto — 2026-06-08
 
 import type {
   CollectionMainKey,
+  CollectionStoreKey,
   CollectionSubKey,
 } from '@/config/collectionCategories'
+import type { CollectionOptionData, CollectionOptionType } from '@/config/collectionOptions'
 import type { CollectionAmountUnit, PackType } from '@/config/shoppingCategories'
-import type {
-  CollectionOptionData,
-  CollectionOptionType,
-} from '@/config/collectionOptions'
-import type { CollectionStoreKey } from '@/config/collectionCategories'
+import { swrJsonFetch } from '@/lib/swrFetch'
+import useSWR from 'swr'
 
 export interface CollectionItem {
   id: number
@@ -46,36 +43,27 @@ export function collectionItemsKey(main: CollectionMainKey, sub: CollectionSubKe
 export const allCollectionItemsKey = '/api/collection-items?scope=all' as const
 
 async function collectionItemsFetcher(url: string): Promise<CollectionItem[]> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error('소장 목록을 불러오지 못했습니다.')
-  return res.json() as Promise<CollectionItem[]>
+  return swrJsonFetch<CollectionItem[]>(url, '소장 목록을 불러오지 못했습니다.')
 }
 
 export function useCollectionItems(main: CollectionMainKey, sub: CollectionSubKey) {
   const key = collectionItemsKey(main, sub)
-  const swr = useSWR<CollectionItem[]>(key, collectionItemsFetcher, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-    keepPreviousData: true,
-  })
+  const swr = useSWR<CollectionItem[]>(key, collectionItemsFetcher)
 
   return {
     items: swr.data ?? [],
-    isLoading: swr.isLoading,
+    isLoading: swr.isLoading && !swr.data,
     error: swr.error,
     mutate: swr.mutate,
   }
 }
 
-export function useAllCollectionItems() {
-  const swr = useSWR<CollectionItem[]>(allCollectionItemsKey, collectionItemsFetcher, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-  })
+export function useAllCollectionItems(enabled: boolean) {
+  const swr = useSWR<CollectionItem[]>(enabled ? allCollectionItemsKey : null, collectionItemsFetcher)
 
   return {
     items: swr.data ?? [],
-    isLoading: swr.isLoading,
+    isLoading: enabled && swr.isLoading && !swr.data,
     error: swr.error,
     mutate: swr.mutate,
   }

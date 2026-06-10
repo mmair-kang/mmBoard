@@ -1,6 +1,7 @@
 'use client'
 // 수정: Auto — 2026-06-08
 
+import { swrJsonFetch } from '@/lib/swrFetch'
 import useSWR from 'swr'
 
 export const dividendsSwrKey = '/api/dividends' as const
@@ -61,17 +62,11 @@ export interface DividendData {
 }
 
 async function dividendsFetcher(): Promise<DividendData> {
-  const res = await fetch(dividendsSwrKey)
-  if (!res.ok) throw new Error('배당 목록을 불러오지 못했습니다.')
-  return res.json() as Promise<DividendData>
+  return swrJsonFetch<DividendData>(dividendsSwrKey, '배당 목록을 불러오지 못했습니다.')
 }
 
 export function useDividends() {
-  const swr = useSWR<DividendData>(dividendsSwrKey, dividendsFetcher, {
-    revalidateOnFocus: true,
-    dedupingInterval: 3000,
-    keepPreviousData: true,
-  })
+  const swr = useSWR<DividendData>(dividendsSwrKey, dividendsFetcher)
 
   return {
     data: swr.data,
@@ -79,7 +74,7 @@ export function useDividends() {
     months: swr.data?.months ?? [],
     yearFinancialIncome: swr.data?.yearFinancialIncome ?? 0,
     yearLabel: swr.data?.yearLabel ?? '',
-    isLoading: swr.isLoading,
+    isLoading: swr.isLoading && !swr.data,
     isValidating: swr.isValidating,
     error: swr.error,
     mutate: swr.mutate,

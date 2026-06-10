@@ -21,6 +21,7 @@
     "@mui/x-date-pickers": "^8.11.1",
     "dayjs": "^1.11.18",
     "drizzle-orm": "^0.44.7",
+    "idb-keyval": "^6.2.5",
     "next": "^15.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

@@ -1,8 +1,9 @@
 'use client'
+// 수정: Auto — 2026-06-08
 
-import useSWR from 'swr'
-
+import { swrJsonFetch } from '@/lib/swrFetch'
 import type { IntervalUnit } from '@/lib/ddaySchedule'
+import useSWR from 'swr'
 
 export const ddayItemsSwrKey = '/api/dday-items' as const
 
@@ -16,21 +17,15 @@ export interface DdayItem {
 }
 
 async function ddayItemsFetcher(): Promise<DdayItem[]> {
-  const res = await fetch(ddayItemsSwrKey)
-  if (!res.ok) throw new Error('D-day 목록을 불러오지 못했습니다.')
-  return res.json() as Promise<DdayItem[]>
+  return swrJsonFetch<DdayItem[]>(ddayItemsSwrKey, 'D-day 목록을 불러오지 못했습니다.')
 }
 
 export function useDdayItems() {
-  const swr = useSWR<DdayItem[]>(ddayItemsSwrKey, ddayItemsFetcher, {
-    revalidateOnFocus: true,
-    dedupingInterval: 3000,
-    keepPreviousData: true,
-  })
+  const swr = useSWR<DdayItem[]>(ddayItemsSwrKey, ddayItemsFetcher)
 
   return {
     items: swr.data ?? [],
-    isLoading: swr.isLoading,
+    isLoading: swr.isLoading && !swr.data,
     isValidating: swr.isValidating,
     error: swr.error,
     mutate: swr.mutate,
