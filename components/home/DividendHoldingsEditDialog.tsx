@@ -147,7 +147,7 @@ export function DividendHoldingsEditDialog({ open, holdings, onClose, onSubmit }
                 {...formDialogCompactTextFieldProps}
               />
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, lineHeight: 1.45 }}>
-                주·주당$만 입력하면 배당률과 예상 배당금이 계산됩니다.
+                배당률 = (월 주당$ × 12 ÷ 실시간 주가$). 주식수는 배당금 총액에만 반영됩니다.
               </Typography>
 
               {holdings.map((row, index) => {

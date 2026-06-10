@@ -14,6 +14,7 @@ export interface DividendHolding {
   referencePriceUsd: number
   referenceExchangeRate: number
   sortOrder: number
+  livePriceUsd: number | null
   grossMonthlyUsd: number
   netMonthlyUsd: number
   grossKrw: number | null

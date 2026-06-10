@@ -7,6 +7,7 @@ import {
   calcHoldingReference,
   calcYearFinancialIncome,
 } from '@/lib/dividendCalc'
+import { fetchStockQuoteMap } from '@/lib/stock'
 import type { DividendEntryPayload, DividendHoldingPayload } from '@/lib/dividendPayload'
 import { ensureDividendSchema } from '@/lib/dividendSchema'
 import { db } from '@/lib/db'
@@ -24,6 +25,7 @@ export type DividendHoldingRow = {
 }
 
 export type DividendHoldingView = DividendHoldingRow & {
+  livePriceUsd: number | null
   grossMonthlyUsd: number
   netMonthlyUsd: number
   grossKrw: number | null
@@ -59,15 +61,28 @@ export type DividendMonthView = {
   summary: ReturnType<typeof calcDividendMonthSummary>
 }
 
-function toHoldingView(row: DividendHoldingRow): DividendHoldingView {
-  const calc = calcHoldingReference(row)
+function toHoldingView(row: DividendHoldingRow, livePriceUsd?: number | null): DividendHoldingView {
+  const livePrice = livePriceUsd != null && livePriceUsd > 0 ? livePriceUsd : null
+  const calc = calcHoldingReference(row, livePrice)
   return {
     ...row,
+    livePriceUsd: livePrice,
     grossMonthlyUsd: calc.grossMonthlyUsd,
     netMonthlyUsd: calc.netMonthlyUsd,
     grossKrw: calc.grossKrw,
     netKrw: calc.netKrw,
     yieldPercent: calc.yieldPercent,
+  }
+}
+
+async function loadLivePriceMap(tickers: string[]): Promise<Map<string, number>> {
+  const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
+  if (unique.length === 0) return new Map()
+  try {
+    return await fetchStockQuoteMap(unique)
+  } catch (error) {
+    console.warn('[dividend stock quotes]', error)
+    return new Map()
   }
 }
 
@@ -108,7 +123,8 @@ export async function loadDividendHoldings(): Promise<DividendHoldingView[]> {
     .select()
     .from(dividendHoldings)
     .orderBy(asc(dividendHoldings.sortOrder), asc(dividendHoldings.id))
-  return rows.map(toHoldingView)
+  const priceMap = await loadLivePriceMap(rows.map((row) => row.ticker))
+  return rows.map((row) => toHoldingView(row, priceMap.get(row.ticker.toUpperCase()) ?? null))
 }
 
 export async function loadDividendData(): Promise<DividendData> {

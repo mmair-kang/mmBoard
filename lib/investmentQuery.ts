@@ -1,0 +1,177 @@
+// 수정: Auto — 2026-06-08
+
+import {
+  INVESTMENT_ACCOUNT_IDS,
+  INVESTMENT_ACCOUNTS,
+  type InvestmentAccountId,
+  type InvestmentMarket,
+} from '@/config/investmentAccounts'
+import { asc, eq } from 'drizzle-orm'
+
+import { db } from '@/lib/db'
+import {
+  calcInvestmentAccountSummary,
+  calcInvestmentHoldingView,
+  type InvestmentAccountSummary,
+  type InvestmentHoldingRow,
+  type InvestmentHoldingView,
+} from '@/lib/investmentCalc'
+import type { InvestmentCashPayload, InvestmentHoldingPayload } from '@/lib/investmentPayload'
+import { ensureInvestmentSchema } from '@/lib/investmentSchema'
+import { fetchInvestmentPriceMap, normalizeInvestmentSymbol } from '@/lib/stock'
+import { investmentAccountCash, investmentHoldings } from '@/lib/schema'
+
+export type InvestmentAccountView = {
+  id: InvestmentAccountId
+  label: string
+  title: string
+  subtitle: string
+  pensionNote?: string
+  cashBalanceKrw: number
+  holdings: InvestmentHoldingView[]
+  summary: InvestmentAccountSummary
+}
+
+export type InvestmentData = {
+  accounts: InvestmentAccountView[]
+  usdKrwRate: number | null
+  grandSummary: InvestmentAccountSummary
+}
+
+function toHoldingRow(row: typeof investmentHoldings.$inferSelect): InvestmentHoldingRow {
+  return {
+    id: row.id,
+    category: row.category as InvestmentAccountId,
+    name: row.name,
+    symbol: row.symbol,
+    market: row.market,
+    purchasePrice: row.purchasePrice,
+    shares: row.shares,
+    sortOrder: row.sortOrder,
+    createdAt: row.createdAt,
+  }
+}
+
+async function loadCashMap(): Promise<Map<InvestmentAccountId, number>> {
+  const rows = await db.select().from(investmentAccountCash)
+  const map = new Map<InvestmentAccountId, number>()
+  for (const id of INVESTMENT_ACCOUNT_IDS) map.set(id, 0)
+  for (const row of rows) {
+    if (INVESTMENT_ACCOUNT_IDS.includes(row.category as InvestmentAccountId)) {
+      map.set(row.category as InvestmentAccountId, row.cashBalance)
+    }
+  }
+  return map
+}
+
+export async function loadInvestmentData(): Promise<InvestmentData> {
+  await ensureInvestmentSchema()
+
+  const [holdingRows, cashMap] = await Promise.all([
+    db
+      .select()
+      .from(investmentHoldings)
+      .orderBy(asc(investmentHoldings.category), asc(investmentHoldings.sortOrder), asc(investmentHoldings.id)),
+    loadCashMap(),
+  ])
+
+  const holdings = holdingRows.map(toHoldingRow)
+  const { priceMap, usdKrwRate } = await fetchInvestmentPriceMap(
+    holdings.map((row) => ({ symbol: row.symbol, market: row.market as InvestmentMarket })),
+  ).catch((error) => {
+    console.warn('[investment quotes]', error)
+    return { priceMap: new Map<string, number>(), usdKrwRate: null as number | null }
+  })
+
+  const holdingsByAccount = new Map<InvestmentAccountId, InvestmentHoldingView[]>()
+  for (const id of INVESTMENT_ACCOUNT_IDS) holdingsByAccount.set(id, [])
+
+  for (const row of holdings) {
+    const livePriceKrw = priceMap.get(normalizeInvestmentSymbol(row.symbol)) ?? null
+    const view = calcInvestmentHoldingView(row, livePriceKrw)
+    holdingsByAccount.get(row.category)?.push(view)
+  }
+
+  const accounts: InvestmentAccountView[] = INVESTMENT_ACCOUNTS.map((meta) => {
+    const accountHoldings = holdingsByAccount.get(meta.id) ?? []
+    const cashBalanceKrw = cashMap.get(meta.id) ?? 0
+    return {
+      id: meta.id,
+      label: meta.label,
+      title: meta.title,
+      subtitle: meta.subtitle,
+      pensionNote: meta.pensionNote,
+      cashBalanceKrw,
+      holdings: accountHoldings,
+      summary: calcInvestmentAccountSummary(accountHoldings, cashBalanceKrw),
+    }
+  })
+
+  const grandHoldings = accounts.flatMap((account) => account.holdings)
+  const grandCash = accounts.reduce((sum, account) => sum + account.cashBalanceKrw, 0)
+  const grandSummary = calcInvestmentAccountSummary(grandHoldings, grandCash)
+
+  return { accounts, usdKrwRate, grandSummary }
+}
+
+export async function createInvestmentHolding(payload: InvestmentHoldingPayload): Promise<InvestmentHoldingRow> {
+  await ensureInvestmentSchema()
+  const existing = await db
+    .select({ sortOrder: investmentHoldings.sortOrder })
+    .from(investmentHoldings)
+    .where(eq(investmentHoldings.category, payload.category))
+  const nextSort = existing.length > 0 ? Math.max(...existing.map((row) => row.sortOrder)) + 1 : 0
+
+  const inserted = await db
+    .insert(investmentHoldings)
+    .values({
+      category: payload.category,
+      name: payload.name,
+      symbol: payload.symbol,
+      market: payload.market,
+      purchasePrice: payload.purchasePrice,
+      shares: payload.shares,
+      sortOrder: nextSort,
+      createdAt: new Date().toISOString(),
+    })
+    .returning()
+
+  const row = inserted[0]
+  if (!row) throw new Error('insert failed')
+  return toHoldingRow(row)
+}
+
+export async function updateInvestmentHolding(
+  id: number,
+  payload: InvestmentHoldingPayload,
+): Promise<InvestmentHoldingRow | null> {
+  await ensureInvestmentSchema()
+  const updated = await db
+    .update(investmentHoldings)
+    .set({
+      category: payload.category,
+      name: payload.name,
+      symbol: payload.symbol,
+      market: payload.market,
+      purchasePrice: payload.purchasePrice,
+      shares: payload.shares,
+    })
+    .where(eq(investmentHoldings.id, id))
+    .returning()
+
+  const row = updated[0]
+  return row ? toHoldingRow(row) : null
+}
+
+export async function deleteInvestmentHolding(id: number) {
+  await ensureInvestmentSchema()
+  await db.delete(investmentHoldings).where(eq(investmentHoldings.id, id))
+}
+
+export async function updateInvestmentCash(payload: InvestmentCashPayload) {
+  await ensureInvestmentSchema()
+  await db
+    .update(investmentAccountCash)
+    .set({ cashBalance: payload.cashBalance })
+    .where(eq(investmentAccountCash.category, payload.category))
+}

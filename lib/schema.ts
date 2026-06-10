@@ -148,6 +148,23 @@ export const monthlyFixedExpenses = sqliteTable('monthly_fixed_expenses', {
   createdAt: text('created_at').notNull(),
 })
 
+export const investmentAccountCash = sqliteTable('investment_account_cash', {
+  category: text('category').primaryKey(),
+  cashBalance: integer('cash_balance').notNull().default(0),
+})
+
+export const investmentHoldings = sqliteTable('investment_holdings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  category: text('category').notNull(),
+  name: text('name').notNull(),
+  symbol: text('symbol').notNull(),
+  market: text('market').notNull(),
+  purchasePrice: integer('purchase_price').notNull(),
+  shares: integer('shares').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+})
+
 export const monthlyTaskCardExtras = sqliteTable('monthly_task_card_extras', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   taskId: integer('task_id').notNull(),

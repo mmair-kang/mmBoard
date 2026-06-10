@@ -2,6 +2,7 @@
 // 수정: Auto — 2026-06-08
 
 import { AccountWidget } from '@/components/home/AccountWidget'
+import { InvestmentWidget } from '@/components/home/InvestmentWidget'
 import { AnnualPaymentWidget } from '@/components/home/AnnualPaymentWidget'
 import { DdayWidget } from '@/components/home/DdayWidget'
 import { DividendWidget } from '@/components/home/DividendWidget'
@@ -18,6 +19,8 @@ import { useEffect, useState } from 'react'
 
 function renderTabPanel(tab: ManageTabId) {
   switch (tab) {
+    case 'investment':
+      return <InvestmentWidget />
     case 'main':
       return <DdayWidget />
     case 'account':
@@ -77,19 +80,23 @@ export function HomePageContent() {
             }
             setTab(value)
           }}
-          variant="scrollable"
-          scrollButtons={false}
-          allowScrollButtonsMobile
+          variant="fullWidth"
           sx={{
+            width: '100%',
             minWidth: 0,
-            '& .MuiTabs-scroller': { overflow: 'auto !important' },
+            '& .MuiTabs-scroller': { overflow: 'hidden !important' },
+            '& .MuiTabs-flexContainer': { width: '100%' },
             '& .MuiTab-root': {
+              flex: '1 1 0',
+              minWidth: 0,
+              maxWidth: 'none',
               fontWeight: 800,
-              fontSize: { xs: '0.78rem', sm: '0.85rem' },
-              minHeight: 44,
-              minWidth: { xs: 56, sm: 72 },
-              px: { xs: 1, sm: 1.25 },
-              flexShrink: 0,
+              fontSize: { xs: '0.68rem', sm: '0.78rem', md: '0.85rem' },
+              minHeight: { xs: 40, sm: 44 },
+              px: { xs: 0.15, sm: 0.5 },
+              py: 0.75,
+              lineHeight: 1.2,
+              whiteSpace: 'nowrap',
             },
           }}
         >

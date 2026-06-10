@@ -1,8 +1,8 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-08 (실시간 주가)
 
 import type { DividendHolding } from '@/hooks/useDividends'
-import { formatUsd, formatYieldPercent } from '@/lib/dividendCalc'
+import { calcPortfolioYieldPercent, formatUsd, formatYieldPercent } from '@/lib/dividendCalc'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
@@ -91,10 +91,7 @@ function formatUsdCell(value: number, ready: boolean) {
 
 export function DividendHoldingsCard({ holdings, onEdit }: Props) {
   const totals = useMemo(() => {
-    const yieldValues = holdings
-      .map((row) => row.yieldPercent)
-      .filter((value): value is number => value != null)
-    const avgYield = yieldValues.length > 0 ? yieldValues.reduce((sum, value) => sum + value, 0) / yieldValues.length : null
+    const portfolioYield = calcPortfolioYieldPercent(holdings)
 
     let grossKrw = 0
     let netKrw = 0
@@ -118,7 +115,14 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
       }
     }
 
-    return { avgYield, grossKrw: hasKrw ? grossKrw : null, netKrw: hasKrw ? netKrw : null, grossUsd, netUsd, hasUsd }
+    return {
+      portfolioYield,
+      grossKrw: hasKrw ? grossKrw : null,
+      netKrw: hasKrw ? netKrw : null,
+      grossUsd,
+      netUsd,
+      hasUsd,
+    }
   }, [holdings])
 
   return (
@@ -162,10 +166,13 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
       </Stack>
 
       <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <Table size="small" sx={{ minWidth: 460 }}>
+        <Table size="small" sx={{ minWidth: 520 }}>
           <TableHead>
             <TableRow sx={{ '& .MuiTableCell-root': headCellSx }}>
               <TableCell sx={{ bgcolor: refHeadBg }}>종목</TableCell>
+              <TableCell align="right" sx={{ bgcolor: refHeadBg }}>
+                주가$
+              </TableCell>
               <TableCell align="right" sx={{ bgcolor: refHeadBg }}>
                 주
               </TableCell>
@@ -195,6 +202,9 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
               return (
                 <TableRow key={row.id} hover>
                   <TableCell sx={{ ...cellSx, fontWeight: 900 }}>{row.ticker}</TableCell>
+                  <TableCell align="right" sx={{ ...cellSx, color: 'secondary.dark', fontWeight: 800 }}>
+                    {row.livePriceUsd != null ? formatUsd(row.livePriceUsd) : '—'}
+                  </TableCell>
                   <TableCell align="right" sx={cellSx}>
                     {row.defaultShares > 0 ? row.defaultShares : '—'}
                   </TableCell>
@@ -222,8 +232,9 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
             <TableRow>
               <TableCell sx={totalLabelCellSx}>합계</TableCell>
               <TableCell align="right" sx={cellSx} />
+              <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={{ ...cellSx, color: 'text.secondary', fontWeight: 900 }}>
-                {formatYieldPercent(totals.avgYield)}
+                {formatYieldPercent(totals.portfolioYield)}
               </TableCell>
               <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={grossTotalCellSx}>

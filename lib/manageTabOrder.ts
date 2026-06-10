@@ -1,9 +1,10 @@
 // 수정: Auto — 2026-06-08
 
-export const MANAGE_TAB_IDS = ['main', 'account', 'annual', 'card', 'dividend', 'monthly'] as const
+export const MANAGE_TAB_IDS = ['investment', 'main', 'account', 'annual', 'card', 'dividend', 'monthly'] as const
 export type ManageTabId = (typeof MANAGE_TAB_IDS)[number]
 
 export const MANAGE_TAB_LABELS: Record<ManageTabId, string> = {
+  investment: '투자',
   main: '메인',
   account: '계좌',
   annual: '연납',
@@ -33,11 +34,12 @@ export function normalizeManageTabOrder(order: unknown): ManageTabId[] {
     result.push(item)
   }
 
+  const missing: ManageTabId[] = []
   for (const id of MANAGE_TAB_IDS) {
-    if (!seen.has(id)) result.push(id)
+    if (!seen.has(id)) missing.push(id)
   }
 
-  return result
+  return [...missing, ...result]
 }
 
 export function loadManageTabOrder(): ManageTabId[] {
