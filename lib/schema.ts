@@ -58,6 +58,14 @@ export const ddayItems = sqliteTable('dday_items', {
   createdAt: text('created_at').notNull(),
 })
 
+export const todoItems = sqliteTable('todo_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  content: text('content').notNull(),
+  dueDate: text('due_date'),
+  dueTime: text('due_time'),
+  createdAt: text('created_at').notNull(),
+})
+
 export const monthlyTaskItems = sqliteTable('monthly_task_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   title: text('title').notNull(),

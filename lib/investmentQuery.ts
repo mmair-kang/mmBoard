@@ -1,6 +1,7 @@
 // 수정: Auto — 2026-06-08
 
 import {
+  defaultMarketForAccount,
   INVESTMENT_ACCOUNT_IDS,
   INVESTMENT_ACCOUNTS,
   type InvestmentAccountId,
@@ -16,7 +17,11 @@ import {
   type InvestmentHoldingRow,
   type InvestmentHoldingView,
 } from '@/lib/investmentCalc'
-import type { InvestmentCashPayload, InvestmentHoldingPayload } from '@/lib/investmentPayload'
+import type {
+  InvestmentAccountSyncPayload,
+  InvestmentCashPayload,
+  InvestmentHoldingPayload,
+} from '@/lib/investmentPayload'
 import { ensureInvestmentSchema } from '@/lib/investmentSchema'
 import { fetchInvestmentPriceMap, normalizeInvestmentSymbol } from '@/lib/stock'
 import { investmentAccountCash, investmentHoldings } from '@/lib/schema'
@@ -174,4 +179,54 @@ export async function updateInvestmentCash(payload: InvestmentCashPayload) {
     .update(investmentAccountCash)
     .set({ cashBalance: payload.cashBalance })
     .where(eq(investmentAccountCash.category, payload.category))
+}
+
+export async function syncInvestmentAccount(payload: InvestmentAccountSyncPayload) {
+  await ensureInvestmentSchema()
+  const market = defaultMarketForAccount(payload.category)
+
+  await updateInvestmentCash({ category: payload.category, cashBalance: payload.cashBalance })
+
+  const existing = await db
+    .select()
+    .from(investmentHoldings)
+    .where(eq(investmentHoldings.category, payload.category))
+  const existingIds = new Set(existing.map((row) => row.id))
+  const keepIds = new Set<number>()
+
+  for (let i = 0; i < payload.holdings.length; i++) {
+    const holding = payload.holdings[i]
+    if (holding.id != null && existingIds.has(holding.id)) {
+      keepIds.add(holding.id)
+      await db
+        .update(investmentHoldings)
+        .set({
+          name: holding.name,
+          symbol: holding.symbol,
+          market,
+          purchasePrice: holding.purchasePrice,
+          shares: holding.shares,
+          sortOrder: i,
+        })
+        .where(eq(investmentHoldings.id, holding.id))
+      continue
+    }
+
+    await db.insert(investmentHoldings).values({
+      category: payload.category,
+      name: holding.name,
+      symbol: holding.symbol,
+      market,
+      purchasePrice: holding.purchasePrice,
+      shares: holding.shares,
+      sortOrder: i,
+      createdAt: new Date().toISOString(),
+    })
+  }
+
+  for (const row of existing) {
+    if (!keepIds.has(row.id)) {
+      await db.delete(investmentHoldings).where(eq(investmentHoldings.id, row.id))
+    }
+  }
 }

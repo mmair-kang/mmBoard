@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-05
+// 수정: Auto — 2026-06-11
 
 import { CircleProgress360 } from '@/components/charts/CircleProgress360'
 import type { DdayItem } from '@/hooks/useDdayItems'
@@ -8,7 +8,7 @@ import {
   calcDaysRemaining,
   calcNextVisitDate,
   calcProgressFilled,
-  formatNextVisitLabel,
+  formatNextVisitCompact,
 } from '@/lib/ddaySchedule'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
@@ -20,27 +20,27 @@ type Props = {
   onClick: () => void
 }
 
+const PROGRESS_SIZE = 58
+
 export function DdayItemCard({ item, color, onClick }: Props) {
   const nextVisit = calcNextVisitDate(item.lastVisitDate, item.intervalValue, item.intervalUnit)
   const nextVisitIso = nextVisit.format('YYYY-MM-DD')
   const total = calcCycleDays(item.lastVisitDate, nextVisitIso)
   const filled = calcProgressFilled(item.lastVisitDate, nextVisitIso)
   const daysRemaining = calcDaysRemaining(nextVisitIso)
-  const nextLabel = formatNextVisitLabel(nextVisitIso)
+  const nextLabel = formatNextVisitCompact(nextVisitIso)
 
   return (
     <Paper
       variant="outlined"
       onClick={onClick}
       sx={{
-        aspectRatio: '1',
-        p: 1,
-        borderRadius: 2,
+        p: 0.45,
+        borderRadius: 1.5,
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
         borderColor: alpha(color, 0.28),
         bgcolor: 'background.paper',
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease',
@@ -53,37 +53,32 @@ export function DdayItemCard({ item, color, onClick }: Props) {
         },
       }}
     >
-      <CircleProgress360
-        total={total}
-        filled={filled}
-        centerValue={daysRemaining}
-        barColor={color}
-        trackColor={alpha(color, 0.12)}
-        numberColor="#0f172a"
-      />
       <Typography
         sx={{
-          mt: 0.5,
-          fontSize: '0.82rem',
-          fontWeight: 700,
-          lineHeight: 1.2,
+          mb: 0.15,
+          fontSize: '0.68rem',
+          fontWeight: 800,
+          lineHeight: 1.15,
           textAlign: 'center',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
           width: '100%',
-          px: 0.25,
+          px: 0.15,
         }}
       >
         {item.name}
       </Typography>
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ mt: 0.2, fontSize: '0.68rem', fontWeight: 600, lineHeight: 1.2 }}
-      >
-        {nextLabel}
-      </Typography>
+      <CircleProgress360
+        total={total}
+        filled={filled}
+        centerValue={daysRemaining}
+        sublabel={nextLabel}
+        barColor={color}
+        trackColor={alpha(color, 0.12)}
+        numberColor="#0f172a"
+        size={PROGRESS_SIZE}
+      />
     </Paper>
   )
 }

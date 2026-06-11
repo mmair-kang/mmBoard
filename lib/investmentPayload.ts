@@ -24,6 +24,20 @@ export type InvestmentCashPayload = {
   cashBalance: number
 }
 
+export type InvestmentHoldingSyncItem = {
+  id?: number
+  name: string
+  symbol: string
+  purchasePrice: number
+  shares: number
+}
+
+export type InvestmentAccountSyncPayload = {
+  category: InvestmentAccountId
+  cashBalance: number
+  holdings: InvestmentHoldingSyncItem[]
+}
+
 export function parseInvestmentHoldingPayload(body: Record<string, unknown>): InvestmentHoldingPayload | null {
   const category = String(body.category ?? '')
   if (!isInvestmentAccountId(category)) return null
@@ -58,4 +72,42 @@ export function parseInvestmentCashPayload(body: Record<string, unknown>): Inves
   if (!Number.isFinite(cashBalance) || cashBalance < 0) return null
 
   return { category, cashBalance }
+}
+
+export function parseInvestmentAccountSyncPayload(
+  body: Record<string, unknown>,
+): InvestmentAccountSyncPayload | null {
+  const category = String(body.category ?? '')
+  if (!isInvestmentAccountId(category)) return null
+
+  const cashBalance = Math.round(Number(body.cashBalance))
+  if (!Number.isFinite(cashBalance) || cashBalance < 0) return null
+
+  if (!Array.isArray(body.holdings)) return null
+
+  const holdings: InvestmentHoldingSyncItem[] = []
+  for (const raw of body.holdings) {
+    if (!raw || typeof raw !== 'object') return null
+    const row = raw as Record<string, unknown>
+    const name = typeof row.name === 'string' ? row.name.trim() : ''
+    const symbol = typeof row.symbol === 'string' ? normalizeInvestmentSymbol(row.symbol) : ''
+    if (!name || !symbol) return null
+
+    const purchasePrice = Math.round(Number(row.purchasePrice))
+    const shares = Math.round(Number(row.shares))
+    if (!Number.isFinite(purchasePrice) || purchasePrice < 0) return null
+    if (!Number.isFinite(shares) || shares < 1) return null
+
+    const idRaw = row.id
+    const id = idRaw != null ? Math.round(Number(idRaw)) : undefined
+    holdings.push({
+      id: id != null && Number.isFinite(id) && id > 0 ? id : undefined,
+      name,
+      symbol,
+      purchasePrice,
+      shares,
+    })
+  }
+
+  return { category, cashBalance, holdings }
 }

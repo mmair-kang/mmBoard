@@ -1,19 +1,15 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-11
 
 import { InvestmentAccountCard } from '@/components/home/InvestmentAccountCard'
-import { InvestmentCashDialog } from '@/components/home/InvestmentCashDialog'
-import { InvestmentHoldingFormDialog } from '@/components/home/InvestmentHoldingFormDialog'
+import { InvestmentAccountDetailDialog } from '@/components/home/InvestmentAccountDetailDialog'
+import { InvestmentAccountEditDialog } from '@/components/home/InvestmentAccountEditDialog'
 import type { InvestmentAccountId } from '@/config/investmentAccounts'
-import {
-  type InvestmentAccountView,
-  type InvestmentHoldingView,
-  useInvestments,
-} from '@/hooks/useInvestments'
+import { type InvestmentAccountView, useInvestments } from '@/hooks/useInvestments'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import { formatReturnRate, returnTone } from '@/lib/investmentCalc'
-import type { InvestmentCashPayload, InvestmentHoldingPayload } from '@/lib/investmentPayload'
+import type { InvestmentAccountSyncPayload } from '@/lib/investmentPayload'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import Paper from '@mui/material/Paper'
@@ -24,75 +20,31 @@ import { useMemo, useState } from 'react'
 
 export function InvestmentWidget() {
   const { accounts, usdKrwRate, grandSummary, isLoading, mutate } = useInvestments()
-  const [holdingFormOpen, setHoldingFormOpen] = useState(false)
-  const [cashFormOpen, setCashFormOpen] = useState(false)
-  const [activeAccountId, setActiveAccountId] = useState<InvestmentAccountId>('nh')
-  const [editingHolding, setEditingHolding] = useState<InvestmentHoldingView | null>(null)
+  const [detailAccountId, setDetailAccountId] = useState<InvestmentAccountId | null>(null)
+  const [editAccountId, setEditAccountId] = useState<InvestmentAccountId | null>(null)
 
-  const activeAccount = useMemo(
-    () => accounts.find((row) => row.id === activeAccountId) ?? accounts[0],
-    [accounts, activeAccountId],
+  const detailAccount = useMemo(
+    () => accounts.find((row) => row.id === detailAccountId) ?? null,
+    [accounts, detailAccountId],
+  )
+
+  const editAccount = useMemo(
+    () => accounts.find((row) => row.id === editAccountId) ?? null,
+    [accounts, editAccountId],
   )
 
   const grandTone = returnTone(grandSummary?.returnRate ?? null)
 
-  const openAdd = (accountId: InvestmentAccountId) => {
-    setActiveAccountId(accountId)
-    setEditingHolding(null)
-    setHoldingFormOpen(true)
+  const openDetail = (account: InvestmentAccountView) => {
+    setDetailAccountId(account.id)
   }
 
-  const openEditHolding = (account: InvestmentAccountView, holdingId: number) => {
-    const holding = account.holdings.find((row) => row.id === holdingId) ?? null
-    if (!holding) return
-    setActiveAccountId(account.id)
-    setEditingHolding(holding)
-    setHoldingFormOpen(true)
+  const openEdit = (account: InvestmentAccountView) => {
+    setEditAccountId(account.id)
   }
 
-  const openEditCash = (accountId: InvestmentAccountId) => {
-    setActiveAccountId(accountId)
-    setCashFormOpen(true)
-  }
-
-  const closeHoldingForm = () => {
-    setHoldingFormOpen(false)
-    setEditingHolding(null)
-  }
-
-  const handleSaveHolding = async (payload: InvestmentHoldingPayload) => {
-    if (editingHolding) {
-      const res = await fetch(`/api/investments/holdings/${editingHolding.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
-      const updated = await res.json()
-      await mutate(updated, { revalidate: false })
-      return
-    }
-
-    const res = await fetch('/api/investments/holdings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) throw new Error(await readApiErrorMessage(res, '추가에 실패했습니다'))
-    const updated = await res.json()
-    await mutate(updated, { revalidate: false })
-  }
-
-  const handleDeleteHolding = async () => {
-    if (!editingHolding) return
-    const res = await fetch(`/api/investments/holdings/${editingHolding.id}`, { method: 'DELETE' })
-    if (!res.ok) throw new Error(await readApiErrorMessage(res, '삭제에 실패했습니다'))
-    const updated = await res.json()
-    await mutate(updated, { revalidate: false })
-  }
-
-  const handleSaveCash = async (payload: InvestmentCashPayload) => {
-    const res = await fetch('/api/investments/cash', {
+  const handleSaveAccount = async (payload: InvestmentAccountSyncPayload) => {
+    const res = await fetch('/api/investments/account', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -171,32 +123,24 @@ export function InvestmentWidget() {
           <InvestmentAccountCard
             key={account.id}
             account={account}
-            onAdd={() => openAdd(account.id)}
-            onEditHolding={(holdingId) => openEditHolding(account, holdingId)}
-            onEditCash={() => openEditCash(account.id)}
+            onOpenDetail={() => openDetail(account)}
+            onEdit={() => openEdit(account)}
           />
         ))}
       </Stack>
 
-      {activeAccount ? (
-        <>
-          <InvestmentHoldingFormDialog
-            open={holdingFormOpen}
-            accountId={activeAccount.id}
-            holding={editingHolding}
-            onClose={closeHoldingForm}
-            onSubmit={handleSaveHolding}
-            onDelete={editingHolding ? handleDeleteHolding : undefined}
-          />
-          <InvestmentCashDialog
-            open={cashFormOpen}
-            accountId={activeAccount.id}
-            cashBalanceKrw={activeAccount.cashBalanceKrw}
-            onClose={() => setCashFormOpen(false)}
-            onSubmit={handleSaveCash}
-          />
-        </>
-      ) : null}
+      <InvestmentAccountDetailDialog
+        open={detailAccountId != null}
+        account={detailAccount}
+        onClose={() => setDetailAccountId(null)}
+      />
+
+      <InvestmentAccountEditDialog
+        open={editAccountId != null}
+        account={editAccount}
+        onClose={() => setEditAccountId(null)}
+        onSubmit={handleSaveAccount}
+      />
     </>
   )
 }

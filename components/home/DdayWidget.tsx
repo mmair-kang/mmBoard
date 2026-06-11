@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-05
+// 수정: Auto — 2026-06-11
 
 import { DdayItemCard } from '@/components/home/DdayItemCard'
 import { DdayItemFormDialog } from '@/components/home/DdayItemFormDialog'
@@ -15,6 +15,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import { alpha } from '@mui/material/styles'
 import { useState } from 'react'
 
 export function DdayWidget() {
@@ -75,41 +76,57 @@ export function DdayWidget() {
       <Paper
         variant="outlined"
         sx={{
-          borderRadius: 2.5,
+          borderRadius: 2,
           overflow: 'hidden',
           borderColor: 'divider',
-          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
+          bgcolor: (theme) =>
+            alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.1 : 0.03),
         }}
       >
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}
+          sx={{
+            px: 0.85,
+            py: 0.4,
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: (theme) =>
+              alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.16 : 0.07),
+          }}
         >
-          <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>D-day</Typography>
+          <Typography sx={{ fontWeight: 900, fontSize: '0.8rem', lineHeight: 1.2 }}>D-day</Typography>
           <Tooltip title="일정 추가">
-            <IconButton size="small" color="primary" onClick={openAdd} aria-label="일정 추가">
-              <AddRoundedIcon />
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={openAdd}
+              aria-label="일정 추가"
+              sx={{ width: 24, height: 24, p: 0.25 }}
+            >
+              <AddRoundedIcon sx={{ fontSize: '0.9rem' }} />
             </IconButton>
           </Tooltip>
         </Stack>
-        <Box sx={{ p: 1.5 }}>
+        <Box sx={{ p: 0.65 }}>
           {isLoading ? (
-            <Stack alignItems="center" py={3}>
-              <CircularProgress size={28} />
+            <Stack alignItems="center" py={1.5}>
+              <CircularProgress size={22} />
             </Stack>
           ) : items.length === 0 ? (
-            <Stack alignItems="center" py={3} spacing={0.5} color="text.secondary">
-              <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>등록된 일정이 없습니다</Typography>
-              <Typography variant="caption">+ 버튼으로 미용실 등 일정을 추가해 보세요</Typography>
+            <Stack alignItems="center" py={1.5} spacing={0.25} color="text.secondary">
+              <Typography sx={{ fontWeight: 600, fontSize: '0.78rem' }}>등록된 일정이 없습니다</Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
+                + 버튼으로 일정을 추가해 보세요
+              </Typography>
             </Stack>
           ) : (
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))',
-                gap: 1.25,
+                gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))',
+                gap: 0.6,
               }}
             >
               {items.map((item, index) => (

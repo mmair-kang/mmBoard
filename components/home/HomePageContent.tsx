@@ -1,10 +1,12 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-11
 
 import { AccountWidget } from '@/components/home/AccountWidget'
 import { InvestmentWidget } from '@/components/home/InvestmentWidget'
 import { AnnualPaymentWidget } from '@/components/home/AnnualPaymentWidget'
 import { DdayWidget } from '@/components/home/DdayWidget'
+import { TodoWidget } from '@/components/home/TodoWidget'
+import { WeatherWidget } from '@/components/home/WeatherWidget'
 import { DividendWidget } from '@/components/home/DividendWidget'
 import { ManageTabOrderDialog } from '@/components/home/ManageTabOrderDialog'
 import { MonthlyExpenseWidget } from '@/components/home/MonthlyExpenseWidget'
@@ -13,6 +15,7 @@ import { useManageTabOrder } from '@/hooks/useManageTabOrder'
 import { useLongPress } from '@/hooks/useLongPress'
 import type { ManageTabId } from '@/lib/manageTabOrder'
 import Box from '@mui/material/Box'
+import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import { useEffect, useState } from 'react'
@@ -22,7 +25,13 @@ function renderTabPanel(tab: ManageTabId) {
     case 'investment':
       return <InvestmentWidget />
     case 'main':
-      return <DdayWidget />
+      return (
+        <Stack spacing={1.25} sx={{ width: '100%', minWidth: 0 }}>
+          <TodoWidget />
+          <DdayWidget />
+          <WeatherWidget />
+        </Stack>
+      )
     case 'account':
       return <AccountWidget />
     case 'annual':

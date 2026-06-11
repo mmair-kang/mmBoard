@@ -49,3 +49,8 @@ export function formatNextVisitLabel(nextVisitDate: string): string {
   const wd = WEEKDAY_KO[d.day()]
   return `${yy}-${mm}-${dd} (${wd})`
 }
+
+export function formatNextVisitCompact(nextVisitDate: string): string {
+  const d = dayjs(nextVisitDate)
+  return `${d.month() + 1}/${d.date()}(${WEEKDAY_KO[d.day()]})`
+}

@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-11 (서버 동기화 보조)
 
 export const MANAGE_TAB_IDS = ['investment', 'main', 'account', 'annual', 'card', 'dividend', 'monthly'] as const
 export type ManageTabId = (typeof MANAGE_TAB_IDS)[number]
@@ -56,4 +56,11 @@ export function loadManageTabOrder(): ManageTabId[] {
 export function saveManageTabOrder(order: ManageTabId[]) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeManageTabOrder(order)))
+}
+
+export function ordersEqual(a: ManageTabId[], b: ManageTabId[]): boolean {
+  const left = normalizeManageTabOrder(a)
+  const right = normalizeManageTabOrder(b)
+  if (left.length !== right.length) return false
+  return left.every((id, index) => id === right[index])
 }
