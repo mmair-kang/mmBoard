@@ -1,11 +1,16 @@
 'use client'
-// 수정: Auto — 2026-06-11
+// 수정: Auto — 2026-06-11 (색 테두리 복원·D-day 하단 배치)
 
 import { TodoFormDialog } from '@/components/home/TodoFormDialog'
 import { type TodoItem, useTodos } from '@/hooks/useTodos'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import type { TodoItemPayload } from '@/lib/todoPayload'
-import { formatTodoDueDateLabel, sortTodoItems } from '@/lib/todoFormat'
+import {
+  calcTodoDueDays,
+  formatTodoDday,
+  formatTodoDueDateLabel,
+  sortTodoItems,
+} from '@/lib/todoFormat'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -14,18 +19,67 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { alpha } from '@mui/material/styles'
+import { alpha, type Theme } from '@mui/material/styles'
 import { useState } from 'react'
 
+/** 약 5개 항목 높이 — 이후 세로 스크롤 */
+const TODO_LIST_MAX_HEIGHT = 268
+
+type TodoDdayTone = 'today' | 'soon' | 'future' | 'overdue'
+
+function todoDdayTone(days: number | null): TodoDdayTone | null {
+  if (days == null) return null
+  if (days < 0) return 'overdue'
+  if (days === 0) return 'today'
+  if (days <= 7) return 'soon'
+  return 'future'
+}
+
+function todoDdayPaletteKey(tone: TodoDdayTone): 'primary' | 'warning' | 'info' | 'error' {
+  if (tone === 'today') return 'primary'
+  if (tone === 'soon') return 'warning'
+  if (tone === 'overdue') return 'error'
+  return 'info'
+}
+
+function todoScheduleBoxSx(tone: TodoDdayTone | null, hasDdayStrip: boolean) {
+  return (theme: Theme) => {
+    const base = {
+      width: 46,
+      flexShrink: 0,
+      display: 'flex',
+      flexDirection: 'column' as const,
+      overflow: 'hidden',
+      borderRadius: 0.85,
+      border: 1,
+      bgcolor: 'background.paper',
+      borderColor: theme.palette.divider,
+      ...(hasDdayStrip ? { pb: 0 } : { py: 0.28, px: 0.18, textAlign: 'center' as const }),
+    }
+    if (!tone) return base
+
+    const main = theme.palette[todoDdayPaletteKey(tone)].main
+    return {
+      ...base,
+      borderColor: alpha(main, 0.32),
+      bgcolor: alpha(main, theme.palette.mode === 'dark' ? 0.1 : 0.045),
+      boxShadow: `inset 0 0 0 1px ${alpha(main, 0.08)}`,
+    }
+  }
+}
+
 function TodoListRow({ item, onClick }: { item: TodoItem; onClick: () => void }) {
+  const dueDays = calcTodoDueDays(item.dueDate, item.dueTime)
   const dateLabel = formatTodoDueDateLabel(item.dueDate)
-  const hasSchedule = Boolean(dateLabel || item.dueTime)
+  const ddayLabel = formatTodoDday(dueDays)
+  const ddayTone = todoDdayTone(dueDays)
+  const hasSchedule = Boolean(dateLabel || item.dueTime || ddayLabel)
 
   return (
     <Stack
       direction="row"
       alignItems="flex-start"
-      spacing={0.65}
+      spacing={0.6}
       onClick={onClick}
       sx={{
         px: 0.65,
@@ -39,24 +93,68 @@ function TodoListRow({ item, onClick }: { item: TodoItem; onClick: () => void })
       }}
     >
       {hasSchedule ? (
-        <Box sx={{ width: 38, flexShrink: 0, textAlign: 'right', pt: 0.05 }}>
-          {dateLabel ? (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', fontWeight: 800, fontSize: '0.62rem', lineHeight: 1.2 }}
+        <Box sx={todoScheduleBoxSx(ddayTone, Boolean(ddayLabel && ddayTone))}>
+          <Box
+            sx={{
+              flex: 1,
+              px: 0.18,
+              py: ddayLabel && ddayTone ? 0.22 : 0,
+              textAlign: 'center',
+            }}
+          >
+            {dateLabel ? (
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  fontWeight: 900,
+                  fontSize: '0.62rem',
+                  lineHeight: 1.15,
+                  letterSpacing: '-0.01em',
+                  color: 'text.primary',
+                }}
+              >
+                {dateLabel}
+              </Typography>
+            ) : null}
+            {item.dueTime ? (
+              <Typography
+                variant="caption"
+                sx={{
+                  display: 'block',
+                  mt: dateLabel ? 0.05 : 0,
+                  fontWeight: 700,
+                  fontSize: '0.54rem',
+                  lineHeight: 1.15,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'text.secondary',
+                }}
+              >
+                {item.dueTime}
+              </Typography>
+            ) : null}
+          </Box>
+          {ddayLabel && ddayTone ? (
+            <Box
+              sx={(theme) => {
+                const main = theme.palette[todoDdayPaletteKey(ddayTone)].main
+                return {
+                  width: '100%',
+                  borderTop: 1,
+                  borderColor: alpha(main, 0.28),
+                  bgcolor: alpha(main, theme.palette.mode === 'dark' ? 0.14 : 0.08),
+                  py: 0.12,
+                  textAlign: 'center',
+                  fontWeight: 900,
+                  fontSize: '0.52rem',
+                  lineHeight: 1,
+                  letterSpacing: '0.02em',
+                  color: main,
+                }
+              }}
             >
-              {dateLabel}
-            </Typography>
-          ) : null}
-          {item.dueTime ? (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', fontWeight: 700, fontSize: '0.58rem', lineHeight: 1.2 }}
-            >
-              {item.dueTime}
-            </Typography>
+              {ddayLabel}
+            </Box>
           ) : null}
         </Box>
       ) : null}
@@ -68,6 +166,7 @@ function TodoListRow({ item, onClick }: { item: TodoItem; onClick: () => void })
           fontSize: '0.78rem',
           lineHeight: 1.35,
           wordBreak: 'break-word',
+          whiteSpace: 'pre-line',
         }}
       >
         {item.content}
@@ -181,15 +280,25 @@ export function TodoWidget() {
               </Typography>
             </Stack>
           ) : (
-            <Stack
-              divider={
-                <Box sx={{ borderBottom: 1, borderColor: 'divider', mx: 0.5 }} />
-              }
+            <Box
+              sx={{
+                maxHeight: TODO_LIST_MAX_HEIGHT,
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                mx: -0.15,
+                px: 0.15,
+              }}
             >
-              {items.map((item) => (
-                <TodoListRow key={item.id} item={item} onClick={() => openEdit(item)} />
-              ))}
-            </Stack>
+              <Stack
+                divider={
+                  <Box sx={{ borderBottom: 1, borderColor: 'divider', mx: 0.5 }} />
+                }
+              >
+                {items.map((item) => (
+                  <TodoListRow key={item.id} item={item} onClick={() => openEdit(item)} />
+                ))}
+              </Stack>
+            </Box>
           )}
         </Box>
       </Paper>

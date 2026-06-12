@@ -1,6 +1,7 @@
 'use client'
-// 수정: Auto — 2026-06-11 (일별 카드형)
+// 수정: Auto — 2026-06-11 (PC 드래그 스크롤)
 
+import { WeatherHorizontalScroll } from '@/components/home/WeatherHorizontalScroll'
 import { WeatherIcon } from '@/components/home/WeatherIcon'
 import { useWeather } from '@/hooks/useWeather'
 import { formatPrecipitationMm, temperatureTextColor, type WeatherDailyView } from '@/lib/weatherCalc'
@@ -9,7 +10,24 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
-import { alpha } from '@mui/material/styles'
+import { alpha, type Theme } from '@mui/material/styles'
+
+function weatherCardSx(active: boolean) {
+  return {
+    borderRadius: 1,
+    border: 1,
+    textAlign: 'center' as const,
+    bgcolor: 'background.paper',
+    borderColor: (theme: Theme) =>
+      active ? alpha(theme.palette.info.main, 0.28) : theme.palette.divider,
+    ...(active
+      ? {
+          bgcolor: (theme: Theme) => alpha(theme.palette.info.main, 0.045),
+          boxShadow: (theme: Theme) => `inset 0 0 0 1px ${alpha(theme.palette.info.main, 0.08)}`,
+        }
+      : {}),
+  }
+}
 
 function TempText({
   value,
@@ -59,11 +77,7 @@ function DailyDayCell({ row }: { row: WeatherDailyView }) {
         width: DAILY_COL_WIDTH,
         px: 0.15,
         py: 0.3,
-        borderRadius: 1,
-        textAlign: 'center',
-        bgcolor: isToday ? (theme) => alpha(theme.palette.info.main, 0.12) : 'transparent',
-        border: 1,
-        borderColor: isToday ? 'info.light' : 'divider',
+        ...weatherCardSx(isToday),
       }}
     >
       <Typography
@@ -161,16 +175,7 @@ export function WeatherWidget() {
       </Stack>
 
       <Box sx={{ px: 0.5, py: 0.5, borderBottom: 1, borderColor: 'divider' }}>
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 0.2,
-            overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}
-        >
+        <WeatherHorizontalScroll>
           {data.hourly.map((row) => (
             <Box
               key={row.time}
@@ -179,11 +184,7 @@ export function WeatherWidget() {
                 width: 36,
                 px: 0.15,
                 py: 0.3,
-                borderRadius: 1,
-                textAlign: 'center',
-                bgcolor: row.isNow ? (theme) => alpha(theme.palette.info.main, 0.12) : 'transparent',
-                border: 1,
-                borderColor: row.isNow ? 'info.light' : 'divider',
+                ...weatherCardSx(Boolean(row.isNow)),
               }}
             >
               <Typography
@@ -211,24 +212,15 @@ export function WeatherWidget() {
               </Typography>
             </Box>
           ))}
-        </Box>
+        </WeatherHorizontalScroll>
       </Box>
 
       <Box sx={{ px: 0.5, py: 0.5 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 0.2,
-            overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}
-        >
+        <WeatherHorizontalScroll>
           {data.daily.map((row) => (
             <DailyDayCell key={row.date} row={row} />
           ))}
-        </Box>
+        </WeatherHorizontalScroll>
       </Box>
     </Paper>
   )

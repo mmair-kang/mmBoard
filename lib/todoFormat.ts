@@ -1,5 +1,7 @@
 // 수정: Auto — 2026-06-11
 
+import dayjs from 'dayjs'
+
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 
 export function formatTodoDueDateLabel(dueDate: string | null | undefined): string | null {
@@ -7,6 +9,20 @@ export function formatTodoDueDateLabel(dueDate: string | null | undefined): stri
   const match = ISO_DATE_RE.exec(dueDate)
   if (!match) return dueDate
   return `${Number(match[2])}/${Number(match[3])}`
+}
+
+export function calcTodoDueDays(dueDate: string | null, dueTime: string | null): number | null {
+  if (!dueDate) return null
+  const target = dueTime ? dayjs(`${dueDate}T${dueTime}`) : dayjs(dueDate).startOf('day')
+  const now = dueTime ? dayjs() : dayjs().startOf('day')
+  return target.diff(now, 'day')
+}
+
+export function formatTodoDday(days: number | null): string | null {
+  if (days == null) return null
+  if (days === 0) return 'D-Day'
+  if (days > 0) return `D-${days}`
+  return `D+${Math.abs(days)}`
 }
 
 export function todoDueSortKey(dueDate: string | null, dueTime: string | null): string | null {

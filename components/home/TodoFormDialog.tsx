@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11
+// 수정: Auto — 2026-06-11 (multiline 높이 자동)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogFooter } from '@/components/common/FormDialogFooter'
@@ -10,7 +10,6 @@ import {
   formDialogContentSx,
   formDialogFieldStackSpacing,
   formDialogFieldStackSx,
-  formDialogFirstFieldSx,
   formDialogFormSx,
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
@@ -24,7 +23,7 @@ import Typography from '@mui/material/Typography'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import dayjs, { type Dayjs } from 'dayjs'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 type Props = {
   open: boolean
@@ -50,6 +49,32 @@ const compactTimeFieldSlotProps = {
   field: { clearable: true },
 }
 
+const todoContentFieldSx = {
+  mt: 0.5,
+  '& .MuiInputBase-root': {
+    minHeight: 34,
+    height: 'auto',
+    alignItems: 'flex-start',
+    fontSize: '0.9rem',
+  },
+  '& .MuiOutlinedInput-root': {
+    height: 'auto',
+    minHeight: 34,
+    py: 0.35,
+    alignItems: 'flex-start',
+  },
+  '& .MuiInputLabel-root': {
+    fontSize: '0.85rem',
+  },
+  '& textarea': {
+    overflow: 'hidden !important',
+    resize: 'none',
+    lineHeight: 1.45,
+    py: '0.45rem !important',
+    boxSizing: 'border-box',
+  },
+} as const
+
 export function TodoFormDialog({ open, item, onClose, onSubmit, onDelete }: Props) {
   const isEdit = item != null
   const [content, setContent] = useState('')
@@ -58,6 +83,25 @@ export function TodoFormDialog({ open, item, onClose, onSubmit, onDelete }: Prop
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const contentRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const resizeContentField = useCallback(() => {
+    const el = contentRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight) || 20
+    const maxHeight = lineHeight * 12
+    const nextHeight = el.scrollHeight
+    el.style.height = `${Math.min(nextHeight, maxHeight)}px`
+    el.style.overflowY = nextHeight > maxHeight ? 'auto' : 'hidden'
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!open) return
+    resizeContentField()
+    const id = requestAnimationFrame(resizeContentField)
+    return () => cancelAnimationFrame(id)
+  }, [open, content, resizeContentField])
 
   useEffect(() => {
     if (!open) {
@@ -89,7 +133,7 @@ export function TodoFormDialog({ open, item, onClose, onSubmit, onDelete }: Prop
     setFormError(null)
     try {
       await onSubmit({
-        content: content.trim(),
+        content: content.replace(/^\s+|\s+$/g, ''),
         dueDate: dueDate?.isValid() ? dueDate.format('YYYY-MM-DD') : null,
         dueTime: dueTime?.isValid() ? dueTime.format('HH:mm') : null,
       })
@@ -134,13 +178,18 @@ export function TodoFormDialog({ open, item, onClose, onSubmit, onDelete }: Prop
                 label="내용"
                 placeholder="할 일을 입력하세요"
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => {
+                  setContent(e.target.value)
+                  requestAnimationFrame(resizeContentField)
+                }}
                 required
                 fullWidth
+                size="small"
+                margin="dense"
                 multiline
-                minRows={2}
-                {...formDialogCompactTextFieldProps}
-                sx={formDialogFirstFieldSx}
+                minRows={1}
+                inputRef={contentRef}
+                sx={todoContentFieldSx}
               />
               <DatePicker
                 label="날짜 (선택)"
