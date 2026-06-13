@@ -121,6 +121,22 @@ export async function ensureCollectionSchema() {
       } catch {
         /* column already exists */
       }
+      try {
+        await db.run(sql`ALTER TABLE collection_items ADD COLUMN repurchase_days INTEGER`)
+      } catch {
+        /* column already exists */
+      }
+      try {
+        await db.run(sql`ALTER TABLE collection_items ADD COLUMN repurchase_active INTEGER NOT NULL DEFAULT 0`)
+      } catch {
+        /* column already exists */
+      }
+      try {
+        await db.run(sql`ALTER TABLE collection_items ADD COLUMN food_scope TEXT NOT NULL DEFAULT 'regular'`)
+      } catch {
+        /* column already exists */
+      }
+      await db.run(sql`UPDATE collection_items SET food_scope = 'regular' WHERE main_category = 'food' AND (food_scope IS NULL OR food_scope = '')`)
       await migrateShoppingToCollection()
     })().catch((e) => {
       schemaReady = null

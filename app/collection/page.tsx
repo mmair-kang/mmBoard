@@ -1,7 +1,7 @@
-// 수정: Auto — 2026-06-05
+// 수정: Auto — 2026-06-11
 
-import { CollectionPageContent } from '@/components/collection/CollectionPageContent'
+import { redirect } from 'next/navigation'
 
 export default function CollectionPage() {
-  return <CollectionPageContent />
+  redirect('/shopping')
 }

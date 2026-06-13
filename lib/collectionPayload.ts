@@ -1,12 +1,13 @@
 // 수정: Auto — 2026-06-05 (푸드 필드)
 
-import type { CollectionMainKey, CollectionSubKey, CollectionSubEntry } from '@/config/collectionCategories'
+import type { CollectionMainKey, CollectionSubKey, CollectionSubEntry, FoodScopeKey } from '@/config/collectionCategories'
 import {
   COLLECTION_STORES,
   isCollectionPackDetailCategory,
   isFashionMainCategory,
   isFoodMainCategory,
   isValidCollectionPair,
+  isValidFoodScope,
   type CollectionStoreKey,
 } from '@/config/collectionCategories'
 import {
@@ -55,6 +56,9 @@ export type CollectionItemPayload = {
   optionType: CollectionOptionType
   optionData: CollectionOptionData
   imageData: string | null
+  repurchaseDays: number | null
+  repurchaseActive: boolean
+  foodScope: FoodScopeKey
 }
 
 function trimOptional(value: unknown): string {
@@ -191,6 +195,17 @@ export function parseCollectionItemPayload(
   const imageData = parseShoppingImageData(body.imageData)
   if (body.imageData !== null && body.imageData !== '' && imageData === null) return null
 
+  let repurchaseDays: number | null = null
+  let repurchaseActive = false
+  let foodScope: FoodScopeKey = 'regular'
+  if (isFoodMainCategory(mainKey)) {
+    const raw = Number(body.repurchaseDays)
+    if (!Number.isFinite(raw) || raw < 1) return null
+    repurchaseDays = Math.round(raw)
+    repurchaseActive = Boolean(body.repurchaseActive)
+    foodScope = isValidFoodScope(body.foodScope) ? body.foodScope : 'regular'
+  }
+
   return {
     mainCategory: mainKey,
     subCategory: subCategory as CollectionSubKey,
@@ -208,6 +223,9 @@ export function parseCollectionItemPayload(
     optionType,
     optionData,
     imageData,
+    repurchaseDays,
+    repurchaseActive,
+    foodScope,
   }
 }
 

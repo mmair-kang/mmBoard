@@ -1,48 +1,66 @@
 'use client'
-// 수정: Auto — 2026-06-05 (통합 정보 모달)
+// 수정: Auto — 2026-06-11 (목록 레이아웃·표시 항목)
 
 import {
   sxCollectionAddButton,
   sxCollectionBrandChip,
   sxCollectionChipButton,
-  sxCollectionMainChip,
-  sxCollectionMainChipGrid,
+  sxCollectionFoodMetricChip,
+  sxCollectionLivingSummaryPanel,
+  sxCollectionMainTabs,
+  sxCollectionMonthlyUnderThumb,
   sxCollectionSearchResultPanel,
   sxCollectionSearchResultQuery,
   sxCollectionSearchResultText,
+  sxCollectionSectionSegmentItem,
+  sxCollectionSectionSegmentTrack,
   sxCollectionSubChip,
   sxCollectionSubChipPanel,
+  sxLivingSubAmountChip,
 } from '@/components/collection/collectionStyles'
 import { ListSearchField } from '@/components/common/ListSearchField'
 import { CollectionItemDetailDialog } from '@/components/collection/CollectionItemDetailDialog'
 import { CollectionItemFormDialog } from '@/components/collection/CollectionItemFormDialog'
 import { CollectionSubcategoryEditDialog } from '@/components/collection/CollectionSubcategoryEditDialog'
 import { ShoppingItemThumbnail } from '@/components/shopping/ShoppingItemThumbnail'
+// 수정: Auto — 2026-06-11 (상시·수시·소장)
+
 import {
-  COLLECTION_MAIN_CATEGORIES,
+  COLLECTION_OWN_MAIN_CATEGORIES,
+  COLLECTION_SECTIONS,
   getCollectionMainMeta,
   getCollectionStoreLabel,
   getCollectionSubFilters,
+  getDefaultMainForSection,
   getDefaultSubcategory,
   getFirstSubcategory,
   getSubcategoryLabel,
+  isConsumableSection,
   isFoodMainCategory,
   isCollectionPackDetailCategory,
   type CollectionMainKey,
+  type CollectionSectionKey,
   type CollectionSubKey,
+  type FoodScopeKey,
 } from '@/config/collectionCategories'
 import {
   type CollectionItem,
   collectionItemsKey,
   useAllCollectionItems,
   useCollectionItems,
+  useRegularFoodItems,
 } from '@/hooks/useCollectionItems'
 import { useCollectionSubcategories } from '@/hooks/useCollectionSubcategories'
 import { useLongPress } from '@/hooks/useLongPress'
 import { formatLastPurchaseDateDisplay } from '@/lib/shoppingDate'
-import { formatCollectionFoodListSubline, formatCollectionPackListSubline } from '@/lib/collectionDetail'
+import {
+  formatCollectionPackListSubline,
+  getCollectionFoodListLabels,
+  isCollectionFoodPriceMetric,
+} from '@/lib/collectionDetail'
 import { upsertCollectionItemSorted } from '@/lib/collectionItem'
 import type { CollectionItemPayload } from '@/lib/collectionPayload'
+import { buildLivingMonthlyBreakdown, calcLivingMonthlyCost, formatCompactLivingAmount } from '@/lib/livingCost'
 import { matchesAnySearch } from '@/lib/koreanSearch'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import Box from '@mui/material/Box'
@@ -50,6 +68,8 @@ import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useMemo, useState, useEffect } from 'react'
@@ -59,15 +79,22 @@ function formatPrice(price: number) {
   return `${price.toLocaleString('ko-KR')}원`
 }
 
-function isInCurrentList(item: CollectionItem, main: CollectionMainKey, sub: CollectionSubKey) {
-  return item.mainCategory === main && item.subCategory === sub
+function isInCurrentList(
+  item: CollectionItem,
+  main: CollectionMainKey,
+  sub: CollectionSubKey,
+  foodScope?: FoodScopeKey,
+) {
+  if (item.mainCategory !== main || item.subCategory !== sub) return false
+  if (main === 'food' && foodScope) return item.foodScope === foodScope
+  return true
 }
 
 const COLLECTION_LIST_THUMB_SIZE = 68
 
 function matchesCollectionItem(item: CollectionItem, query: string) {
-  const amountLabel = isFoodMainCategory(item.mainCategory)
-    ? formatCollectionFoodListSubline(item)
+  const foodLabels = isFoodMainCategory(item.mainCategory)
+    ? getCollectionFoodListLabels(item).join(' ')
     : ''
   return matchesAnySearch(
     [
@@ -77,10 +104,62 @@ function matchesCollectionItem(item: CollectionItem, query: string) {
       item.model,
       item.size,
       item.description,
-      amountLabel,
+      foodLabels,
       getCollectionStoreLabel(item.storeKey, item.storeCustom),
     ],
     query,
+  )
+}
+
+function LivingMonthlySummary({
+  rows,
+  total,
+  activeSub,
+}: {
+  rows: { subKey: string; label: string; monthly: number }[]
+  total: number
+  activeSub: CollectionSubKey
+}) {
+  return (
+    <Box sx={sxCollectionLivingSummaryPanel()}>
+      <Stack spacing={0.4} sx={{ width: '100%' }}>
+        <Stack direction="row" alignItems="baseline" justifyContent="space-between" gap={0.5}>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>
+            한달 상시비
+          </Typography>
+          <Typography sx={{ fontSize: '0.86rem', fontWeight: 900, color: 'warning.dark', lineHeight: 1.2 }}>
+            {formatPrice(total)}
+            <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 700, ml: 0.15 }}>
+              /월
+            </Box>
+          </Typography>
+        </Stack>
+        {rows.length > 0 ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.35, rowGap: 0.3 }}>
+            {rows.map((row) => (
+              <Box key={row.subKey} sx={sxLivingSubAmountChip(activeSub === row.subKey)}>
+                <Typography
+                  component="span"
+                  sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1.2 }}
+                >
+                  {row.label}
+                </Typography>
+                <Typography
+                  component="span"
+                  sx={{ fontSize: '0.64rem', fontWeight: 800, color: 'warning.dark', lineHeight: 1.2 }}
+                >
+                  {formatCompactLivingAmount(row.monthly)}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1.3 }}>
+            재구매중 ON인 항목만 합계에 포함됩니다
+          </Typography>
+        )}
+      </Stack>
+    </Box>
   )
 }
 
@@ -88,10 +167,12 @@ function CollectionItemCard({
   item,
   onEdit,
   onDetail,
+  showLivingCost,
 }: {
   item: CollectionItem
   onEdit: (item: CollectionItem) => void
   onDetail: (item: CollectionItem) => void
+  showLivingCost?: boolean
 }) {
   const mainMeta = getCollectionMainMeta(item.mainCategory)
   const storeLabel = getCollectionStoreLabel(item.storeKey, item.storeCustom)
@@ -103,12 +184,14 @@ function CollectionItemCard({
   const isPackDetail = isCollectionPackDetailCategory(item.mainCategory)
   const modelLine = [item.model.trim(), item.size.trim()].filter(Boolean).join(' · ')
   const packDetailLine = isPackDetail ? formatCollectionPackListSubline(item) : ''
-  const secondLineText = isFood
-    ? formatCollectionFoodListSubline(item)
-    : isPackDetail
-      ? [modelLine, packDetailLine].filter(Boolean).join(' · ')
-      : modelLine
-  const showSecondLine = Boolean(brand || secondLineText)
+  const foodLabels = isFood ? getCollectionFoodListLabels(item) : []
+  const detailLine = isPackDetail ? [modelLine, packDetailLine].filter(Boolean).join(' · ') : modelLine
+  const monthlyCost = showLivingCost ? calcLivingMonthlyCost(item.purchasePrice, item.repurchaseDays) : null
+  const monthlyActive = item.repurchaseActive === true
+  const hasThumb = Boolean(item.imageData)
+  const showMonthly = showLivingCost && monthlyCost != null
+  const showLeftColumn = hasThumb || showMonthly
+
   return (
     <Paper
       variant="outlined"
@@ -123,74 +206,88 @@ function CollectionItemCard({
         cursor: 'pointer',
       }}
     >
-      <Stack direction="row" alignItems="center" gap={1.5}>
-        {item.imageData ? (
-          <ShoppingItemThumbnail
-            src={item.imageData}
-            size={COLLECTION_LIST_THUMB_SIZE}
-            onClick={(e) => {
-              e.stopPropagation()
-              onDetail(item)
-            }}
-          />
+      <Stack direction="row" alignItems="flex-start" gap={1.25}>
+        {showLeftColumn ? (
+          <Stack
+            alignItems="center"
+            sx={{ width: COLLECTION_LIST_THUMB_SIZE, flexShrink: 0, gap: 0.35 }}
+          >
+            {hasThumb ? (
+              <ShoppingItemThumbnail
+                src={item.imageData!}
+                size={COLLECTION_LIST_THUMB_SIZE}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDetail(item)
+                }}
+              />
+            ) : null}
+            {showMonthly ? (
+              <Box sx={sxCollectionMonthlyUnderThumb(monthlyActive)}>
+                월 {formatCompactLivingAmount(monthlyCost)}
+              </Box>
+            ) : null}
+          </Stack>
         ) : null}
         <Box sx={{ minWidth: 0, flex: 1 }}>
-          {(name || nameSuffix) ? (
-            <Typography
-              sx={{
-                fontSize: 15,
-                fontWeight: 700,
-                lineHeight: 1.3,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {name ? <Box component="span">{name}</Box> : null}
-              {nameSuffix ? (
-                <Box
-                  component="span"
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 500,
-                    ml: name ? 0.75 : 0,
-                  }}
-                >
-                  {nameSuffix}
-                </Box>
-              ) : null}
-            </Typography>
-          ) : null}
-          {showSecondLine ? (
-            <Stack
-              direction="row"
-              alignItems="center"
-              gap={0.75}
-              flexWrap="wrap"
-              sx={{ mt: 0.25, minWidth: 0 }}
-            >
+          {(brand || name || nameSuffix) ? (
+            <Stack direction="row" alignItems="center" gap={0.6} sx={{ minWidth: 0 }}>
               {brand ? (
-                <Box component="span" sx={sxCollectionBrandChip()}>
+                <Box component="span" sx={{ ...sxCollectionBrandChip(), flexShrink: 0 }}>
                   {brand}
                 </Box>
               ) : null}
-              {secondLineText ? (
+              {(name || nameSuffix) ? (
                 <Typography
-                  variant="body2"
-                  color="text.secondary"
                   sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 15,
+                    fontWeight: 700,
                     lineHeight: 1.3,
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
-                    minWidth: 0,
-                    flex: brand ? 1 : undefined,
                   }}
                 >
-                  {secondLineText}
+                  {name ? <Box component="span">{name}</Box> : null}
+                  {nameSuffix ? (
+                    <Box
+                      component="span"
+                      sx={{
+                        color: 'text.secondary',
+                        fontWeight: 500,
+                        ml: name ? 0.75 : 0,
+                      }}
+                    >
+                      {nameSuffix}
+                    </Box>
+                  ) : null}
                 </Typography>
               ) : null}
             </Stack>
+          ) : null}
+          {foodLabels.length > 0 ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.35, mt: 0.45 }}>
+              {foodLabels.map((label) => (
+                <Box
+                  key={label}
+                  component="span"
+                  sx={sxCollectionFoodMetricChip(isCollectionFoodPriceMetric(label))}
+                >
+                  {label}
+                </Box>
+              ))}
+            </Box>
+          ) : null}
+          {!isFood && detailLine ? (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 0.35, lineHeight: 1.35, wordBreak: 'break-word' }}
+            >
+              {detailLine}
+            </Typography>
           ) : null}
           <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
@@ -220,8 +317,10 @@ function CollectionItemCard({
 }
 
 export function CollectionPageContent() {
-  const [mainCategory, setMainCategory] = useState<CollectionMainKey>('personal')
-  const [subCategory, setSubCategory] = useState<CollectionSubKey>(() => getDefaultSubcategory('personal'))
+  const [section, setSection] = useState<CollectionSectionKey>('regular')
+  const [mainCategory, setMainCategory] = useState<CollectionMainKey>(() => getDefaultMainForSection('regular'))
+  const [subCategory, setSubCategory] = useState<CollectionSubKey>(() => getDefaultSubcategory('food'))
+  const activeFoodScope: FoodScopeKey | undefined = isConsumableSection(section) ? section : undefined
   const [formOpen, setFormOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<CollectionItem | null>(null)
   const [detailItem, setDetailItem] = useState<CollectionItem | null>(null)
@@ -234,8 +333,15 @@ export function CollectionPageContent() {
   const { pointerHandlers: subChipLongPress, wrapClick: wrapSubChipClick } = useLongPress({
     onLongPress: () => setSubEditOpen(true),
   })
-  const { items, isLoading, mutate } = useCollectionItems(mainCategory, subCategory)
+  const { items, isLoading, mutate } = useCollectionItems(mainCategory, subCategory, activeFoodScope)
   const { items: allItems, isLoading: allLoading, mutate: mutateAll } = useAllCollectionItems(isSearching)
+  const { items: regularFoodItems, mutate: mutateRegularFood } = useRegularFoodItems(
+    section === 'regular' && !isSearching,
+  )
+  const livingMonthlyBreakdown = useMemo(
+    () => buildLivingMonthlyBreakdown(regularFoodItems, subs),
+    [regularFoodItems, subs],
+  )
   const displayItems = useMemo(() => {
     if (!trimmedQuery) return items
     return allItems.filter((item) => matchesCollectionItem(item, trimmedQuery))
@@ -276,13 +382,19 @@ export function CollectionPageContent() {
       throw new Error(body.message ?? '추가 실패')
     }
     const newItem = (await res.json()) as CollectionItem
-    if (isInCurrentList(newItem, mainCategory, subCategory)) {
+    if (isInCurrentList(newItem, mainCategory, subCategory, activeFoodScope)) {
       await mutate((prev) => upsertCollectionItemSorted(prev, newItem), { revalidate: false })
     }
     await mutateAll(
       (prev) => upsertCollectionItemSorted(prev, newItem),
       { revalidate: false },
     )
+    if (newItem.mainCategory === 'food' && newItem.foodScope === 'regular') {
+      await mutateRegularFood(
+        (prev) => upsertCollectionItemSorted(prev, newItem),
+        { revalidate: false },
+      )
+    }
   }
 
   const handleUpdate = async (payload: CollectionItemPayload) => {
@@ -298,7 +410,7 @@ export function CollectionPageContent() {
     }
     const updated = (await res.json()) as CollectionItem
 
-    if (isInCurrentList(updated, mainCategory, subCategory)) {
+    if (isInCurrentList(updated, mainCategory, subCategory, activeFoodScope)) {
       await mutate((prev) => upsertCollectionItemSorted(prev, updated), { revalidate: false })
     } else {
       await mutate((prev) => (prev ?? []).filter((item) => item.id !== updated.id), { revalidate: false })
@@ -309,21 +421,47 @@ export function CollectionPageContent() {
       { revalidate: false },
     )
 
+    if (updated.mainCategory === 'food' || editingItem.mainCategory === 'food') {
+      await mutateRegularFood((prev) => {
+        const list = (prev ?? []).filter((row) => row.id !== updated.id)
+        if (updated.mainCategory === 'food' && updated.foodScope === 'regular') {
+          return upsertCollectionItemSorted(list, updated)
+        }
+        return list
+      }, { revalidate: false })
+    }
+
     if (updated.mainCategory === mainCategory && updated.subCategory !== editingItem.subCategory) {
+      const listKey = (sub: CollectionSubKey) =>
+        mainCategory === 'food' && activeFoodScope
+          ? collectionItemsKey(mainCategory, sub, activeFoodScope)
+          : collectionItemsKey(mainCategory, sub)
       await globalMutate(
-        collectionItemsKey(mainCategory, updated.subCategory),
+        listKey(updated.subCategory),
         (prev: CollectionItem[] | undefined) => upsertCollectionItemSorted(prev, updated),
         { revalidate: false },
       )
       await globalMutate(
-        collectionItemsKey(mainCategory, editingItem.subCategory),
-        (prev: CollectionItem[] | undefined) =>
-          (prev ?? []).filter((item) => item.id !== updated.id),
+        listKey(editingItem.subCategory),
+        (prev: CollectionItem[] | undefined) => (prev ?? []).filter((item) => item.id !== updated.id),
+        { revalidate: false },
+      )
+    } else if (updated.mainCategory === 'food' && editingItem.foodScope !== updated.foodScope) {
+      await globalMutate(
+        collectionItemsKey('food', updated.subCategory, editingItem.foodScope),
+        (prev: CollectionItem[] | undefined) => (prev ?? []).filter((item) => item.id !== updated.id),
+        { revalidate: false },
+      )
+      await globalMutate(
+        collectionItemsKey('food', updated.subCategory, updated.foodScope),
+        (prev: CollectionItem[] | undefined) => upsertCollectionItemSorted(prev, updated),
         { revalidate: false },
       )
     } else if (updated.mainCategory !== mainCategory || updated.subCategory !== subCategory) {
       await globalMutate(
-        collectionItemsKey(updated.mainCategory, updated.subCategory),
+        updated.mainCategory === 'food'
+          ? collectionItemsKey(updated.mainCategory, updated.subCategory, updated.foodScope)
+          : collectionItemsKey(updated.mainCategory, updated.subCategory),
         (prev: CollectionItem[] | undefined) => upsertCollectionItemSorted(prev, updated),
         { revalidate: false },
       )
@@ -331,8 +469,12 @@ export function CollectionPageContent() {
   }
 
   const handleDelete = async (id: number) => {
+    const target = editingItem ?? items.find((row) => row.id === id)
     await mutate((prev) => (prev ?? []).filter((item) => item.id !== id), { revalidate: false })
     await mutateAll((prev) => (prev ?? []).filter((item) => item.id !== id), { revalidate: false })
+    if (target?.mainCategory === 'food' && target.foodScope === 'regular') {
+      await mutateRegularFood((prev) => (prev ?? []).filter((item) => item.id !== id), { revalidate: false })
+    }
     await fetch(`/api/collection-items/${id}`, { method: 'DELETE' })
   }
 
@@ -348,6 +490,18 @@ export function CollectionPageContent() {
   const subLabel = getSubcategoryLabel(mainCategory, subCategory, subs)
   const chipButtonSx = sxCollectionChipButton()
   const subChipButtonSx = sxCollectionChipButton(true)
+  const addTooltip = isSearching
+    ? '검색 중 · 항목 추가'
+    : isConsumableSection(section)
+      ? `${section === 'regular' ? '상시' : '수시'} · ${subLabel} 추가`
+      : `${mainMeta.label} · ${subLabel} 추가`
+
+  const handleSectionChange = (next: CollectionSectionKey) => {
+    setSection(next)
+    const nextMain = getDefaultMainForSection(next)
+    setMainCategory(nextMain)
+    setSubCategory(getFirstSubcategory(nextMain))
+  }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -366,13 +520,13 @@ export function CollectionPageContent() {
         <Stack spacing={1} sx={{ px: 1.5, pt: 1.25, pb: 1.125 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
             <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              소장
+              쇼핑
             </Typography>
-            <Tooltip title={isSearching ? '검색 중 · 소장 추가' : `${mainMeta.label} · ${subLabel} 추가`}>
+            <Tooltip title={addTooltip}>
               <IconButton
                 onClick={openAddDialog}
-                aria-label="소장 추가"
-                sx={sxCollectionAddButton(mainCategory)}
+                aria-label="항목 추가"
+                sx={sxCollectionAddButton(isConsumableSection(section) ? 'food' : mainCategory)}
               >
                 <AddRoundedIcon />
               </IconButton>
@@ -381,27 +535,48 @@ export function CollectionPageContent() {
 
           <ListSearchField value={searchQuery} onChange={setSearchQuery} />
 
-          <Box sx={sxCollectionMainChipGrid}>
-            {COLLECTION_MAIN_CATEGORIES.map((c) => (
-              <Box
-                key={c.key}
-                component="button"
-                type="button"
-                onClick={() => {
-                  if (isSearching) setSearchQuery('')
-                  setMainCategory(c.key)
-                  setSubCategory(getFirstSubcategory(c.key))
-                }}
-                sx={{
-                  ...sxCollectionMainChip(c.key, !isSearching && mainCategory === c.key),
-                  ...chipButtonSx,
-                  ...(isSearching ? { opacity: 0.72 } : null),
-                }}
-              >
-                {c.label}
-              </Box>
-            ))}
-          </Box>
+          {!isSearching ? (
+            <Box sx={sxCollectionSectionSegmentTrack()}>
+              {COLLECTION_SECTIONS.map((c) => (
+                <Box
+                  key={c.key}
+                  component="button"
+                  type="button"
+                  onClick={() => handleSectionChange(c.key)}
+                  sx={{
+                    ...sxCollectionSectionSegmentItem(c.key, section === c.key),
+                    ...chipButtonSx,
+                  }}
+                >
+                  {c.label}
+                </Box>
+              ))}
+            </Box>
+          ) : null}
+
+          {section === 'own' && !isSearching ? (
+            <Tabs
+              value={mainCategory}
+              onChange={(_, value: CollectionMainKey) => {
+                setMainCategory(value)
+                setSubCategory(getFirstSubcategory(value))
+              }}
+              variant="fullWidth"
+              sx={sxCollectionMainTabs(mainCategory)}
+            >
+              {COLLECTION_OWN_MAIN_CATEGORIES.map((c) => (
+                <Tab key={c.key} value={c.key} label={c.label} />
+              ))}
+            </Tabs>
+          ) : null}
+
+          {section === 'regular' && !isSearching ? (
+            <LivingMonthlySummary
+              rows={livingMonthlyBreakdown.rows}
+              total={livingMonthlyBreakdown.total}
+              activeSub={subCategory}
+            />
+          ) : null}
 
           {isSearching ? (
             <Box sx={sxCollectionSearchResultPanel()}>
@@ -444,10 +619,12 @@ export function CollectionPageContent() {
         ) : !isSearching && items.length === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6, color: 'text.secondary' }}>
             <Typography sx={{ fontWeight: 600 }}>
-              {mainMeta.label} · {subLabel} 목록이 비어 있습니다
+              {isConsumableSection(section)
+                ? `${section === 'regular' ? '상시' : '수시'} · ${subLabel} 목록이 비어 있습니다`
+                : `${mainMeta.label} · ${subLabel} 목록이 비어 있습니다`}
             </Typography>
             <Typography variant="body2" sx={{ mt: 0.5 }}>
-              + 버튼으로 소장품을 추가해 보세요
+              + 버튼으로 {isConsumableSection(section) ? '소모품' : '소장품'}을 추가해 보세요
             </Typography>
           </Stack>
         ) : displayItems.length === 0 ? (
@@ -465,6 +642,11 @@ export function CollectionPageContent() {
                 item={item}
                 onEdit={openEditDialog}
                 onDetail={setDetailItem}
+                showLivingCost={
+                  isFoodMainCategory(item.mainCategory) &&
+                  item.foodScope === 'regular' &&
+                  (isSearching || section === 'regular')
+                }
               />
             ))}
           </Stack>
@@ -473,6 +655,7 @@ export function CollectionPageContent() {
 
       <CollectionItemFormDialog
         open={formOpen}
+        section={section}
         mainCategory={editingItem?.mainCategory ?? mainCategory}
         subCategory={formSubCategory}
         item={editingItem}

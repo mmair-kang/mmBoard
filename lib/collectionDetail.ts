@@ -1,69 +1,61 @@
-// 수정: Auto — 2026-06-05 (소모 용량 없음)
+// 수정: Auto — 2026-06-11 (가격 칩 — 원 포함만 파란색)
 
-import { hasCollectionAmount } from '@/config/shoppingCategories'
+import { hasCollectionAmount, isMultiUnitPackType } from '@/config/shoppingCategories'
 import type { CollectionItem } from '@/hooks/useCollectionItems'
 import {
   formatAmountWithPackCount,
   formatPerPiecePriceLabel,
-  formatShoppingDetailLine,
   formatUnitPriceLabel,
   formatUnitsPerPackLabel,
+  getTotalPieces,
 } from '@/lib/shoppingUnitPrice'
 
-export function getCollectionFoodDetailLabels(item: CollectionItem): string[] {
-  const packType = item.packType === 'box' ? 'box' : 'piece'
+function buildFoodLabels(item: CollectionItem, includeTotalCount: boolean): string[] {
+  const packType = item.packType === 'box' ? 'box' : item.packType === 'bundle' ? 'bundle' : 'piece'
   const packCount = item.packCount ?? 1
   const unitsPerPack = item.unitsPerPack ?? 1
   const hasAmount = hasCollectionAmount(item.amount, item.amountUnit)
+  const parts: string[] = []
+  const seen = new Set<string>()
 
-  if (!hasAmount) {
-    const parts = formatShoppingDetailLine({
-      price: item.purchasePrice,
-      amount: 0,
-      unit: 'g',
-      packType,
-      packCount,
-      unitsPerPack,
-    })
-    return parts
+  const push = (label: string | null | undefined) => {
+    if (!label || seen.has(label)) return
+    parts.push(label)
+    seen.add(label)
   }
 
-  const parts = formatShoppingDetailLine({
-    price: item.purchasePrice,
-    amount: item.amount,
-    unit: item.amountUnit as 'g',
-    packType,
-    packCount,
-    unitsPerPack,
-  })
-  const seen = new Set(parts)
-
-  const amountLabel = formatAmountWithPackCount(item.amount, item.amountUnit, packType, packCount)
-  if (!seen.has(amountLabel)) {
-    parts.unshift(amountLabel)
-    seen.add(amountLabel)
+  if (hasAmount) {
+    push(formatAmountWithPackCount(item.amount, item.amountUnit, packType, packCount))
   }
 
-  const unitLabel = formatUnitPriceLabel(item.purchasePrice, item.amount, item.amountUnit as 'g', packCount)
-  if (unitLabel && !seen.has(unitLabel)) {
-    parts.push(unitLabel)
-    seen.add(unitLabel)
+  push(formatUnitsPerPackLabel(packType, unitsPerPack))
+
+  if (includeTotalCount) {
+    if (isMultiUnitPackType(packType) && packCount > 1) {
+      push(`총 ${getTotalPieces(packType, packCount, unitsPerPack)}개`)
+    } else if (packType === 'piece' && packCount > 1) {
+      push(`총 ${packCount}개`)
+    }
   }
 
-  const packLabel = formatUnitsPerPackLabel(packType, unitsPerPack)
-  if (packLabel && !seen.has(packLabel)) {
-    parts.push(packLabel)
-    seen.add(packLabel)
+  if (hasAmount) {
+    push(formatUnitPriceLabel(item.purchasePrice, item.amount, item.amountUnit as 'g', packCount))
   }
 
-  const perPiece = formatPerPiecePriceLabel(item.purchasePrice, packType, packCount, unitsPerPack)
-  if (perPiece && !seen.has(perPiece)) {
-    parts.push(perPiece)
-  }
+  push(formatPerPiecePriceLabel(item.purchasePrice, packType, packCount, unitsPerPack))
 
   return parts
 }
 
+/** 목록용 — 총 N개 제외 */
+export function getCollectionFoodListLabels(item: CollectionItem): string[] {
+  return buildFoodLabels(item, false)
+}
+
+/** 상세용 — 전체 */
+export function getCollectionFoodDetailLabels(item: CollectionItem): string[] {
+  return buildFoodLabels(item, true)
+}
 /** 박스/묶음 상세옵션 — 1단위당 N개 · 1개당 가격 */
 export function getCollectionPackDetailLabels(item: CollectionItem): string[] {
   const packType = item.packType
@@ -83,11 +75,14 @@ export function getCollectionPackDetailLabels(item: CollectionItem): string[] {
 }
 
 export function formatCollectionFoodListSubline(item: CollectionItem): string {
-  if (!hasCollectionAmount(item.amount, item.amountUnit)) return ''
-  const packType = item.packType === 'box' ? 'box' : 'piece'
-  return formatAmountWithPackCount(item.amount, item.amountUnit, packType, item.packCount)
+  return getCollectionFoodListLabels(item).join(' · ')
 }
 
 export function formatCollectionPackListSubline(item: CollectionItem): string {
   return getCollectionPackDetailLabels(item).join(' · ')
+}
+
+/** 가격 단가 칩 — 100g당·1개당 등 (1박스당 N개 제외) */
+export function isCollectionFoodPriceMetric(label: string): boolean {
+  return label.includes('원')
 }

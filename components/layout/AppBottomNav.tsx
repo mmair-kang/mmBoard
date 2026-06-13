@@ -1,10 +1,10 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-11 (쇼핑 탭)
 
 import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded'
-import CollectionsBookmarkRoundedIcon from '@mui/icons-material/CollectionsBookmarkRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
+import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Paper from '@mui/material/Paper'
@@ -17,7 +17,7 @@ export function AppBottomNav() {
   const tab: number | false = (() => {
     if (pathname === '/settings') return 3
     if (pathname === '/calc') return 2
-    if (pathname === '/collection') return 1
+    if (pathname === '/shopping' || pathname === '/collection') return 1
     return 0
   })()
   return (
@@ -36,10 +36,10 @@ export function AppBottomNav() {
       <BottomNavigation value={tab} showLabels>
         <BottomNavigationAction label="관리" icon={<HomeRoundedIcon />} component={Link} href="/" />
         <BottomNavigationAction
-          label="소장"
-          icon={<CollectionsBookmarkRoundedIcon />}
+          label="쇼핑"
+          icon={<ShoppingCartRoundedIcon />}
           component={Link}
-          href="/collection"
+          href="/shopping"
         />
         <BottomNavigationAction label="계산" icon={<CalculateRoundedIcon />} component={Link} href="/calc" />
         <BottomNavigationAction label="설정" icon={<SettingsRoundedIcon />} component={Link} href="/settings" />

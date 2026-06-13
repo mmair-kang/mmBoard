@@ -47,6 +47,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         optionType: payload.optionType,
         optionData: collectionOptionDataForDb(payload.optionData),
         imageData: payload.imageData,
+        repurchaseDays: payload.repurchaseDays,
+        repurchaseActive: payload.repurchaseActive ? 1 : 0,
+        foodScope: payload.foodScope,
       })
       .where(eq(collectionItems.id, itemId))
       .returning()

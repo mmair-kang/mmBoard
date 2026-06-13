@@ -1,9 +1,14 @@
-// 수정: Auto — 2026-06-05 (전체 검색)
+// 수정: Auto — 2026-06-11 (상시·수시·소장)
 
 import { and, desc, eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
-import { isValidCollectionPair, type CollectionMainKey } from '@/config/collectionCategories'
+import {
+  isValidCollectionPair,
+  isValidFoodScope,
+  type CollectionMainKey,
+  type FoodScopeKey,
+} from '@/config/collectionCategories'
 import { db } from '@/lib/db'
 import { loadSubEntries } from '@/lib/collectionSubcategoryStore'
 import { collectionOptionDataForDb, parseCollectionItemPayloadAsync } from '@/lib/collectionPayload'
@@ -24,8 +29,18 @@ export async function GET(request: Request) {
     return NextResponse.json(rows.map(toCollectionItemDto))
   }
 
+  if (scope === 'food-regular') {
+    const rows = await db
+      .select()
+      .from(collectionItems)
+      .where(and(eq(collectionItems.mainCategory, 'food'), eq(collectionItems.foodScope, 'regular')))
+      .orderBy(desc(collectionItems.purchaseDate), desc(collectionItems.createdAt))
+    return NextResponse.json(rows.map(toCollectionItemDto))
+  }
+
   const main = searchParams.get('main')
   const sub = searchParams.get('sub')
+  const foodScopeParam = searchParams.get('foodScope')
 
   if (!main || !sub) {
     return NextResponse.json({ message: 'main and sub required' }, { status: 400 })
@@ -35,10 +50,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'invalid category' }, { status: 400 })
   }
 
+  const filters = [eq(collectionItems.mainCategory, main), eq(collectionItems.subCategory, sub)]
+  if (main === 'food') {
+    if (!foodScopeParam || !isValidFoodScope(foodScopeParam)) {
+      return NextResponse.json({ message: 'foodScope required for food' }, { status: 400 })
+    }
+    filters.push(eq(collectionItems.foodScope, foodScopeParam as FoodScopeKey))
+  }
+
   const rows = await db
     .select()
     .from(collectionItems)
-    .where(and(eq(collectionItems.mainCategory, main), eq(collectionItems.subCategory, sub)))
+    .where(and(...filters))
     .orderBy(desc(collectionItems.purchaseDate), desc(collectionItems.createdAt))
 
   return NextResponse.json(rows.map(toCollectionItemDto))
@@ -76,6 +99,9 @@ export async function POST(request: Request) {
         optionType: payload.optionType,
         optionData: collectionOptionDataForDb(payload.optionData),
         imageData: payload.imageData,
+        repurchaseDays: payload.repurchaseDays,
+        repurchaseActive: payload.repurchaseActive ? 1 : 0,
+        foodScope: payload.foodScope,
         createdAt: new Date().toISOString(),
       })
       .returning()

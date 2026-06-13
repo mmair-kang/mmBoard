@@ -1,6 +1,5 @@
 'use client'
-
-// 수정: Auto — 2026-06-05 (옵션·상세옵션 라벨)
+// 수정: Auto — 2026-06-11 (쇼핑·재구매주기)
 
 import { AppDialog } from '@/components/common/AppDialog'
 
@@ -14,6 +13,8 @@ import {
 
   sxCollectionMainChip,
 
+  sxCollectionSectionSegmentItem,
+
   sxCollectionSubChip,
 
 } from '@/components/collection/collectionStyles'
@@ -22,15 +23,21 @@ import { ShoppingImageField } from '@/components/shopping/ShoppingImageField'
 
 import {
 
-  COLLECTION_MAIN_CATEGORIES,
-
   COLLECTION_STORES,
+
+  FOOD_SCOPES,
 
   getCollectionMainMeta,
 
   getCollectionSubcategories,
 
+  getDefaultFoodScopeForSection,
+
   getFirstSubcategory,
+
+  getFoodScopeLabel,
+
+  getSectionMainCategories,
 
   getSubcategoryLabel,
 
@@ -46,11 +53,17 @@ import {
 
   isFoodMainCategory,
 
+  isConsumableSection,
+
   type CollectionMainKey,
+
+  type CollectionSectionKey,
 
   type CollectionStoreKey,
 
   type CollectionSubKey,
+
+  type FoodScopeKey,
 
 } from '@/config/collectionCategories'
 
@@ -118,6 +131,8 @@ import type { CollectionItem } from '@/hooks/useCollectionItems'
 
 import type { CollectionItemPayload } from '@/lib/collectionPayload'
 
+import { calcLivingMonthlyCost, formatLivingMonthlyCost } from '@/lib/livingCost'
+
 import { todayIsoDate } from '@/lib/shoppingDate'
 
 import { formatPerPiecePriceLabel, formatUnitsPerPackLabel } from '@/lib/shoppingUnitPrice'
@@ -128,6 +143,8 @@ import DialogContent from '@mui/material/DialogContent'
 
 import FormControl from '@mui/material/FormControl'
 
+import FormControlLabel from '@mui/material/FormControlLabel'
+
 import InputAdornment from '@mui/material/InputAdornment'
 
 import InputLabel from '@mui/material/InputLabel'
@@ -137,6 +154,8 @@ import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 
 import Stack from '@mui/material/Stack'
+
+import Switch from '@mui/material/Switch'
 
 import TextField from '@mui/material/TextField'
 
@@ -182,6 +201,10 @@ type FormState = {
 
   purchaseDate: Dayjs | null
 
+  repurchaseDays: string
+
+  repurchaseActive: boolean
+
 }
 
 
@@ -189,6 +212,8 @@ type FormState = {
 type Props = {
 
   open: boolean
+
+  section: CollectionSectionKey
 
   mainCategory: CollectionMainKey
 
@@ -238,9 +263,11 @@ const emptyForm = (): FormState => ({
 
   purchaseDate: dayjs(todayIsoDate()),
 
+  repurchaseDays: '30',
+
+  repurchaseActive: false,
+
 })
-
-
 
 function formFromItem(item: CollectionItem): FormState {
 
@@ -278,6 +305,10 @@ function formFromItem(item: CollectionItem): FormState {
 
     purchaseDate: dayjs(item.purchaseDate),
 
+    repurchaseDays: item.repurchaseDays != null ? String(item.repurchaseDays) : '30',
+
+    repurchaseActive: item.repurchaseActive ?? false,
+
   }
 
 }
@@ -308,6 +339,8 @@ export function CollectionItemFormDialog({
 
   open,
 
+  section,
+
   mainCategory,
 
   subCategory,
@@ -329,6 +362,10 @@ export function CollectionItemFormDialog({
   const [formMain, setFormMain] = useState<CollectionMainKey>(mainCategory)
 
   const [formSub, setFormSub] = useState<CollectionSubKey>(subCategory)
+
+  const [formFoodScope, setFormFoodScope] = useState<FoodScopeKey>(() =>
+    getDefaultFoodScopeForSection(section),
+  )
 
   const [imageData, setImageData] = useState<string | null>(null)
 
@@ -360,6 +397,34 @@ export function CollectionItemFormDialog({
 
   const unitsPerPackPrefix = form.packType === 'bundle' ? '1묶음당' : '1박스당'
 
+  const showConsumableCategoryPicker =
+    isConsumableSection(section) || isFoodMainCategory(formMain)
+
+  const handleFoodScopeChange = (scope: FoodScopeKey) => {
+    setFormFoodScope(scope)
+    setFormMain('food')
+  }
+
+  const foodScopeCategoryChips = (
+    <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+      {FOOD_SCOPES.map((scope) => (
+        <Box
+          key={scope.key}
+          component="button"
+          type="button"
+          onClick={() => handleFoodScopeChange(scope.key)}
+          sx={{
+            ...sxCollectionSectionSegmentItem(scope.key, formFoodScope === scope.key),
+            flex: '0 1 auto',
+            fontFamily: 'inherit',
+          }}
+        >
+          {scope.label}
+        </Box>
+      ))}
+    </Stack>
+  )
+
 
 
   useEffect(() => {
@@ -388,13 +453,15 @@ export function CollectionItemFormDialog({
 
     setFormSub(item?.subCategory ?? subCategory)
 
+    setFormFoodScope(item?.foodScope ?? getDefaultFoodScopeForSection(section))
+
     setImageData(item?.imageData ?? null)
 
     setOptionType(item?.optionType ?? 'none')
 
     setOptionData(item?.optionData ?? emptyOptionData(item?.optionType ?? 'none'))
 
-  }, [open, item, mainCategory, subCategory])
+  }, [open, item, mainCategory, subCategory, section])
 
   useEffect(() => {
     if (!open) return
@@ -425,6 +492,10 @@ export function CollectionItemFormDialog({
     setFormMain(nextMain)
 
     setFormSub(getFirstSubcategory(nextMain))
+
+    if (isFoodMainCategory(nextMain)) {
+      setFormFoodScope(getDefaultFoodScopeForSection(section))
+    }
 
     if (!isFashionMainCategory(nextMain)) {
 
@@ -468,7 +539,24 @@ export function CollectionItemFormDialog({
 
     Number(form.packCount) >= 1 &&
 
-    (!isBox || (Number.isInteger(Number(form.unitsPerPack)) && Number(form.unitsPerPack) >= 1))
+    (!isBox || (Number.isInteger(Number(form.unitsPerPack)) && Number(form.unitsPerPack) >= 1)) &&
+
+    form.repurchaseDays.trim() !== '' &&
+
+    Number.isFinite(Number(form.repurchaseDays)) &&
+
+    Number(form.repurchaseDays) >= 1
+
+  const repurchaseDaysValue = Number(form.repurchaseDays)
+  const livingMonthlyPreview = showFoodFields && repurchaseDaysValue >= 1 && Number(form.purchasePrice) >= 0
+    ? calcLivingMonthlyCost(Math.round(Number(form.purchasePrice)), repurchaseDaysValue)
+    : null
+  const livingMonthlyHelper =
+    livingMonthlyPreview != null
+      ? form.repurchaseActive
+        ? `한달 예상 ${formatLivingMonthlyCost(livingMonthlyPreview)} · 상시 합계에 포함`
+        : `한달 예상 ${formatLivingMonthlyCost(livingMonthlyPreview)} · 합계 제외 (재구매중 OFF)`
+      : '며칠마다 다시 구매하는지 입력하세요'
 
   const packDetailValid =
 
@@ -550,6 +638,12 @@ export function CollectionItemFormDialog({
 
         imageData,
 
+        repurchaseDays: showFoodFields ? Math.round(Number(form.repurchaseDays)) : null,
+
+        repurchaseActive: showFoodFields ? form.repurchaseActive : false,
+
+        foodScope: showFoodFields ? formFoodScope : 'regular',
+
       })
 
       onClose()
@@ -612,7 +706,7 @@ export function CollectionItemFormDialog({
 
             <Typography component="span" sx={sxCollectionBadge(activeMain)}>
 
-              {mainMeta.label}
+              {showFoodFields ? getFoodScopeLabel(formFoodScope) : mainMeta.label}
 
             </Typography>
 
@@ -624,7 +718,7 @@ export function CollectionItemFormDialog({
 
             <Typography component="span" sx={{ fontSize: '1.05rem', fontWeight: 700 }}>
 
-              {isEdit ? '소장 수정' : '소장 추가'}
+              {isEdit ? '항목 수정' : isConsumableSection(section) ? `${section === 'regular' ? '상시' : '수시'} 추가` : '소장 추가'}
 
             </Typography>
 
@@ -650,31 +744,35 @@ export function CollectionItemFormDialog({
 
                     </Typography>
 
-                    <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                    {showConsumableCategoryPicker ? (
+                      foodScopeCategoryChips
+                    ) : (
+                      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
 
-                      {COLLECTION_MAIN_CATEGORIES.map((c) => (
+                        {getSectionMainCategories('own').map((c) => (
 
-                        <Box
+                          <Box
 
-                          key={c.key}
+                            key={c.key}
 
-                          component="button"
+                            component="button"
 
-                          type="button"
+                            type="button"
 
-                          onClick={() => handleMainChange(c.key)}
+                            onClick={() => handleMainChange(c.key)}
 
-                          sx={{ ...sxCollectionMainChip(c.key, formMain === c.key), fontFamily: 'inherit' }}
+                            sx={{ ...sxCollectionMainChip(c.key, formMain === c.key), fontFamily: 'inherit' }}
 
-                        >
+                          >
 
-                          {c.label}
+                            {c.label}
 
-                        </Box>
+                          </Box>
 
-                      ))}
+                        ))}
 
-                    </Stack>
+                      </Stack>
+                    )}
 
                   </Box>
 
@@ -715,6 +813,20 @@ export function CollectionItemFormDialog({
                   </Box>
 
                 </>
+
+              ) : isConsumableSection(section) ? (
+
+                <Box>
+
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.75, display: 'block' }}>
+
+                    큰 카테고리
+
+                  </Typography>
+
+                  {foodScopeCategoryChips}
+
+                </Box>
 
               ) : null}
 
@@ -1268,6 +1380,43 @@ export function CollectionItemFormDialog({
                 {...formDialogCompactTextFieldProps}
 
               />
+
+              {showFoodFields ? (
+                <>
+                  <TextField
+                    label="재구매 주기"
+                    type="number"
+                    value={form.repurchaseDays}
+                    onChange={(e) => setForm((prev) => ({ ...prev, repurchaseDays: e.target.value }))}
+                    required
+                    fullWidth
+                    inputProps={{ min: 1, step: 1 }}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">일</InputAdornment>,
+                    }}
+                    helperText={livingMonthlyHelper}
+                    {...formDialogCompactTextFieldProps}
+                  />
+                  <FormControlLabel
+                    sx={{ mx: 0, mt: -0.25, alignItems: 'center' }}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={form.repurchaseActive}
+                        onChange={(_, checked) =>
+                          setForm((prev) => ({ ...prev, repurchaseActive: checked }))
+                        }
+                        color="warning"
+                      />
+                    }
+                    label={
+                      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                        재구매중
+                      </Typography>
+                    }
+                  />
+                </>
+              ) : null}
 
               <DatePicker
 

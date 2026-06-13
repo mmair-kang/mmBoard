@@ -9,8 +9,10 @@ import {
 } from '@/config/collectionOptions'
 import {
   isFashionMainCategory,
+  isValidFoodScope,
   normalizeCollectionMainSub,
   type CollectionMainKey,
+  type FoodScopeKey,
   type CollectionSubKey,
 } from '@/config/collectionCategories'
 import type { CollectionStoreKey } from '@/config/collectionCategories'
@@ -43,6 +45,9 @@ export type CollectionItemDto = {
   optionType: CollectionOptionType
   optionData: ReturnType<typeof deserializeCollectionOptionData>
   imageData: string | null
+  repurchaseDays: number | null
+  repurchaseActive: boolean
+  foodScope: FoodScopeKey
   createdAt: string
 }
 
@@ -106,6 +111,10 @@ export function toCollectionItemDto(row: CollectionRow): CollectionItemDto {
     optionType,
     optionData,
     imageData: row.imageData,
+    repurchaseDays: row.repurchaseDays ?? null,
+    repurchaseActive: (row.repurchaseActive ?? 0) === 1,
+    foodScope:
+      mainCategory === 'food' && isValidFoodScope(row.foodScope) ? row.foodScope : 'regular',
     createdAt: row.createdAt,
   }
 }

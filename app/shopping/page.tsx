@@ -1,5 +1,7 @@
-import { redirect } from 'next/navigation'
+// 수정: Auto — 2026-06-11
+
+import { CollectionPageContent } from '@/components/collection/CollectionPageContent'
 
 export default function ShoppingPage() {
-  redirect('/collection')
+  return <CollectionPageContent />
 }

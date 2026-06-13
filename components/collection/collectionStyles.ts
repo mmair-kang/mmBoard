@@ -1,13 +1,90 @@
-// 수정: Auto — 2026-06-05 (검색 모드 UI)
+// 수정: Auto — 2026-06-11 (1depth 탭 높이 축소)
 
-import type { CollectionMainKey } from '@/config/collectionCategories'
-import { getCollectionMainMeta } from '@/config/collectionCategories'
-import { alpha } from '@mui/material/styles'
+import type { CollectionMainKey, CollectionSectionKey } from '@/config/collectionCategories'
+import { getCollectionMainMeta, getCollectionSectionMeta } from '@/config/collectionCategories'
+import { alpha, type Theme } from '@mui/material/styles'
 
 const chipTextColor = 'rgba(15, 23, 42, 0.88)'
 const chipTextMuted = 'rgba(51, 65, 85, 0.72)'
 
-/** 1depth — 세그먼트 탭 (채움·크게) */
+/** 0depth — iOS 스타일 세그먼트 (상시 / 수시 / 소장) */
+export function sxCollectionSectionSegmentTrack() {
+  return {
+    display: 'flex',
+    gap: 0.35,
+    p: 0.35,
+    borderRadius: 2.5,
+    bgcolor: (theme: Theme) =>
+      alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.14 : 0.08),
+    border: '1px solid',
+    borderColor: (theme: Theme) =>
+      alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.22 : 0.12),
+  } as const
+}
+
+export function sxCollectionSectionSegmentItem(section: CollectionSectionKey, selected: boolean) {
+  const hex = getCollectionSectionMeta(section).color
+  return {
+    flex: 1,
+    minWidth: 0,
+    py: 0.75,
+    px: 0.5,
+    borderRadius: 2,
+    border: 'none',
+    bgcolor: selected ? 'background.paper' : 'transparent',
+    color: selected ? hex : chipTextMuted,
+    fontWeight: selected ? 800 : 600,
+    fontSize: '0.86rem',
+    lineHeight: 1.2,
+    cursor: 'pointer',
+    outline: 'none',
+    WebkitTapHighlightColor: 'transparent',
+    boxShadow: selected ? '0 1px 4px rgba(15, 23, 42, 0.1)' : 'none',
+    transition: 'background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.1s ease',
+    '&:hover': {
+      color: selected ? hex : chipTextColor,
+    },
+    '&:active': {
+      transform: 'scale(0.99)',
+    },
+  }
+}
+
+/** 1depth — 언더라인 탭 (개인 · 아파트 · 자동차 · 패션) */
+export function sxCollectionMainTabs(main: CollectionMainKey) {
+  const hex = getCollectionMainMeta(main).color
+  return {
+    minHeight: 32,
+    mx: -0.5,
+    my: -0.15,
+    '& .MuiTabs-flexContainer': {
+      minHeight: 32,
+    },
+    '& .MuiTabs-indicator': {
+      height: 2,
+      borderRadius: '2px 2px 0 0',
+      backgroundColor: hex,
+    },
+    '& .MuiTab-root': {
+      minHeight: 32,
+      minWidth: 0,
+      py: 0.25,
+      px: 0.25,
+      padding: '5px 2px',
+      fontWeight: 600,
+      fontSize: '0.76rem',
+      lineHeight: 1.15,
+      color: chipTextMuted,
+      textTransform: 'none',
+      '&.Mui-selected': {
+        color: hex,
+        fontWeight: 800,
+      },
+    },
+  } as const
+}
+
+/** 1depth — 세그먼트 탭 (폼·기타 레거시) */
 export function sxCollectionMainChip(main: CollectionMainKey, selected: boolean) {
   const hex = getCollectionMainMeta(main).color
   return {
@@ -139,12 +216,6 @@ export function sxCollectionAddButton(main: CollectionMainKey) {
   }
 }
 
-export const sxCollectionMainChipGrid = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-  gap: 0.5,
-} as const
-
 export function sxCollectionChipButton(compact?: boolean) {
   return {
     fontFamily: 'inherit',
@@ -169,6 +240,79 @@ export function sxCollectionBrandChip() {
     fontSize: '0.78rem',
     lineHeight: 1.3,
     flexShrink: 0,
+  } as const
+}
+
+export function sxCollectionLivingSummaryPanel() {
+  return {
+    px: 0.85,
+    py: 0.6,
+    borderRadius: 2,
+    bgcolor: (theme: { palette: { mode: string; warning: { main: string } } }) =>
+      alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.12 : 0.07),
+    border: '1px solid',
+    borderColor: (theme: { palette: { warning: { main: string } } }) =>
+      alpha(theme.palette.warning.main, 0.22),
+  } as const
+}
+
+export function sxLivingSubAmountChip(active: boolean) {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 0.2,
+    px: 0.55,
+    py: 0.15,
+    borderRadius: 1,
+    bgcolor: active ? 'background.paper' : 'transparent',
+    border: 1,
+    borderColor: active ? 'warning.main' : (theme: { palette: { divider: string } }) => theme.palette.divider,
+    boxShadow: active ? '0 1px 2px rgba(15, 23, 42, 0.06)' : 'none',
+  } as const
+}
+
+export function sxCollectionMonthlyUnderThumb(active: boolean) {
+  return {
+    width: '100%',
+    py: 0.28,
+    px: 0.2,
+    borderRadius: 1,
+    textAlign: 'center' as const,
+    fontSize: '0.58rem',
+    fontWeight: 800,
+    lineHeight: 1.2,
+    letterSpacing: '-0.02em',
+    color: active ? 'warning.dark' : 'text.disabled',
+    bgcolor: active
+      ? (theme: { palette: { mode: string; warning: { main: string } } }) =>
+          alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.16 : 0.09)
+      : (theme: { palette: { mode: string; grey: { 500: string } } }) =>
+          alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.12 : 0.06),
+    border: '1px solid',
+    borderColor: active ? 'warning.light' : 'divider',
+  } as const
+}
+
+export function sxCollectionFoodMetricChip(priceMetric: boolean) {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    px: 0.55,
+    py: 0.12,
+    borderRadius: 0.75,
+    fontSize: '0.68rem',
+    fontWeight: priceMetric ? 700 : 600,
+    lineHeight: 1.25,
+    color: priceMetric ? 'primary.main' : 'text.secondary',
+    bgcolor: priceMetric
+      ? (theme: { palette: { mode: string; primary: { main: string } } }) =>
+          alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.14 : 0.07)
+      : (theme: { palette: { mode: string; grey: { 500: string } } }) =>
+          alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.1 : 0.06),
+    border: '1px solid',
+    borderColor: priceMetric
+      ? (theme: { palette: { primary: { main: string } } }) => alpha(theme.palette.primary.main, 0.2)
+      : 'divider',
   } as const
 }
 

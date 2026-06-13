@@ -1,12 +1,16 @@
 'use client'
-// 수정: Auto — 2026-06-05 (옵션·상세옵션 라벨)
+// 수정: Auto — 2026-06-11 (상세 헤더·생활 UI)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
-import { sxCollectionBadge, sxCollectionBrandChip } from '@/components/collection/collectionStyles'
+import {
+  sxCollectionBrandChip,
+  sxCollectionFoodMetricChip,
+} from '@/components/collection/collectionStyles'
 import {
   getCollectionMainMeta,
   getCollectionStoreLabel,
+  getFoodScopeLabel,
   getSubcategoryLabel,
   isFashionMainCategory,
   isFoodMainCategory,
@@ -18,7 +22,12 @@ import {
 } from '@/config/collectionOptions'
 import type { CollectionItem } from '@/hooks/useCollectionItems'
 import { useCollectionSubcategories } from '@/hooks/useCollectionSubcategories'
-import { getCollectionPackDetailLabels, getCollectionFoodDetailLabels } from '@/lib/collectionDetail'
+import {
+  getCollectionPackDetailLabels,
+  getCollectionFoodDetailLabels,
+  isCollectionFoodPriceMetric,
+} from '@/lib/collectionDetail'
+import { calcLivingMonthlyCost, formatLivingMonthlyCost } from '@/lib/livingCost'
 import { formatLastPurchaseDateDisplay } from '@/lib/shoppingDate'
 import Box from '@mui/material/Box'
 import DialogContent from '@mui/material/DialogContent'
@@ -59,8 +68,12 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
 
   const mainMeta = getCollectionMainMeta(item.mainCategory)
   const subLabel = getSubcategoryLabel(item.mainCategory, item.subCategory, subs)
+  const brand = item.brand.trim()
   const displayName = item.name.trim()
   const displayNameSuffix = item.nameSuffix.trim()
+  const categoryLine = isFoodMainCategory(item.mainCategory)
+    ? `${getFoodScopeLabel(item.foodScope)} · ${subLabel}`
+    : `${mainMeta.label} · ${subLabel}`
   const storeLabel = getCollectionStoreLabel(item.storeKey, item.storeCustom)
   const purchaseLabel = formatLastPurchaseDateDisplay(item.purchaseDate)
   const isFood = isFoodMainCategory(item.mainCategory)
@@ -68,6 +81,7 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
   const isFashion = isFashionMainCategory(item.mainCategory)
   const foodDetails = isFood ? getCollectionFoodDetailLabels(item) : []
   const packDetails = isPackDetail ? getCollectionPackDetailLabels(item) : []
+  const livingMonthly = isFood ? calcLivingMonthlyCost(item.purchasePrice, item.repurchaseDays) : null
   const optionFields =
     isFashion && item.optionType !== 'none' ? COLLECTION_OPTION_FIELDS[item.optionType] : []
 
@@ -88,27 +102,61 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
       }}
     >
       <FormDialogHeader onClose={onClose}>
-        <Typography component="span" sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.35 }}>
-          {displayName || displayNameSuffix ? (
-            <>
-              {displayName ? <Box component="span">{displayName}</Box> : null}
-              {displayNameSuffix ? (
-                <Box
-                  component="span"
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 500,
-                    ml: displayName ? 0.75 : 0,
-                  }}
-                >
-                  {displayNameSuffix}
+        <Stack spacing={0.35} sx={{ minWidth: 0 }}>
+          {brand || displayName || displayNameSuffix ? (
+            <Stack direction="row" alignItems="center" gap={0.65} sx={{ minWidth: 0 }}>
+              {brand ? (
+                <Box component="span" sx={{ ...sxCollectionBrandChip(), flexShrink: 0 }}>
+                  {brand}
                 </Box>
               ) : null}
-            </>
+              {displayName || displayNameSuffix ? (
+                <Typography
+                  component="span"
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: '1.05rem',
+                    fontWeight: 800,
+                    lineHeight: 1.35,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {displayName ? <Box component="span">{displayName}</Box> : null}
+                  {displayNameSuffix ? (
+                    <Box
+                      component="span"
+                      sx={{
+                        color: 'text.secondary',
+                        fontWeight: 500,
+                        ml: displayName ? 0.75 : 0,
+                      }}
+                    >
+                      {displayNameSuffix}
+                    </Box>
+                  ) : null}
+                </Typography>
+              ) : null}
+            </Stack>
           ) : (
-            '소장품'
+            <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.35 }}>
+              상품 정보
+            </Typography>
           )}
-        </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              color: 'text.secondary',
+              lineHeight: 1.3,
+            }}
+          >
+            {categoryLine}
+          </Typography>
+        </Stack>
       </FormDialogHeader>
 
       <DialogContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
@@ -136,22 +184,23 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
         ) : null}
 
         <Stack spacing={1.25} sx={{ px: 2, py: 1.75 }}>
-          <Stack direction="row" alignItems="center" gap={0.75} flexWrap="wrap">
-            <Box component="span" sx={sxCollectionBadge(item.mainCategory)}>
-              {mainMeta.label}
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-              {subLabel}
-            </Typography>
-            {item.brand.trim() ? (
-              <Box component="span" sx={sxCollectionBrandChip()}>
-                {item.brand.trim()}
-              </Box>
-            ) : null}
-          </Stack>
-
           <Box>
             <DetailRow label="구매가" value={formatPrice(item.purchasePrice)} />
+            {isFood && item.repurchaseDays ? (
+              <DetailRow label="재구매" value={`${item.repurchaseDays}일마다`} />
+            ) : null}
+            {isFood ? (
+              <DetailRow
+                label="재구매중"
+                value={item.repurchaseActive ? 'ON · 합계 포함' : 'OFF · 합계 제외'}
+              />
+            ) : null}
+            {livingMonthly != null ? (
+              <DetailRow
+                label="한달 예상"
+                value={`${formatLivingMonthlyCost(livingMonthly) ?? ''}${item.repurchaseActive ? '' : ' (합계 제외)'}`}
+              />
+            ) : null}
             <DetailRow label="구매처" value={storeLabel} />
             {purchaseLabel ? <DetailRow label="구매일" value={purchaseLabel} /> : null}
             {!isFood && item.model.trim() ? <DetailRow label="모델명" value={item.model.trim()} /> : null}
@@ -171,25 +220,21 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ fontWeight: 700, display: 'block', mb: 0.75 }}
+                sx={{ fontWeight: 700, display: 'block', mb: 0.65 }}
               >
                 용량 · 단가
               </Typography>
-              <Stack spacing={0.5}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.4 }}>
                 {foodDetails.map((part) => (
-                  <Typography
+                  <Box
                     key={part}
-                    variant="body2"
-                    sx={{
-                      fontWeight: part.includes('당') ? 700 : 500,
-                      color: part.includes('당') ? 'primary.main' : 'text.primary',
-                      lineHeight: 1.45,
-                    }}
+                    component="span"
+                    sx={sxCollectionFoodMetricChip(isCollectionFoodPriceMetric(part))}
                   >
                     {part}
-                  </Typography>
+                  </Box>
                 ))}
-              </Stack>
+              </Box>
             </Box>
           ) : null}
 
@@ -198,25 +243,21 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ fontWeight: 700, display: 'block', mb: 0.75 }}
+                sx={{ fontWeight: 700, display: 'block', mb: 0.65 }}
               >
                 상세 · 단가
               </Typography>
-              <Stack spacing={0.5}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.4 }}>
                 {packDetails.map((part) => (
-                  <Typography
+                  <Box
                     key={part}
-                    variant="body2"
-                    sx={{
-                      fontWeight: part.includes('당') ? 700 : 500,
-                      color: part.includes('당') ? 'primary.main' : 'text.primary',
-                      lineHeight: 1.45,
-                    }}
+                    component="span"
+                    sx={sxCollectionFoodMetricChip(isCollectionFoodPriceMetric(part))}
                   >
                     {part}
-                  </Typography>
+                  </Box>
                 ))}
-              </Stack>
+              </Box>
             </Box>
           ) : null}
 

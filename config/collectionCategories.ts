@@ -1,17 +1,85 @@
-// 수정: Auto — 2026-06-05 (푸드 2depth: 음식·간식·건강)
+// 수정: Auto — 2026-06-11 (상시·수시·소장)
 
 import type { PackType } from '@/config/shoppingCategories'
 import { SHOPPING_STORES } from '@/config/shoppingCategories'
+
+/** 0depth — 상시 / 수시 / 소장 */
+export const COLLECTION_SECTIONS = [
+  { key: 'regular', label: '상시', color: '#f59e0b' },
+  { key: 'occasional', label: '수시', color: '#14b8a6' },
+  { key: 'own', label: '소장', color: '#6366f1' },
+] as const
+
+export type CollectionSectionKey = (typeof COLLECTION_SECTIONS)[number]['key']
+
+/** food 항목 — 상시(늘 사는) / 수시(가끔 사는) */
+export const FOOD_SCOPES = [
+  { key: 'regular', label: '상시' },
+  { key: 'occasional', label: '수시' },
+] as const
+
+export type FoodScopeKey = (typeof FOOD_SCOPES)[number]['key']
+
+const foodScopeKeys = new Set<string>(FOOD_SCOPES.map((s) => s.key))
+
+export function isValidFoodScope(value: unknown): value is FoodScopeKey {
+  return foodScopeKeys.has(String(value))
+}
+
+export function getFoodScopeLabel(scope: FoodScopeKey): string {
+  return FOOD_SCOPES.find((s) => s.key === scope)?.label ?? scope
+}
+
+export function isConsumableSection(section: CollectionSectionKey): section is 'regular' | 'occasional' {
+  return section === 'regular' || section === 'occasional'
+}
 
 export const COLLECTION_MAIN_CATEGORIES = [
   { key: 'personal', label: '개인', color: '#f97316' },
   { key: 'home', label: '아파트', color: '#22c55e' },
   { key: 'car', label: '자동차', color: '#0ea5e9' },
-  { key: 'food', label: '소모', color: '#f59e0b' },
+  { key: 'food', label: '소모품', color: '#f59e0b' },
   { key: 'fashion', label: '패션', color: '#8b5cf6' },
 ] as const
 
 export type CollectionMainKey = (typeof COLLECTION_MAIN_CATEGORIES)[number]['key']
+
+const LIVING_MAIN: CollectionMainKey = 'food'
+const OWN_MAINS = new Set<CollectionMainKey>(['personal', 'home', 'car', 'fashion'])
+
+export const COLLECTION_OWN_MAIN_CATEGORIES = COLLECTION_MAIN_CATEGORIES.filter((c) =>
+  OWN_MAINS.has(c.key),
+)
+
+export function getCollectionSectionMeta(key: CollectionSectionKey) {
+  return COLLECTION_SECTIONS.find((c) => c.key === key)!
+}
+
+export function getCollectionSectionForMain(main: CollectionMainKey): CollectionSectionKey {
+  return main === LIVING_MAIN ? 'regular' : 'own'
+}
+
+export function getCollectionSectionForItem(item: {
+  mainCategory: CollectionMainKey
+  foodScope: FoodScopeKey
+}): CollectionSectionKey {
+  if (item.mainCategory !== LIVING_MAIN) return 'own'
+  return item.foodScope
+}
+
+export function getSectionMainCategories(section: CollectionSectionKey) {
+  return isConsumableSection(section)
+    ? COLLECTION_MAIN_CATEGORIES.filter((c) => c.key === LIVING_MAIN)
+    : COLLECTION_OWN_MAIN_CATEGORIES
+}
+
+export function getDefaultMainForSection(section: CollectionSectionKey): CollectionMainKey {
+  return isConsumableSection(section) ? 'food' : 'personal'
+}
+
+export function getDefaultFoodScopeForSection(section: CollectionSectionKey): FoodScopeKey {
+  return section === 'occasional' ? 'occasional' : 'regular'
+}
 
 export const COLLECTION_SUB_ALL = 'all' as const
 

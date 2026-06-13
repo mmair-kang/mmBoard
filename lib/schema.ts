@@ -46,6 +46,12 @@ export const collectionItems = sqliteTable('collection_items', {
   /** JSON — 상의/하의 치수 */
   optionData: text('option_data').notNull().default('{}'),
   imageData: text('image_data'),
+  /** 생활(food) — 재구매 주기(일) */
+  repurchaseDays: integer('repurchase_days'),
+  /** 생활(food) — 재구매중(한달 생활비 합계 포함) */
+  repurchaseActive: integer('repurchase_active').notNull().default(0),
+  /** food — 상시(regular) / 수시(occasional) */
+  foodScope: text('food_scope').notNull().default('regular'),
   createdAt: text('created_at').notNull(),
 })
 
