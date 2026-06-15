@@ -1,6 +1,7 @@
-// 수정: Auto — 2026-06-05
+// 수정: Auto — 2026-06-15
 'use client'
 
+import { sxPageTitle } from '@/config/responsiveLayout'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 
@@ -12,10 +13,10 @@ export default function SettingsPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        px: 2,
+        px: { xs: 2, md: 3 },
       }}
     >
-      <Typography color="text.secondary" sx={{ fontWeight: 600 }}>
+      <Typography color="text.secondary" sx={{ ...sxPageTitle, color: 'text.secondary' }}>
         설정
       </Typography>
     </Box>

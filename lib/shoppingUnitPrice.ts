@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-05 (mg 단위)
+// 수정: Auto — 2026-06-15 (목록 라벨·단가 표기)
 import { getPackTypeLabel, type AmountUnit, type PackType, isMultiUnitPackType } from '@/config/shoppingCategories'
 
 export type ShoppingQuantityMeta = {
@@ -109,6 +109,37 @@ export function formatUnitsPerPackLabel(packType: PackType | string, unitsPerPac
 /** @deprecated formatUnitsPerPackLabel 사용 */
 export function formatUnitsPerBoxLabel(packType: PackType, unitsPerPack = 1): string | null {
   return formatUnitsPerPackLabel(packType, unitsPerPack)
+}
+
+export function isShoppingPriceMetric(label: string): boolean {
+  return label.includes('당') && label.includes('원')
+}
+
+export function getShoppingListLabels(meta: ShoppingQuantityMeta): string[] {
+  const packType = resolvePackType(meta.packType)
+  const packCount = normalizePackCount(meta.packCount ?? 1)
+  const unitsPerPack = normalizeUnitsPerPack(meta.unitsPerPack ?? 1)
+  const parts: string[] = []
+  const seen = new Set<string>()
+
+  const push = (label: string | null | undefined) => {
+    if (!label || seen.has(label)) return
+    parts.push(label)
+    seen.add(label)
+  }
+
+  push(formatAmountWithPackCount(meta.amount, meta.unit, packType, packCount))
+  push(formatUnitsPerPackLabel(packType, unitsPerPack))
+  push(formatUnitPriceLabel(meta.price, meta.amount, meta.unit, packCount))
+
+  const perPieceLabel = formatPerPiecePriceLabel(meta.price, packType, packCount, unitsPerPack)
+  if (perPieceLabel) {
+    const showPerPiece =
+      isMultiUnitPackType(packType) ? unitsPerPack > 1 || packCount > 1 : packCount > 1
+    if (showPerPiece) push(perPieceLabel)
+  }
+
+  return parts
 }
 
 export function formatShoppingDetailLine(meta: ShoppingQuantityMeta): string[] {

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11 (헤더 높이·수정 버튼)
+// 수정: Auto — 2026-06-15 (PC 타이포·굵기 균형)
 
 import type { InvestmentAccountView } from '@/hooks/useInvestments'
 import { formatReturnRate, returnTone } from '@/lib/investmentCalc'
@@ -25,11 +25,11 @@ type Props = {
 }
 
 const cellSx = {
-  px: 0.35,
-  py: 0.35,
-  fontSize: { xs: '0.62rem', sm: '0.66rem' },
-  fontWeight: 700,
-  lineHeight: 1.25,
+  px: { xs: 0.35, md: 0.45 },
+  py: { xs: 0.35, md: 0.4 },
+  fontSize: { xs: '0.62rem', sm: '0.66rem', md: '0.68rem' },
+  fontWeight: 500,
+  lineHeight: 1.3,
   whiteSpace: 'nowrap',
   borderColor: 'divider',
   overflow: 'hidden',
@@ -38,7 +38,7 @@ const cellSx = {
 
 const headCellSx = {
   ...cellSx,
-  fontWeight: 800,
+  fontWeight: 700,
   color: 'text.secondary',
 } as const
 
@@ -114,9 +114,23 @@ export function InvestmentAccountCard({ account, onOpenDetail, onEdit }: Props) 
               size="small"
               label={account.label}
               color={themeMeta.color}
-              sx={{ height: 18, fontWeight: 900, fontSize: '0.62rem', '& .MuiChip-label': { px: 0.6 } }}
+              sx={{
+                height: { xs: 18, md: 20 },
+                fontWeight: 700,
+                fontSize: { xs: '0.62rem', md: '0.64rem' },
+                '& .MuiChip-label': { px: 0.6 },
+              }}
             />
-            <Typography sx={{ fontWeight: 900, fontSize: '0.8rem', lineHeight: 1.2 }}>{account.title}</Typography>
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: '0.8rem', md: '0.75rem' },
+                lineHeight: 1.2,
+                color: 'text.primary',
+              }}
+            >
+              {account.title}
+            </Typography>
             {account.pensionNote ? (
               <Chip
                 size="small"
@@ -186,7 +200,7 @@ export function InvestmentAccountCard({ account, onOpenDetail, onEdit }: Props) 
                 return (
                   <TableRow key={row.id} hover>
                     <TableCell
-                      sx={{ ...cellSx, color: `${themeMeta.color}.dark`, fontWeight: 800, px: 0.25 }}
+                      sx={{ ...cellSx, color: `${themeMeta.color}.dark`, fontWeight: 600, px: { xs: 0.25, md: 0.35 } }}
                     >
                       <Typography
                         noWrap
@@ -196,19 +210,19 @@ export function InvestmentAccountCard({ account, onOpenDetail, onEdit }: Props) 
                         {row.name}
                       </Typography>
                     </TableCell>
-                    <TableCell align="right" sx={cellSx}>
+                    <TableCell align="right" sx={{ ...cellSx, fontWeight: 500 }}>
                       {row.shares}
                     </TableCell>
-                    <TableCell align="right" sx={{ ...cellSx, color: 'text.secondary' }}>
+                    <TableCell align="right" sx={{ ...cellSx, color: 'text.secondary', fontWeight: 500 }}>
                       {formatKrwCell(row.purchasePrice)}
                     </TableCell>
-                    <TableCell align="right" sx={{ ...cellSx, color: `${themeMeta.color}.dark`, fontWeight: 800 }}>
+                    <TableCell align="right" sx={{ ...cellSx, color: `${themeMeta.color}.dark`, fontWeight: 600 }}>
                       {formatKrwCell(row.livePriceKrw)}
                     </TableCell>
-                    <TableCell align="right" sx={{ ...cellSx, color: toneColor(tone), fontWeight: 900 }}>
+                    <TableCell align="right" sx={{ ...cellSx, color: toneColor(tone), fontWeight: 700 }}>
                       {formatReturnRate(row.returnRate)}
                     </TableCell>
-                    <TableCell align="right" sx={{ ...cellSx, color: toneColor(tone), fontWeight: 900 }}>
+                    <TableCell align="right" sx={{ ...cellSx, color: toneColor(tone), fontWeight: 700 }}>
                       {row.profitLossKrw != null ? formatKrwCell(row.profitLossKrw) : '—'}
                     </TableCell>
                   </TableRow>
@@ -217,14 +231,14 @@ export function InvestmentAccountCard({ account, onOpenDetail, onEdit }: Props) 
             )}
 
             <TableRow sx={{ bgcolor: (theme) => alpha(theme.palette.action.hover, 0.04) }}>
-              <TableCell sx={{ ...cellSx, color: `${themeMeta.color}.dark`, fontWeight: 800 }}>예수금</TableCell>
+              <TableCell sx={{ ...cellSx, color: `${themeMeta.color}.dark`, fontWeight: 600 }}>예수금</TableCell>
               <TableCell align="right" sx={cellSx}>
                 {EMPTY_MARK}
               </TableCell>
               <TableCell align="right" sx={cellSx}>
                 {EMPTY_MARK}
               </TableCell>
-              <TableCell align="right" sx={{ ...cellSx, fontWeight: 800 }}>
+              <TableCell align="right" sx={{ ...cellSx, fontWeight: 600 }}>
                 {formatKrwCell(account.cashBalanceKrw)}
               </TableCell>
               <TableCell align="right" sx={cellSx}>
@@ -236,20 +250,20 @@ export function InvestmentAccountCard({ account, onOpenDetail, onEdit }: Props) 
             </TableRow>
 
             <TableRow>
-              <TableCell sx={{ ...cellSx, color: `${themeMeta.color}.dark`, fontWeight: 800 }}>합산</TableCell>
+              <TableCell sx={{ ...cellSx, color: `${themeMeta.color}.dark`, fontWeight: 600 }}>합산</TableCell>
               <TableCell align="right" sx={cellSx}>
                 {EMPTY_MARK}
               </TableCell>
               <TableCell align="right" sx={cellSx}>
                 {EMPTY_MARK}
               </TableCell>
-              <TableCell align="right" sx={{ ...cellSx, fontWeight: 900 }}>
+              <TableCell align="right" sx={{ ...cellSx, fontWeight: 700 }}>
                 {formatKrwCell(account.summary.totalCurrentKrw)}
               </TableCell>
-              <TableCell align="right" sx={{ ...cellSx, fontWeight: 900, color: toneColor(summaryTone) }}>
+              <TableCell align="right" sx={{ ...cellSx, fontWeight: 700, color: toneColor(summaryTone) }}>
                 {account.summary.returnRate != null ? formatReturnRate(account.summary.returnRate) : EMPTY_MARK}
               </TableCell>
-              <TableCell align="right" sx={{ ...cellSx, fontWeight: 900, color: toneColor(summaryTone) }}>
+              <TableCell align="right" sx={{ ...cellSx, fontWeight: 700, color: toneColor(summaryTone) }}>
                 {formatKrwCell(account.summary.profitLossKrw)}
               </TableCell>
             </TableRow>

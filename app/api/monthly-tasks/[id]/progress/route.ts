@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-15
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -40,11 +40,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const updates: {
     progressMonth: string
     currentAmount?: number
+    currentAmountUpdatedAt?: string
     switchOn?: number
   } = { progressMonth: yearMonth }
 
   if (payload.currentAmount !== undefined) {
     updates.currentAmount = payload.currentAmount
+    updates.currentAmountUpdatedAt = new Date().toISOString()
   } else if (!isCurrentMonth) {
     updates.currentAmount = 0
   }

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08 (실시간 주가)
+// 수정: Auto — 2026-06-15 (PC 표 — 주가$/원(후)만 굵게)
 
 import type { DividendHolding } from '@/hooks/useDividends'
 import { calcPortfolioYieldPercent, formatUsd, formatYieldPercent } from '@/lib/dividendCalc'
@@ -24,20 +24,45 @@ type Props = {
   onEdit: () => void
 }
 
-const cellSx = {
+const cellBase = {
   px: 0.45,
   py: 0.35,
   fontSize: '0.68rem',
-  fontWeight: 700,
   lineHeight: 1.3,
   whiteSpace: 'nowrap',
   borderColor: 'divider',
 } as const
 
+const cellSx = {
+  ...cellBase,
+  fontWeight: { xs: 700, md: 500 },
+} as const
+
 const headCellSx = {
-  ...cellSx,
-  fontWeight: 800,
+  ...cellBase,
+  fontWeight: { xs: 800, md: 500 },
   color: 'text.secondary',
+} as const
+
+const priceUsdCellSx = {
+  ...cellSx,
+  color: 'secondary.dark',
+  fontWeight: { xs: 800, md: 700 },
+} as const
+
+const priceUsdHeadSx = {
+  ...headCellSx,
+  fontWeight: { xs: 800, md: 700 },
+} as const
+
+const netKrwCellSx = {
+  ...cellSx,
+  fontWeight: { xs: 700, md: 700 },
+} as const
+
+const netKrwHeadSx = {
+  ...headCellSx,
+  fontWeight: { xs: 800, md: 700 },
 } as const
 
 const refHeadBg = (theme: Theme) => alpha(theme.palette.secondary.main, 0.1)
@@ -47,36 +72,35 @@ const usdBg = (theme: Theme) => alpha(theme.palette.action.hover, 0.04)
 
 const grossTotalCellSx = (theme: Theme) => ({
   ...cellSx,
-  fontWeight: 900,
+  fontWeight: { xs: 900, md: 500 },
   bgcolor: alpha(theme.palette.secondary.main, 0.16),
   color: theme.palette.secondary.dark,
 })
 
 const netTotalCellSx = (theme: Theme) => ({
-  ...cellSx,
-  fontWeight: 900,
+  ...netKrwCellSx,
   bgcolor: alpha(theme.palette.info.main, 0.16),
   color: theme.palette.info.dark,
 })
 
 const grossUsdTotalCellSx = (theme: Theme) => ({
   ...cellSx,
-  fontWeight: 900,
+  fontWeight: { xs: 900, md: 500 },
   bgcolor: alpha(theme.palette.secondary.main, 0.12),
   color: theme.palette.secondary.dark,
 })
 
 const netUsdTotalCellSx = (theme: Theme) => ({
   ...cellSx,
-  fontWeight: 900,
+  fontWeight: { xs: 900, md: 500 },
   bgcolor: alpha(theme.palette.info.main, 0.12),
   color: theme.palette.info.dark,
 })
 
 const totalLabelCellSx = {
   ...cellSx,
-  fontWeight: 900,
-  color: 'text.primary',
+  fontWeight: { xs: 900, md: 500 },
+  color: { xs: 'text.primary', md: 'text.secondary' },
 } as const
 
 function formatKrwCell(value: number | null) {
@@ -168,30 +192,30 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
       <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <Table size="small" sx={{ minWidth: 520 }}>
           <TableHead>
-            <TableRow sx={{ '& .MuiTableCell-root': headCellSx }}>
-              <TableCell sx={{ bgcolor: refHeadBg }}>종목</TableCell>
-              <TableCell align="right" sx={{ bgcolor: refHeadBg }}>
+            <TableRow>
+              <TableCell sx={{ ...headCellSx, bgcolor: refHeadBg }}>종목</TableCell>
+              <TableCell align="right" sx={{ ...priceUsdHeadSx, bgcolor: refHeadBg }}>
                 주가$
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: refHeadBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: refHeadBg }}>
                 주
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: refHeadBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: refHeadBg }}>
                 배당률
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: refHeadBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: refHeadBg }}>
                 주당$
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: grossBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: grossBg }}>
                 원(전)
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: netBg }}>
+              <TableCell align="right" sx={{ ...netKrwHeadSx, bgcolor: netBg }}>
                 원(후)
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: usdBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: usdBg }}>
                 세전$
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: usdBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: usdBg }}>
                 세후$
               </TableCell>
             </TableRow>
@@ -201,8 +225,8 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
               const ready = row.defaultShares > 0 && row.perShareDividendUsd > 0
               return (
                 <TableRow key={row.id} hover>
-                  <TableCell sx={{ ...cellSx, fontWeight: 900 }}>{row.ticker}</TableCell>
-                  <TableCell align="right" sx={{ ...cellSx, color: 'secondary.dark', fontWeight: 800 }}>
+                  <TableCell sx={{ ...cellSx, fontWeight: { xs: 900, md: 500 } }}>{row.ticker}</TableCell>
+                  <TableCell align="right" sx={priceUsdCellSx}>
                     {row.livePriceUsd != null ? formatUsd(row.livePriceUsd) : '—'}
                   </TableCell>
                   <TableCell align="right" sx={cellSx}>
@@ -217,7 +241,7 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
                   <TableCell align="right" sx={{ ...cellSx, bgcolor: grossBg }}>
                     {formatKrwCell(row.grossKrw)}
                   </TableCell>
-                  <TableCell align="right" sx={{ ...cellSx, bgcolor: netBg }}>
+                  <TableCell align="right" sx={{ ...netKrwCellSx, bgcolor: netBg }}>
                     {formatKrwCell(row.netKrw)}
                   </TableCell>
                   <TableCell align="right" sx={{ ...cellSx, bgcolor: usdBg }}>
@@ -233,7 +257,7 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
               <TableCell sx={totalLabelCellSx}>합계</TableCell>
               <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={cellSx} />
-              <TableCell align="right" sx={{ ...cellSx, color: 'text.secondary', fontWeight: 900 }}>
+              <TableCell align="right" sx={{ ...cellSx, color: 'text.secondary' }}>
                 {formatYieldPercent(totals.portfolioYield)}
               </TableCell>
               <TableCell align="right" sx={cellSx} />

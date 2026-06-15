@@ -1,10 +1,14 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-15 (입력란 거의 흰색)
 
 import { formatAmountDigitsInput, formatAmountDisplay, parseAmountDigits } from '@/lib/formatAmount'
+import { nearlyWhiteInputBg } from '@/lib/widgetSurfaces'
 import InputAdornment from '@mui/material/InputAdornment'
 import TextField from '@mui/material/TextField'
+import { alpha, type Theme } from '@mui/material/styles'
 import { useEffect, useRef, useState } from 'react'
+
+type SoftInputTone = 'primary' | 'success'
 
 type Props = {
   value: number
@@ -12,9 +16,22 @@ type Props = {
   disabled?: boolean
   label?: string
   large?: boolean
+  softInput?: SoftInputTone
 }
 
-export function FreshAmountField({ value, onCommit, disabled, label, large }: Props) {
+function softInputSx(tone: SoftInputTone, theme: Theme) {
+  const main = theme.palette[tone].main
+  return {
+    '& .MuiOutlinedInput-root': {
+      bgcolor: nearlyWhiteInputBg(theme),
+      '& fieldset': { borderColor: alpha(main, 0.14) },
+      '&:hover fieldset': { borderColor: alpha(main, 0.22) },
+      '&.Mui-focused fieldset': { borderColor: alpha(main, 0.38) },
+    },
+  }
+}
+
+export function FreshAmountField({ value, onCommit, disabled, label, large, softInput }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [committing, setCommitting] = useState(false)
@@ -96,7 +113,7 @@ export function FreshAmountField({ value, onCommit, disabled, label, large }: Pr
       InputProps={{
         endAdornment: <InputAdornment position="end">원</InputAdornment>,
       }}
-      sx={{
+      sx={(theme) => ({
         '& .MuiInputBase-input': {
           fontWeight: large ? 900 : 700,
           fontSize: large ? '1.2rem' : '0.95rem',
@@ -105,7 +122,8 @@ export function FreshAmountField({ value, onCommit, disabled, label, large }: Pr
           textAlign: 'right',
           opacity: 0.45,
         },
-      }}
+        ...(softInput ? softInputSx(softInput, theme) : {}),
+      })}
     />
   )
 }

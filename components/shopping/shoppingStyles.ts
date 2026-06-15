@@ -1,10 +1,31 @@
-// 수정: Auto — 2026-06-05
+// 수정: Auto — 2026-06-15
+
 import type { ShoppingCategoryKey } from '@/config/shoppingCategories'
 import { getCategoryMeta } from '@/config/shoppingCategories'
 import { alpha } from '@mui/material/styles'
 
 const chipTextColor = 'rgba(15, 23, 42, 0.88)'
 const chipTextMuted = 'rgba(51, 65, 85, 0.72)'
+
+export function sxShoppingMetricChip(priceMetric: boolean) {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    px: 0.55,
+    py: 0.12,
+    borderRadius: 0.75,
+    fontSize: '0.68rem',
+    fontWeight: priceMetric ? 500 : 600,
+    lineHeight: 1.25,
+    color: priceMetric ? 'text.disabled' : 'text.secondary',
+    bgcolor: priceMetric
+      ? 'transparent'
+      : (theme: { palette: { mode: string; grey: { 500: string } } }) =>
+          alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.1 : 0.06),
+    border: priceMetric ? 'none' : '1px solid',
+    borderColor: priceMetric ? 'transparent' : 'divider',
+  } as const
+}
 
 export function sxCategoryChip(category: ShoppingCategoryKey, selected: boolean) {
   const hex = getCategoryMeta(category).color

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-15
 
 import { swrJsonFetch } from '@/lib/swrFetch'
 import type { MonthlyTaskOptionType } from '@/lib/monthlyTaskPayload'
@@ -28,6 +28,7 @@ export interface MonthlyTask {
   optionType: MonthlyTaskOptionType
   targetAmount: number | null
   currentAmount: number
+  currentAmountUpdatedAt: string | null
   switchOn: boolean
   progressMonth: string
   createdAt: string

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08 (총합 행)
+// 수정: Auto — 2026-06-15 (PC 표 — 원(후)만 굵게)
 
 import type { DividendEntry, DividendMonth } from '@/hooks/useDividends'
 import { formatRate, formatUsd } from '@/lib/dividendCalc'
@@ -33,7 +33,7 @@ const cellSx = {
   px: 0.45,
   py: 0.35,
   fontSize: '0.68rem',
-  fontWeight: 700,
+  fontWeight: { xs: 700, md: 500 },
   lineHeight: 1.3,
   whiteSpace: 'nowrap',
   borderColor: 'divider',
@@ -41,8 +41,19 @@ const cellSx = {
 
 const headCellSx = {
   ...cellSx,
-  fontWeight: 800,
+  fontWeight: { xs: 800, md: 500 },
   color: 'text.secondary',
+} as const
+
+/** PC — 원(후) 열 */
+const netKrwCellSx = {
+  ...cellSx,
+  fontWeight: { xs: 700, md: 700 },
+} as const
+
+const netKrwHeadSx = {
+  ...headCellSx,
+  fontWeight: { xs: 800, md: 700 },
 } as const
 
 const grossBg = (theme: Theme) => alpha(theme.palette.primary.main, 0.06)
@@ -50,21 +61,27 @@ const netBg = (theme: Theme) => alpha(theme.palette.success.main, 0.07)
 
 const grossTotalCellSx = (theme: Theme) => ({
   ...cellSx,
-  fontWeight: 900,
+  fontWeight: { xs: 900, md: 500 },
   bgcolor: alpha(theme.palette.primary.main, 0.16),
   color: theme.palette.primary.dark,
 })
 
 const netTotalCellSx = (theme: Theme) => ({
+  ...netKrwCellSx,
+  bgcolor: alpha(theme.palette.success.main, 0.16),
+  color: theme.palette.success.dark,
+})
+
+const netUsdTotalCellSx = (theme: Theme) => ({
   ...cellSx,
-  fontWeight: 900,
+  fontWeight: { xs: 900, md: 500 },
   bgcolor: alpha(theme.palette.success.main, 0.16),
   color: theme.palette.success.dark,
 })
 
 const totalLabelCellSx = {
   ...cellSx,
-  fontWeight: 900,
+  fontWeight: { xs: 900, md: 500 },
   color: 'text.primary',
 } as const
 
@@ -148,30 +165,38 @@ export function DividendMonthCard({ month, onEdit }: Props) {
       <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <Table size="small" sx={{ minWidth: 480 }}>
           <TableHead>
-            <TableRow sx={{ '& .MuiTableCell-root': headCellSx }}>
-              <TableCell sx={{ bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}>종목</TableCell>
-              <TableCell align="right" sx={{ bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}>
+            <TableRow>
+              <TableCell sx={{ ...headCellSx, bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}>
+                종목
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ ...headCellSx, bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}
+              >
                 주
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}>
+              <TableCell
+                align="right"
+                sx={{ ...headCellSx, bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}
+              >
                 환율
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: grossBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: grossBg }}>
                 세전$
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: grossBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: grossBg }}>
                 주당(전)
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: grossBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: grossBg }}>
                 원(전)
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: netBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: netBg }}>
                 세후$
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: netBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: netBg }}>
                 주당(후)
               </TableCell>
-              <TableCell align="right" sx={{ bgcolor: netBg }}>
+              <TableCell align="right" sx={{ ...netKrwHeadSx, bgcolor: netBg }}>
                 원(후)
               </TableCell>
             </TableRow>
@@ -205,7 +230,7 @@ export function DividendMonthCard({ month, onEdit }: Props) {
                 <TableCell align="right" sx={{ ...cellSx, bgcolor: netBg }}>
                   {entry.perShareForeign != null ? formatUsd(entry.perShareForeign) : '—'}
                 </TableCell>
-                <TableCell align="right" sx={{ ...cellSx, bgcolor: netBg }}>
+                <TableCell align="right" sx={{ ...netKrwCellSx, bgcolor: netBg }}>
                   {formatKrwCell(entry.dividendKrw)}
                 </TableCell>
               </TableRow>
@@ -221,7 +246,7 @@ export function DividendMonthCard({ month, onEdit }: Props) {
               <TableCell align="right" sx={grossTotalCellSx}>
                 {formatKrwCell(totals.grossKrw)}
               </TableCell>
-              <TableCell align="right" sx={netTotalCellSx}>
+              <TableCell align="right" sx={netUsdTotalCellSx}>
                 {formatUsd(totals.netUsd)}
               </TableCell>
               <TableCell align="right" sx={cellSx} />

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-05 (소장 UI 통일·브랜드)
+// 수정: Auto — 2026-06-15 (단가 텍스트 연하게)
 
 import { sxCollectionBrandChip } from '@/components/collection/collectionStyles'
 import { ListSearchField } from '@/components/common/ListSearchField'
@@ -10,18 +10,23 @@ import {
   sxCategoryAddButton,
   sxCategoryChip,
   sxShoppingCategoryChipGrid,
+  sxShoppingMetricChip,
 } from '@/components/shopping/shoppingStyles'
 import {
   SHOPPING_CATEGORIES,
   getCategoryMeta,
   getStoreLabel,
+  normalizePackType,
   type ShoppingCategoryKey,
 } from '@/config/shoppingCategories'
 import { type ShoppingItem, shoppingItemsKey, useShoppingItems } from '@/hooks/useShoppingItems'
-import { formatLastPurchaseDateDisplay } from '@/lib/shoppingDate'
+import { formatLastPurchaseRelativeLabel } from '@/lib/shoppingDate'
 import type { ShoppingItemPayload } from '@/lib/shoppingPayload'
 import { matchesAnySearch } from '@/lib/koreanSearch'
-import { formatAmountWithPackCount } from '@/lib/shoppingUnitPrice'
+import {
+  getShoppingListLabels,
+  isShoppingPriceMetric,
+} from '@/lib/shoppingUnitPrice'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -55,13 +60,20 @@ function ShoppingItemCard({
 }) {
   const categoryMeta = getCategoryMeta(item.category)
   const storeLabel = getStoreLabel(item.storeKey, item.storeCustom)
-  const lastPurchaseLabel = formatLastPurchaseDateDisplay(item.lastPurchaseDate)
+  const lastPurchaseLabel = formatLastPurchaseRelativeLabel(item.lastPurchaseDate)
   const brand = item.brand.trim()
   const name = item.name.trim()
-  const packType = item.packType === 'box' ? 'box' : 'piece'
+  const packType = normalizePackType(item.packType)
   const packCount = item.packCount ?? 1
-  const amountLabel = formatAmountWithPackCount(item.amount, item.amountUnit, packType, packCount)
-  const showSecondLine = Boolean(brand || amountLabel)
+  const metricLabels = getShoppingListLabels({
+    price: item.price,
+    amount: item.amount,
+    unit: item.amountUnit,
+    packType,
+    packCount,
+    unitsPerPack: item.unitsPerPack ?? 1,
+  })
+  const showSecondLine = Boolean(brand || metricLabels.length > 0)
 
   return (
     <Paper
@@ -116,26 +128,19 @@ function ShoppingItemCard({
                   {brand}
                 </Box>
               ) : null}
-              {amountLabel ? (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{
-                    lineHeight: 1.3,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    minWidth: 0,
-                    flex: brand ? 1 : undefined,
-                  }}
+              {metricLabels.map((label) => (
+                <Box
+                  key={label}
+                  component="span"
+                  sx={sxShoppingMetricChip(isShoppingPriceMetric(label))}
                 >
-                  {amountLabel}
-                </Typography>
-              ) : null}
+                  {label}
+                </Box>
+              ))}
             </Stack>
           ) : null}
           <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
               {formatPrice(item.price)}
             </Typography>
             <Typography variant="body2" color="text.secondary">

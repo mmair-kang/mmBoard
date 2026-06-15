@@ -81,6 +81,7 @@ export const monthlyTaskItems = sqliteTable('monthly_task_items', {
   optionType: text('option_type').notNull(),
   targetAmount: integer('target_amount'),
   currentAmount: integer('current_amount').notNull().default(0),
+  currentAmountUpdatedAt: text('current_amount_updated_at'),
   switchOn: integer('switch_on').notNull().default(0),
   /** YYYY-MM — 진행 상태가 속한 달 */
   progressMonth: text('progress_month').notNull(),
@@ -92,6 +93,7 @@ export const mainAccounts = sqliteTable('main_accounts', {
   name: text('name').notNull(),
   balance: integer('balance').notNull().default(0),
   updatedAt: text('updated_at').notNull(),
+  balanceUpdatedAt: text('balance_updated_at'),
 })
 
 export const accountOutflows = sqliteTable('account_outflows', {

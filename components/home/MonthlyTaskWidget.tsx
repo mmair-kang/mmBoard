@@ -1,8 +1,9 @@
 'use client'
-// 수정: Auto — 2026-06-08 (매달 카드 실적 관리 위젯)
+// 수정: Auto — 2026-06-15 (PC 2열·반응형)
 
 import { MonthlyTaskFormDialog } from '@/components/home/MonthlyTaskFormDialog'
 import { MonthlyTaskItemRow } from '@/components/home/MonthlyTaskItemRow'
+import { sxDesktopTwoColumnGrid } from '@/config/responsiveLayout'
 import { type MonthlyTask, type MonthlyTaskCardExtra, useMonthlyTasks } from '@/hooks/useMonthlyTasks'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import { sortMonthlyTasks } from '@/lib/monthlyTaskMonth'
@@ -119,10 +120,17 @@ export function MonthlyTaskWidget() {
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}
+          sx={{
+            px: { xs: 1.5, md: 2 },
+            py: { xs: 1.25, md: 1.5 },
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
         >
           <Stack direction="row" alignItems="baseline" spacing={0.75}>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>카드 실적</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: { xs: '1rem', md: '1.15rem' } }}>
+              카드 실적
+            </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
               {monthLabel}
             </Typography>
@@ -133,7 +141,7 @@ export function MonthlyTaskWidget() {
             </IconButton>
           </Tooltip>
         </Stack>
-        <Box sx={{ p: 1.5 }}>
+        <Box sx={{ p: { xs: 1.5, md: 2 } }}>
           {isLoading ? (
             <Stack alignItems="center" py={3}>
               <CircularProgress size={28} />
@@ -144,7 +152,7 @@ export function MonthlyTaskWidget() {
               <Typography variant="caption">+ 버튼으로 매달 관리할 카드를 추가해 보세요</Typography>
             </Stack>
           ) : (
-            <Stack spacing={1}>
+            <Box sx={sxDesktopTwoColumnGrid}>
               {sortedItems.map((item) => (
                 <MonthlyTaskItemRow
                   key={item.id}
@@ -154,7 +162,7 @@ export function MonthlyTaskWidget() {
                   onExtraProgressChange={(extra, patch) => handleExtraProgressChange(item, extra, patch)}
                 />
               ))}
-            </Stack>
+            </Box>
           )}
         </Box>
       </Paper>

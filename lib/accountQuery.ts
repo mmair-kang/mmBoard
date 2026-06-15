@@ -14,6 +14,7 @@ export type AccountRow = {
   name: string
   balance: number
   updatedAt: string
+  balanceUpdatedAt: string | null
 }
 
 export type OutflowRow = {
@@ -67,7 +68,7 @@ export async function ensureMainAccount(): Promise<AccountRow> {
   const now = new Date().toISOString()
   const inserted = await db
     .insert(mainAccounts)
-    .values({ name: '미래에셋', balance: 0, updatedAt: now })
+    .values({ name: '미래에셋', balance: 0, updatedAt: now, balanceUpdatedAt: now })
     .returning()
 
   if (!inserted[0]) throw new Error('account insert failed')

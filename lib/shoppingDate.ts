@@ -1,4 +1,6 @@
-// 수정: Auto — 2026-06-05
+// 수정: Auto — 2026-06-15
+
+import { formatRelativeDayKo } from '@/lib/relativeDayLabel'
 
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 
@@ -16,6 +18,11 @@ export function formatLastPurchaseDateDisplay(isoDate: string | null | undefined
   const match = ISO_DATE_RE.exec(isoDate)
   if (!match) return isoDate
   return `${match[1].slice(-2)}-${match[2]}-${match[3]}`
+}
+
+/** 목록 표시용 — 오늘·N일 전 */
+export function formatLastPurchaseRelativeLabel(isoDate: string | null | undefined): string | null {
+  return formatRelativeDayKo(isoDate)
 }
 
 export function todayIsoDate(): string {

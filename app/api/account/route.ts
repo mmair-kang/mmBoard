@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-15
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
@@ -17,9 +17,13 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as Record<string, unknown>
     const account = await getAccountWithOutflows()
 
-    const updates: { name?: string; balance?: number; updatedAt: string } = {
-      updatedAt: new Date().toISOString(),
-    }
+    const now = new Date().toISOString()
+    const updates: {
+      name?: string
+      balance?: number
+      updatedAt?: string
+      balanceUpdatedAt?: string
+    } = {}
 
     if (typeof body.name === 'string' && body.name.trim()) {
       updates.name = body.name.trim()
@@ -31,6 +35,10 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ message: 'invalid request' }, { status: 400 })
       }
       updates.balance = balance
+      updates.balanceUpdatedAt = now
+      updates.updatedAt = now
+    } else if (updates.name !== undefined) {
+      updates.updatedAt = now
     }
 
     const hasOutflows = 'outflows' in body
@@ -52,7 +60,10 @@ export async function PATCH(request: Request) {
         .set({
           ...(updates.name !== undefined ? { name: updates.name } : {}),
           ...(updates.balance !== undefined ? { balance: updates.balance } : {}),
-          updatedAt: updates.updatedAt,
+          ...(updates.updatedAt !== undefined ? { updatedAt: updates.updatedAt } : {}),
+          ...(updates.balanceUpdatedAt !== undefined
+            ? { balanceUpdatedAt: updates.balanceUpdatedAt }
+            : {}),
         })
         .where(eq(mainAccounts.id, account.id))
     }

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11
+// 수정: Auto — 2026-06-15 (PC 그리드·반응형)
 
 import { AccountWidget } from '@/components/home/AccountWidget'
 import { InvestmentWidget } from '@/components/home/InvestmentWidget'
@@ -14,6 +14,9 @@ import { MonthlyTaskWidget } from '@/components/home/MonthlyTaskWidget'
 import { useManageTabOrder } from '@/hooks/useManageTabOrder'
 import { useLongPress } from '@/hooks/useLongPress'
 import type { ManageTabId } from '@/lib/manageTabOrder'
+// 수정: Auto — 2026-06-15 (메인탭 PC 레이아웃)
+
+import { sxMainTabLayout, sxMainTabTopRow, sxPageScrollBody } from '@/config/responsiveLayout'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
@@ -26,11 +29,13 @@ function renderTabPanel(tab: ManageTabId) {
       return <InvestmentWidget />
     case 'main':
       return (
-        <Stack spacing={1.25} sx={{ width: '100%', minWidth: 0 }}>
-          <TodoWidget />
-          <DdayWidget />
+        <Box sx={sxMainTabLayout}>
+          <Box sx={sxMainTabTopRow}>
+            <TodoWidget />
+            <DdayWidget />
+          </Box>
           <WeatherWidget />
-        </Stack>
+        </Box>
       )
     case 'account':
       return <AccountWidget />
@@ -100,10 +105,10 @@ export function HomePageContent() {
               minWidth: 0,
               maxWidth: 'none',
               fontWeight: 800,
-              fontSize: { xs: '0.68rem', sm: '0.78rem', md: '0.85rem' },
-              minHeight: { xs: 40, sm: 44 },
-              px: { xs: 0.15, sm: 0.5 },
-              py: 0.75,
+              fontSize: { xs: '0.68rem', sm: '0.78rem', md: '0.9rem', lg: '0.95rem' },
+              minHeight: { xs: 40, sm: 44, md: 48 },
+              px: { xs: 0.15, sm: 0.5, md: 1 },
+              py: { xs: 0.75, md: 0.85 },
               lineHeight: 1.2,
               whiteSpace: 'nowrap',
             },
@@ -115,19 +120,7 @@ export function HomePageContent() {
         </Tabs>
       </Box>
 
-      <Box
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          minWidth: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          WebkitOverflowScrolling: 'touch',
-          px: { xs: 1, sm: 1.5 },
-          py: 1.25,
-          pb: 2.5,
-        }}
-      >
+      <Box sx={sxPageScrollBody}>
         {renderTabPanel(tab)}
       </Box>
 

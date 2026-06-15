@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11 (목록 레이아웃·표시 항목)
+// 수정: Auto — 2026-06-15 (상시비 연주황·버튼 내 금액)
 
 import {
   sxCollectionAddButton,
@@ -14,9 +14,13 @@ import {
   sxCollectionSearchResultText,
   sxCollectionSectionSegmentItem,
   sxCollectionSectionSegmentTrack,
+  sxCollectionLivingSubButton,
+  sxCollectionLivingSubButtonAmountFoot,
+  sxCollectionLivingSubButtonLabel,
+  sxCollectionLivingSubRow,
+  sxCollectionLivingTotalAmount,
   sxCollectionSubChip,
   sxCollectionSubChipPanel,
-  sxLivingSubAmountChip,
 } from '@/components/collection/collectionStyles'
 import { ListSearchField } from '@/components/common/ListSearchField'
 import { CollectionItemDetailDialog } from '@/components/collection/CollectionItemDetailDialog'
@@ -52,7 +56,7 @@ import {
 } from '@/hooks/useCollectionItems'
 import { useCollectionSubcategories } from '@/hooks/useCollectionSubcategories'
 import { useLongPress } from '@/hooks/useLongPress'
-import { formatLastPurchaseDateDisplay } from '@/lib/shoppingDate'
+import { formatLastPurchaseRelativeLabel } from '@/lib/shoppingDate'
 import {
   formatCollectionPackListSubline,
   getCollectionFoodListLabels,
@@ -60,6 +64,12 @@ import {
 } from '@/lib/collectionDetail'
 import { upsertCollectionItemSorted } from '@/lib/collectionItem'
 import type { CollectionItemPayload } from '@/lib/collectionPayload'
+import {
+  sxDesktopListGrid,
+  sxPageScrollBody,
+  sxPageStickyHeaderPad,
+  sxPageTitle,
+} from '@/config/responsiveLayout'
 import { buildLivingMonthlyBreakdown, calcLivingMonthlyCost, formatCompactLivingAmount } from '@/lib/livingCost'
 import { matchesAnySearch } from '@/lib/koreanSearch'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -90,7 +100,7 @@ function isInCurrentList(
   return true
 }
 
-const COLLECTION_LIST_THUMB_SIZE = 68
+const COLLECTION_LIST_THUMB_SIZE = { xs: 68, md: 80 } as const
 
 function matchesCollectionItem(item: CollectionItem, query: string) {
   const foodLabels = isFoodMainCategory(item.mainCategory)
@@ -111,54 +121,72 @@ function matchesCollectionItem(item: CollectionItem, query: string) {
   )
 }
 
-function LivingMonthlySummary({
-  rows,
+function LivingMonthlyPanel({
   total,
+  subs,
   activeSub,
+  monthlyBySub,
+  onSelectSub,
+  subChipLongPress,
+  wrapSubChipClick,
+  subChipButtonSx,
 }: {
-  rows: { subKey: string; label: string; monthly: number }[]
   total: number
+  subs: { key: string; label: string }[]
   activeSub: CollectionSubKey
+  monthlyBySub: Map<string, number>
+  onSelectSub: (key: CollectionSubKey) => void
+  subChipLongPress: ReturnType<typeof useLongPress>['pointerHandlers']
+  wrapSubChipClick: ReturnType<typeof useLongPress>['wrapClick']
+  subChipButtonSx: Record<string, unknown>
 }) {
   return (
     <Box sx={sxCollectionLivingSummaryPanel()}>
-      <Stack spacing={0.4} sx={{ width: '100%' }}>
-        <Stack direction="row" alignItems="baseline" justifyContent="space-between" gap={0.5}>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>
-            한달 상시비
-          </Typography>
-          <Typography sx={{ fontSize: '0.86rem', fontWeight: 900, color: 'warning.dark', lineHeight: 1.2 }}>
-            {formatPrice(total)}
-            <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 700, ml: 0.15 }}>
-              /월
-            </Box>
-          </Typography>
-        </Stack>
-        {rows.length > 0 ? (
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.35, rowGap: 0.3 }}>
-            {rows.map((row) => (
-              <Box key={row.subKey} sx={sxLivingSubAmountChip(activeSub === row.subKey)}>
-                <Typography
-                  component="span"
-                  sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1.2 }}
-                >
-                  {row.label}
-                </Typography>
-                <Typography
-                  component="span"
-                  sx={{ fontSize: '0.64rem', fontWeight: 800, color: 'warning.dark', lineHeight: 1.2 }}
-                >
-                  {formatCompactLivingAmount(row.monthly)}
-                </Typography>
-              </Box>
-            ))}
+      <Stack direction="row" alignItems="baseline" justifyContent="space-between" gap={0.5}>
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>
+          한달 상시비
+        </Typography>
+        <Typography sx={sxCollectionLivingTotalAmount()}>
+          {formatPrice(total)}
+          <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 700, ml: 0.15, opacity: 0.85 }}>
+            /월
           </Box>
-        ) : (
-          <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1.3 }}>
-            재구매중 ON인 항목만 합계에 포함됩니다
-          </Typography>
-        )}
+        </Typography>
       </Stack>
+
+      <Stack direction="row" sx={sxCollectionLivingSubRow()} {...subChipLongPress}>
+        {subs.map((c) => {
+          const selected = activeSub === c.key
+          const monthly = monthlyBySub.get(c.key) ?? 0
+          const hasAmount = monthly > 0
+          return (
+            <Box
+              key={c.key}
+              component="button"
+              type="button"
+              onClick={wrapSubChipClick(() => onSelectSub(c.key as CollectionSubKey))}
+              sx={{
+                ...sxCollectionLivingSubButton(selected),
+                ...subChipButtonSx,
+                touchAction: 'manipulation',
+              }}
+            >
+              <Box component="span" sx={sxCollectionLivingSubButtonLabel(selected)}>
+                {c.label}
+              </Box>
+              <Box component="span" sx={sxCollectionLivingSubButtonAmountFoot(hasAmount, selected)}>
+                {hasAmount ? formatCompactLivingAmount(monthly) : '—'}
+              </Box>
+            </Box>
+          )
+        })}
+      </Stack>
+
+      {total === 0 ? (
+        <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1.3, mt: 0.45 }}>
+          재구매중 ON인 항목만 합계에 포함됩니다
+        </Typography>
+      ) : null}
     </Box>
   )
 }
@@ -176,7 +204,7 @@ function CollectionItemCard({
 }) {
   const mainMeta = getCollectionMainMeta(item.mainCategory)
   const storeLabel = getCollectionStoreLabel(item.storeKey, item.storeCustom)
-  const purchaseLabel = formatLastPurchaseDateDisplay(item.purchaseDate)
+  const purchaseLabel = formatLastPurchaseRelativeLabel(item.purchaseDate)
   const brand = item.brand.trim()
   const name = item.name.trim()
   const nameSuffix = item.nameSuffix.trim()
@@ -197,8 +225,8 @@ function CollectionItemCard({
       variant="outlined"
       onClick={() => onEdit(item)}
       sx={{
-        px: 1,
-        py: 0.75,
+        px: { xs: 1, md: 1.25 },
+        py: { xs: 0.75, md: 1 },
         borderRadius: 1.5,
         borderLeftWidth: 3,
         borderLeftStyle: 'solid',
@@ -210,12 +238,12 @@ function CollectionItemCard({
         {showLeftColumn ? (
           <Stack
             alignItems="center"
-            sx={{ width: COLLECTION_LIST_THUMB_SIZE, flexShrink: 0, gap: 0.35 }}
+            sx={{ width: { xs: 68, md: 80 }, flexShrink: 0, gap: 0.35 }}
           >
             {hasThumb ? (
               <ShoppingItemThumbnail
                 src={item.imageData!}
-                size={COLLECTION_LIST_THUMB_SIZE}
+                responsiveSize={COLLECTION_LIST_THUMB_SIZE}
                 onClick={(e) => {
                   e.stopPropagation()
                   onDetail(item)
@@ -242,7 +270,7 @@ function CollectionItemCard({
                   sx={{
                     flex: 1,
                     minWidth: 0,
-                    fontSize: 15,
+                    fontSize: { xs: 15, md: 16 },
                     fontWeight: 700,
                     lineHeight: 1.3,
                     overflow: 'hidden',
@@ -342,6 +370,13 @@ export function CollectionPageContent() {
     () => buildLivingMonthlyBreakdown(regularFoodItems, subs),
     [regularFoodItems, subs],
   )
+  const livingMonthlyBySub = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const row of livingMonthlyBreakdown.rows) {
+      map.set(row.subKey, row.monthly)
+    }
+    return map
+  }, [livingMonthlyBreakdown.rows])
   const displayItems = useMemo(() => {
     if (!trimmedQuery) return items
     return allItems.filter((item) => matchesCollectionItem(item, trimmedQuery))
@@ -517,9 +552,9 @@ export function CollectionPageContent() {
           boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
         }}
       >
-        <Stack spacing={1} sx={{ px: 1.5, pt: 1.25, pb: 1.125 }}>
+        <Stack spacing={1} sx={sxPageStickyHeaderPad}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
-            <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+            <Typography variant="h5" sx={sxPageTitle}>
               쇼핑
             </Typography>
             <Tooltip title={addTooltip}>
@@ -570,14 +605,6 @@ export function CollectionPageContent() {
             </Tabs>
           ) : null}
 
-          {section === 'regular' && !isSearching ? (
-            <LivingMonthlySummary
-              rows={livingMonthlyBreakdown.rows}
-              total={livingMonthlyBreakdown.total}
-              activeSub={subCategory}
-            />
-          ) : null}
-
           {isSearching ? (
             <Box sx={sxCollectionSearchResultPanel()}>
               <Typography sx={sxCollectionSearchResultText()}>
@@ -588,6 +615,17 @@ export function CollectionPageContent() {
                 {!listLoading ? ` · ${displayItems.length}건` : null}
               </Typography>
             </Box>
+          ) : section === 'regular' ? (
+            <LivingMonthlyPanel
+              total={livingMonthlyBreakdown.total}
+              subs={getCollectionSubFilters(mainCategory, subs)}
+              activeSub={subCategory}
+              monthlyBySub={livingMonthlyBySub}
+              onSelectSub={setSubCategory}
+              subChipLongPress={subChipLongPress}
+              wrapSubChipClick={wrapSubChipClick}
+              subChipButtonSx={subChipButtonSx}
+            />
           ) : (
             <Box sx={sxCollectionSubChipPanel(mainCategory)}>
               {getCollectionSubFilters(mainCategory, subs).map((c) => (
@@ -611,7 +649,7 @@ export function CollectionPageContent() {
         </Stack>
       </Box>
 
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', px: 1.5, py: 1.25 }}>
+      <Box sx={{ ...sxPageScrollBody, flex: 1, py: { xs: 1.25, md: 1.5 } }}>
         {listLoading ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
             <CircularProgress />
@@ -635,7 +673,7 @@ export function CollectionPageContent() {
             </Typography>
           </Stack>
         ) : (
-          <Stack spacing={0.75}>
+          <Box sx={sxDesktopListGrid}>
             {displayItems.map((item) => (
               <CollectionItemCard
                 key={item.id}
@@ -649,7 +687,7 @@ export function CollectionPageContent() {
                 }
               />
             ))}
-          </Stack>
+          </Box>
         )}
       </Box>
 

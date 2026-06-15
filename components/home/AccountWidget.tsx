@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-15 (계좌 파란 테마)
 
 import { FreshAmountField } from '@/components/common/FreshAmountField'
 import { AccountFormDialog } from '@/components/home/AccountFormDialog'
@@ -9,6 +9,8 @@ import { calcAccountProjectedBalance, formatWon } from '@/lib/accountCalc'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import type { OutflowPayload } from '@/lib/accountPayload'
 import { formatMonthlyDayLabel } from '@/lib/monthlyDayLabel'
+import { formatRelativeDayKo } from '@/lib/relativeDayLabel'
+import { inactiveSwitchRowBg } from '@/lib/widgetSurfaces'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import Box from '@mui/material/Box'
@@ -20,9 +22,16 @@ import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { alpha } from '@mui/material/styles'
+import { alpha, type Theme } from '@mui/material/styles'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
+
+function accountBlueSurface(theme: Theme) {
+  return {
+    borderColor: alpha(theme.palette.primary.main, 0.22),
+    bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.09 : 0.04),
+  }
+}
 
 function OutflowRow({
   outflow,
@@ -44,10 +53,11 @@ function OutflowRow({
         borderRadius: 1.5,
         bgcolor: (theme) =>
           outflow.switchOn
-            ? alpha(theme.palette.success.main, 0.08)
-            : alpha(theme.palette.action.hover, 0.04),
+            ? alpha(theme.palette.primary.main, 0.08)
+            : inactiveSwitchRowBg(theme),
         border: 1,
-        borderColor: outflow.switchOn ? 'success.light' : 'divider',
+        borderColor: (theme) =>
+          outflow.switchOn ? alpha(theme.palette.primary.main, 0.28) : theme.palette.divider,
       }}
     >
       <Chip
@@ -80,7 +90,7 @@ function OutflowRow({
         checked={outflow.switchOn}
         onChange={(_, checked) => void onSwitchChange(checked)}
         disabled={saving}
-        color={outflow.switchOn ? 'success' : 'default'}
+        color={outflow.switchOn ? 'primary' : 'default'}
         sx={{ flexShrink: 0 }}
       />
     </Stack>
@@ -103,6 +113,11 @@ export function AccountWidget() {
   const outflowTotal = useMemo(() => {
     if (!account) return 0
     return account.outflows.reduce((sum, row) => sum + row.amount, 0)
+  }, [account])
+
+  const balanceUpdatedLabel = useMemo(() => {
+    if (!account) return null
+    return formatRelativeDayKo(account.balanceUpdatedAt ?? account.updatedAt)
   }, [account])
 
   const commitBalance = async (parsed: number) => {
@@ -180,18 +195,24 @@ export function AccountWidget() {
     <>
       <Paper
         variant="outlined"
-        sx={{
+        sx={(theme) => ({
           borderRadius: 2.5,
           overflow: 'hidden',
-          borderColor: 'divider',
-          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
-        }}
+          borderColor: alpha(theme.palette.primary.main, 0.18),
+          boxShadow: `0 1px 3px ${alpha(theme.palette.primary.main, 0.06)}`,
+        })}
       >
         <Stack
           direction="row"
           alignItems="center"
           spacing={0.75}
-          sx={{ px: 1.25, py: 1.1, borderBottom: 1, borderColor: 'divider' }}
+          sx={(theme) => ({
+            px: 1.25,
+            py: 1.1,
+            borderBottom: 1,
+            borderColor: alpha(theme.palette.primary.main, 0.12),
+            bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.06 : 0.025),
+          })}
         >
           <Typography sx={{ fontWeight: 800, fontSize: '0.95rem', flex: 1, minWidth: 0 }} noWrap>
             {account.name}
@@ -212,45 +233,75 @@ export function AccountWidget() {
         </Stack>
 
         <Box sx={{ px: 1.25, py: 1.1 }}>
-          <Box sx={{ mb: 0.75 }}>
+          <Box
+            sx={(theme) => ({
+              borderRadius: 2,
+              border: 1,
+              px: 1.1,
+              py: 1,
+              ...accountBlueSurface(theme),
+            })}
+          >
+            <Stack
+              direction="row"
+              alignItems="baseline"
+              justifyContent="space-between"
+              sx={{ mb: 0.65, gap: 1 }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 700, fontSize: '0.72rem', color: 'primary.dark' }}
+              >
+                잔액
+              </Typography>
+              {balanceUpdatedLabel ? (
+                <Typography
+                  variant="caption"
+                  color="text.disabled"
+                  sx={{ fontWeight: 600, fontSize: '0.68rem', flexShrink: 0 }}
+                >
+                  {balanceUpdatedLabel}
+                </Typography>
+              ) : null}
+            </Stack>
+
             <FreshAmountField
-              label="잔액"
               value={account.balance}
               onCommit={commitBalance}
               disabled={saving}
               large
+              softInput="primary"
             />
-          </Box>
 
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{
-              px: 1.1,
-              py: 0.65,
-              borderRadius: 1.75,
-              bgcolor: (theme) =>
-                projectedLow
-                  ? alpha(theme.palette.error.main, 0.08)
-                  : alpha(theme.palette.primary.main, 0.06),
-              border: 1,
-              borderColor: projectedLow ? 'error.light' : 'primary.light',
-            }}
-          >
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-              예상 잔액
-            </Typography>
-            <Typography
-              sx={{
-                fontWeight: 900,
-                fontSize: '0.95rem',
-                color: projectedLow ? 'error.dark' : 'primary.dark',
-              }}
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={(theme) => ({
+                mt: 0.85,
+                pt: 0.85,
+                borderTop: 1,
+                borderColor: alpha(theme.palette.primary.main, 0.14),
+              })}
             >
-              {formatWon(projection.projectedBalance)}
-            </Typography>
-          </Stack>
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 700, fontSize: '0.72rem', color: 'primary.dark' }}
+              >
+                예상 잔액
+              </Typography>
+              <Typography
+                sx={{
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: projectedLow ? 'error.main' : 'primary.dark',
+                }}
+              >
+                {formatWon(projection.projectedBalance)}
+              </Typography>
+            </Stack>
+          </Box>
         </Box>
 
         {account.outflows.length > 0 ? (
@@ -269,7 +320,7 @@ export function AccountWidget() {
                 <Typography sx={{ fontWeight: 900, fontSize: '0.88rem', lineHeight: 1.3 }}>
                   <Box
                     component="span"
-                    sx={{ color: projection.pendingTotal > 0 ? 'text.primary' : 'success.main' }}
+                    sx={{ color: projection.pendingTotal > 0 ? 'text.primary' : 'primary.main' }}
                   >
                     {formatWon(projection.pendingTotal)}
                   </Box>

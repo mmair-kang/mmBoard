@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-15
 
 import { swrJsonFetch } from '@/lib/swrFetch'
 import useSWR from 'swr'
@@ -23,6 +23,7 @@ export interface MainAccount {
   name: string
   balance: number
   updatedAt: string
+  balanceUpdatedAt: string | null
   outflows: AccountOutflow[]
 }
 

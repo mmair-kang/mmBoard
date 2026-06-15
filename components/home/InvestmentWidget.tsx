@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11
+// 수정: Auto — 2026-06-15 (PC 타이포·굵기 균형)
 
 import { InvestmentAccountCard } from '@/components/home/InvestmentAccountCard'
 import { InvestmentAccountDetailDialog } from '@/components/home/InvestmentAccountDetailDialog'
@@ -10,6 +10,7 @@ import { readApiErrorMessage } from '@/lib/apiResponse'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import { formatReturnRate, returnTone } from '@/lib/investmentCalc'
 import type { InvestmentAccountSyncPayload } from '@/lib/investmentPayload'
+import { sxDesktopTwoColumnGrid } from '@/config/responsiveLayout'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import Paper from '@mui/material/Paper'
@@ -75,26 +76,26 @@ export function InvestmentWidget() {
             borderColor: 'divider',
           }}
         >
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
             전체 투자 합산
             {usdKrwRate != null ? ` · 환율 ${usdKrwRate.toLocaleString('ko-KR')}원/$` : ''}
           </Typography>
           <Stack direction="row" spacing={2} sx={{ mt: 0.35, flexWrap: 'wrap', rowGap: 0.5 }}>
             <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
                 평가
               </Typography>
-              <Typography sx={{ fontWeight: 900, fontSize: '0.95rem' }}>
+              <Typography sx={{ fontWeight: 800, fontSize: { xs: '0.95rem', md: '0.95rem' } }}>
                 {grandSummary ? formatWon(grandSummary.totalCurrentKrw) : '—'}
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
                 수익률
               </Typography>
               <Typography
                 sx={{
-                  fontWeight: 900,
+                  fontWeight: 800,
                   fontSize: '0.95rem',
                   color: grandTone === 'up' ? 'error.main' : grandTone === 'down' ? 'info.main' : 'text.primary',
                 }}
@@ -103,12 +104,12 @@ export function InvestmentWidget() {
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
                 수익금
               </Typography>
               <Typography
                 sx={{
-                  fontWeight: 900,
+                  fontWeight: 800,
                   fontSize: '0.95rem',
                   color: grandTone === 'up' ? 'error.main' : grandTone === 'down' ? 'info.main' : 'text.primary',
                 }}
@@ -119,14 +120,16 @@ export function InvestmentWidget() {
           </Stack>
         </Paper>
 
-        {accounts.map((account) => (
-          <InvestmentAccountCard
-            key={account.id}
-            account={account}
-            onOpenDetail={() => openDetail(account)}
-            onEdit={() => openEdit(account)}
-          />
-        ))}
+        <Box sx={sxDesktopTwoColumnGrid}>
+          {accounts.map((account) => (
+            <InvestmentAccountCard
+              key={account.id}
+              account={account}
+              onOpenDetail={() => openDetail(account)}
+              onEdit={() => openEdit(account)}
+            />
+          ))}
+        </Box>
       </Stack>
 
       <InvestmentAccountDetailDialog

@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-11 (1depth 탭 높이 축소)
+// 수정: Auto — 2026-06-15 (상시비 합계·비활성 텍스트 톤)
 
 import type { CollectionMainKey, CollectionSectionKey } from '@/config/collectionCategories'
 import { getCollectionMainMeta, getCollectionSectionMeta } from '@/config/collectionCategories'
@@ -6,6 +6,12 @@ import { alpha, type Theme } from '@mui/material/styles'
 
 const chipTextColor = 'rgba(15, 23, 42, 0.88)'
 const chipTextMuted = 'rgba(51, 65, 85, 0.72)'
+
+const FOOD_LIVING_HEX = getCollectionMainMeta('food').color
+const FOOD_LIVING_TOTAL = '#b45309'
+const FOOD_LIVING_AMOUNT_ACTIVE = '#9a3412'
+const FOOD_LIVING_AMOUNT_IDLE = '#d97706'
+const FOOD_LIVING_LABEL_IDLE = '#ca8a04'
 
 /** 0depth — iOS 스타일 세그먼트 (상시 / 수시 / 소장) */
 export function sxCollectionSectionSegmentTrack() {
@@ -27,14 +33,14 @@ export function sxCollectionSectionSegmentItem(section: CollectionSectionKey, se
   return {
     flex: 1,
     minWidth: 0,
-    py: 0.75,
-    px: 0.5,
+    py: { xs: 0.75, md: 0.85 },
+    px: { xs: 0.5, md: 0.75 },
     borderRadius: 2,
     border: 'none',
     bgcolor: selected ? 'background.paper' : 'transparent',
     color: selected ? hex : chipTextMuted,
     fontWeight: selected ? 800 : 600,
-    fontSize: '0.86rem',
+    fontSize: { xs: '0.86rem', md: '0.92rem' },
     lineHeight: 1.2,
     cursor: 'pointer',
     outline: 'none',
@@ -246,28 +252,98 @@ export function sxCollectionBrandChip() {
 export function sxCollectionLivingSummaryPanel() {
   return {
     px: 0.85,
-    py: 0.6,
-    borderRadius: 2,
-    bgcolor: (theme: { palette: { mode: string; warning: { main: string } } }) =>
-      alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.12 : 0.07),
+    py: 0.65,
+    borderRadius: 2.5,
+    background: (theme: Theme) => {
+      const greyWash = alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.06 : 0.035)
+      const colorWash = alpha(FOOD_LIVING_HEX, theme.palette.mode === 'dark' ? 0.06 : 0.04)
+      return `linear-gradient(${colorWash}, ${colorWash}), ${greyWash}`
+    },
     border: '1px solid',
-    borderColor: (theme: { palette: { warning: { main: string } } }) =>
-      alpha(theme.palette.warning.main, 0.22),
+    borderColor: alpha(FOOD_LIVING_HEX, 0.1),
   } as const
 }
 
-export function sxLivingSubAmountChip(active: boolean) {
+export function sxCollectionLivingTotalAmount() {
   return {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 0.2,
-    px: 0.55,
-    py: 0.15,
-    borderRadius: 1,
-    bgcolor: active ? 'background.paper' : 'transparent',
-    border: 1,
-    borderColor: active ? 'warning.main' : (theme: { palette: { divider: string } }) => theme.palette.divider,
-    boxShadow: active ? '0 1px 2px rgba(15, 23, 42, 0.06)' : 'none',
+    fontSize: '0.86rem',
+    fontWeight: 900,
+    color: FOOD_LIVING_TOTAL,
+    lineHeight: 1.2,
+  } as const
+}
+
+/** 상시 — 카테고리+금액 통합 버튼 */
+export function sxCollectionLivingSubButton(selected: boolean) {
+  return {
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    p: 0,
+    borderRadius: 2,
+    border: '1px solid',
+    borderColor: selected ? alpha(FOOD_LIVING_HEX, 0.52) : alpha(FOOD_LIVING_HEX, 0.3),
+    bgcolor: 'background.paper',
+    cursor: 'pointer',
+    outline: 'none',
+    overflow: 'hidden',
+    WebkitTapHighlightColor: 'transparent',
+    boxShadow: selected ? `0 2px 6px ${alpha(FOOD_LIVING_HEX, 0.22)}` : `0 1px 2px ${alpha(FOOD_LIVING_HEX, 0.08)}`,
+    transition: 'background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease',
+    '&:hover': {
+      borderColor: alpha(FOOD_LIVING_HEX, selected ? 0.58 : 0.38),
+      boxShadow: selected ? `0 2px 8px ${alpha(FOOD_LIVING_HEX, 0.28)}` : `0 1px 4px ${alpha(FOOD_LIVING_HEX, 0.14)}`,
+    },
+    '&:active': {
+      transform: 'scale(0.98)',
+    },
+  } as const
+}
+
+export function sxCollectionLivingSubButtonLabel(selected: boolean) {
+  return {
+    py: 0.42,
+    px: 0.45,
+    textAlign: 'center',
+    fontSize: '0.78rem',
+    fontWeight: selected ? 800 : 600,
+    color: selected ? FOOD_LIVING_HEX : FOOD_LIVING_LABEL_IDLE,
+    lineHeight: 1.25,
+  } as const
+}
+
+export function sxCollectionLivingSubButtonAmountFoot(hasAmount: boolean, selected: boolean) {
+  return {
+    py: 0.3,
+    px: 0.35,
+    textAlign: 'center',
+    fontSize: '0.62rem',
+    fontWeight: selected ? 900 : 800,
+    lineHeight: 1.2,
+    letterSpacing: '-0.02em',
+    color: hasAmount
+      ? selected
+        ? FOOD_LIVING_AMOUNT_ACTIVE
+        : FOOD_LIVING_AMOUNT_IDLE
+      : 'text.disabled',
+    bgcolor: (theme: Theme) =>
+      alpha(FOOD_LIVING_HEX, theme.palette.mode === 'dark' ? (selected ? 0.22 : 0.14) : selected ? 0.16 : 0.1),
+    borderTop: '1px solid',
+    borderColor: alpha(FOOD_LIVING_HEX, selected ? 0.24 : 0.16),
+  } as const
+}
+
+export function sxCollectionLivingSubRow() {
+  return {
+    display: 'flex',
+    gap: 0.4,
+    width: '100%',
+    mt: 0.55,
+    pt: 0.5,
+    borderTop: 1,
+    borderColor: alpha(FOOD_LIVING_HEX, 0.14),
   } as const
 }
 

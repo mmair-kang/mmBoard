@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11 (색 테두리 복원·D-day 하단 배치)
+// 수정: Auto — 2026-06-15 (D-1 긴급 색상 강조)
 
 import { TodoFormDialog } from '@/components/home/TodoFormDialog'
 import { type TodoItem, useTodos } from '@/hooks/useTodos'
@@ -25,21 +25,54 @@ import { useState } from 'react'
 /** 약 5개 항목 높이 — 이후 세로 스크롤 */
 const TODO_LIST_MAX_HEIGHT = 268
 
-type TodoDdayTone = 'today' | 'soon' | 'future' | 'overdue'
+type TodoDdayTone = 'imminent' | 'urgent' | 'soon' | 'future'
 
 function todoDdayTone(days: number | null): TodoDdayTone | null {
   if (days == null) return null
-  if (days < 0) return 'overdue'
-  if (days === 0) return 'today'
+  if (days === 1) return 'imminent'
+  if (days <= 0) return 'urgent'
   if (days <= 7) return 'soon'
   return 'future'
 }
 
-function todoDdayPaletteKey(tone: TodoDdayTone): 'primary' | 'warning' | 'info' | 'error' {
-  if (tone === 'today') return 'primary'
+function todoDdayPaletteKey(tone: Exclude<TodoDdayTone, 'imminent' | 'urgent'>): 'warning' | 'info' {
   if (tone === 'soon') return 'warning'
-  if (tone === 'overdue') return 'error'
   return 'info'
+}
+
+/** D-1 — 내일 마감, 가장 눈에 띄는 코랄 레드 */
+function todoDdayImminentColor(theme: Theme): string {
+  return theme.palette.mode === 'dark' ? '#ff8f85' : '#c94f42'
+}
+
+/** TODAY·D+N — 부드러운 코랄 레드 */
+function todoDdayUrgentColor(theme: Theme): string {
+  return theme.palette.mode === 'dark' ? '#f0a09a' : '#d97065'
+}
+
+function todoDdayColor(theme: Theme, tone: TodoDdayTone): string {
+  if (tone === 'imminent') return todoDdayImminentColor(theme)
+  if (tone === 'urgent') return todoDdayUrgentColor(theme)
+  return theme.palette[todoDdayPaletteKey(tone)].main
+}
+
+function todoDdaySurfaceAlpha(tone: TodoDdayTone, theme: Theme, layer: 'box' | 'strip'): number {
+  if (tone === 'imminent') {
+    if (layer === 'strip') return theme.palette.mode === 'dark' ? 0.32 : 0.2
+    return theme.palette.mode === 'dark' ? 0.2 : 0.1
+  }
+  if (tone === 'urgent') {
+    if (layer === 'strip') return theme.palette.mode === 'dark' ? 0.14 : 0.08
+    return theme.palette.mode === 'dark' ? 0.1 : 0.045
+  }
+  if (layer === 'strip') return theme.palette.mode === 'dark' ? 0.14 : 0.08
+  return theme.palette.mode === 'dark' ? 0.1 : 0.045
+}
+
+function todoDdayBorderAlpha(tone: TodoDdayTone): number {
+  if (tone === 'imminent') return 0.58
+  if (tone === 'urgent') return 0.32
+  return 0.32
 }
 
 function todoScheduleBoxSx(tone: TodoDdayTone | null, hasDdayStrip: boolean) {
@@ -58,12 +91,15 @@ function todoScheduleBoxSx(tone: TodoDdayTone | null, hasDdayStrip: boolean) {
     }
     if (!tone) return base
 
-    const main = theme.palette[todoDdayPaletteKey(tone)].main
+    const main = todoDdayColor(theme, tone)
     return {
       ...base,
-      borderColor: alpha(main, 0.32),
-      bgcolor: alpha(main, theme.palette.mode === 'dark' ? 0.1 : 0.045),
-      boxShadow: `inset 0 0 0 1px ${alpha(main, 0.08)}`,
+      borderColor: alpha(main, todoDdayBorderAlpha(tone)),
+      bgcolor: alpha(main, todoDdaySurfaceAlpha(tone, theme, 'box')),
+      boxShadow:
+        tone === 'imminent'
+          ? `inset 0 0 0 1px ${alpha(main, 0.22)}`
+          : `inset 0 0 0 1px ${alpha(main, 0.08)}`,
     }
   }
 }
@@ -137,18 +173,18 @@ function TodoListRow({ item, onClick }: { item: TodoItem; onClick: () => void })
           {ddayLabel && ddayTone ? (
             <Box
               sx={(theme) => {
-                const main = theme.palette[todoDdayPaletteKey(ddayTone)].main
+                const main = todoDdayColor(theme, ddayTone)
                 return {
                   width: '100%',
                   borderTop: 1,
-                  borderColor: alpha(main, 0.28),
-                  bgcolor: alpha(main, theme.palette.mode === 'dark' ? 0.14 : 0.08),
-                  py: 0.12,
+                  borderColor: alpha(main, todoDdayBorderAlpha(ddayTone)),
+                  bgcolor: alpha(main, todoDdaySurfaceAlpha(ddayTone, theme, 'strip')),
+                  py: ddayTone === 'imminent' ? 0.16 : 0.12,
                   textAlign: 'center',
                   fontWeight: 900,
-                  fontSize: '0.52rem',
+                  fontSize: ddayTone === 'imminent' ? '0.54rem' : '0.52rem',
                   lineHeight: 1,
-                  letterSpacing: '0.02em',
+                  letterSpacing: ddayTone === 'imminent' ? '0.04em' : '0.02em',
                   color: main,
                 }
               }}

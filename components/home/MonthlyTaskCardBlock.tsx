@@ -1,10 +1,13 @@
 'use client'
-// 수정: Auto — 2026-06-08 (헤더·필요금액 1줄 레이아웃)
+// 수정: Auto — 2026-06-15 (현재 실적 입력·카드관리 초록 칩)
 
 import { FreshAmountField } from '@/components/common/FreshAmountField'
 import type { MonthlyTask, MonthlyTaskCardExtra } from '@/hooks/useMonthlyTasks'
 import { calcCardNeededAmount, calcCardProgressBreakdown, formatWon } from '@/lib/monthlyTaskCardCalc'
 import { formatMonthlyDayLabel, isMonthlyAnytimeDay } from '@/lib/monthlyDayLabel'
+import { currentYearMonth } from '@/lib/monthlyTaskMonth'
+import { formatRelativeDayKo } from '@/lib/relativeDayLabel'
+import { inactiveSwitchRowBg } from '@/lib/widgetSurfaces'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import Box from '@mui/material/Box'
@@ -14,8 +17,15 @@ import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { alpha } from '@mui/material/styles'
+import { alpha, type Theme } from '@mui/material/styles'
 import { useMemo, useState } from 'react'
+
+function cardGreenSurface(theme: Theme) {
+  return {
+    borderColor: alpha(theme.palette.success.main, 0.22),
+    bgcolor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.09 : 0.04),
+  }
+}
 
 type Props = {
   item: MonthlyTask
@@ -53,7 +63,7 @@ function ExtraRow({
         py: 0.55,
         borderRadius: 1.5,
         bgcolor: (theme) =>
-          active ? alpha(theme.palette.success.main, 0.08) : alpha(theme.palette.action.hover, 0.04),
+          active ? alpha(theme.palette.success.main, 0.08) : inactiveSwitchRowBg(theme),
         border: 1,
         borderColor: active ? 'success.light' : 'divider',
       }}
@@ -63,7 +73,7 @@ function ExtraRow({
         label={formatMonthlyDayLabel(extra.dayOfMonth)}
         sx={{ height: 22, minWidth: 40, fontWeight: 800, fontSize: '0.72rem', flexShrink: 0 }}
         variant="outlined"
-        color="primary"
+        color="success"
       />
 
       <Typography
@@ -120,6 +130,10 @@ export function MonthlyTaskCardBlock({
     [target, item.currentAmount, calc.totalDeduction],
   )
   const fulfilled = progress.fulfilled
+  const amountUpdatedLabel = useMemo(() => {
+    if (item.progressMonth !== currentYearMonth()) return null
+    return formatRelativeDayKo(item.currentAmountUpdatedAt)
+  }, [item.progressMonth, item.currentAmountUpdatedAt])
 
   const [saving, setSaving] = useState(false)
 
@@ -278,6 +292,47 @@ export function MonthlyTaskCardBlock({
         </Stack>
       </Box>
 
+      <Box sx={{ px: 1.25, pb: item.cardExtras.length > 0 ? 0.85 : 1.1 }}>
+        <Box
+          sx={(theme) => ({
+            borderRadius: 2,
+            border: 1,
+            px: 1.1,
+            py: 1,
+            ...cardGreenSurface(theme),
+          })}
+        >
+          <Stack
+            direction="row"
+            alignItems="baseline"
+            justifyContent="space-between"
+            sx={{ mb: 0.65, gap: 1 }}
+          >
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 700, fontSize: '0.72rem', color: 'success.dark' }}
+            >
+              현재 실적
+            </Typography>
+            {amountUpdatedLabel ? (
+              <Typography
+                variant="caption"
+                color="text.disabled"
+                sx={{ fontWeight: 600, fontSize: '0.68rem', flexShrink: 0 }}
+              >
+                {amountUpdatedLabel}
+              </Typography>
+            ) : null}
+          </Stack>
+          <FreshAmountField
+            value={item.currentAmount}
+            onCommit={commitAmount}
+            disabled={saving}
+            softInput="success"
+          />
+        </Box>
+      </Box>
+
       {item.cardExtras.length > 0 ? (
         <Stack spacing={0.75} sx={{ px: 1.25, pb: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, px: 0.25 }}>
@@ -293,24 +348,6 @@ export function MonthlyTaskCardBlock({
           ))}
         </Stack>
       ) : null}
-
-      <Box
-        sx={{
-          px: 1.25,
-          py: 1,
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: (theme) => alpha(theme.palette.action.hover, 0.03),
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <FreshAmountField
-          label="현재 실적 입력"
-          value={item.currentAmount}
-          onCommit={commitAmount}
-          disabled={saving}
-        />
-      </Box>
     </Box>
   )
 }

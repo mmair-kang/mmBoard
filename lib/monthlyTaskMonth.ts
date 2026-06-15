@@ -12,6 +12,7 @@ export type MonthlyTaskRow = {
   optionType: string
   targetAmount: number | null
   currentAmount: number
+  currentAmountUpdatedAt: string | null
   switchOn: number
   progressMonth: string
   createdAt: string
