@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-15 (상시비 연주황·버튼 내 금액)
+// 수정: Auto — 2026-06-15 (LivingMonthlyPanel subs 타입 수정)
 
 import {
   sxCollectionAddButton,
@@ -44,6 +44,7 @@ import {
   isCollectionPackDetailCategory,
   type CollectionMainKey,
   type CollectionSectionKey,
+  type CollectionSubEntry,
   type CollectionSubKey,
   type FoodScopeKey,
 } from '@/config/collectionCategories'
@@ -132,7 +133,7 @@ function LivingMonthlyPanel({
   subChipButtonSx,
 }: {
   total: number
-  subs: { key: string; label: string }[]
+  subs: readonly CollectionSubEntry[]
   activeSub: CollectionSubKey
   monthlyBySub: Map<string, number>
   onSelectSub: (key: CollectionSubKey) => void
