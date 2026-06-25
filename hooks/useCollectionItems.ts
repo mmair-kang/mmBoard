@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11 (상시·수시·소장)
+// 수정: Auto — 2026-06-26 (숨김 필드)
 
 import type {
   CollectionMainKey,
@@ -37,6 +37,7 @@ export interface CollectionItem {
   repurchaseDays: number | null
   repurchaseActive: boolean
   foodScope: FoodScopeKey
+  hidden: boolean
   createdAt: string
 }
 

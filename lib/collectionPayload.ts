@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-05 (푸드 필드)
+// 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
 
 import type { CollectionMainKey, CollectionSubKey, CollectionSubEntry, FoodScopeKey } from '@/config/collectionCategories'
 import {
@@ -59,6 +59,7 @@ export type CollectionItemPayload = {
   repurchaseDays: number | null
   repurchaseActive: boolean
   foodScope: FoodScopeKey
+  hidden: boolean
 }
 
 function trimOptional(value: unknown): string {
@@ -202,7 +203,8 @@ export function parseCollectionItemPayload(
     const raw = Number(body.repurchaseDays)
     if (!Number.isFinite(raw) || raw < 1) return null
     repurchaseDays = Math.round(raw)
-    repurchaseActive = Boolean(body.repurchaseActive)
+    const hidden = Boolean(body.hidden)
+    repurchaseActive = !hidden
     foodScope = isValidFoodScope(body.foodScope) ? body.foodScope : 'regular'
   }
 
@@ -226,6 +228,7 @@ export function parseCollectionItemPayload(
     repurchaseDays,
     repurchaseActive,
     foodScope,
+    hidden: Boolean(body.hidden),
   }
 }
 

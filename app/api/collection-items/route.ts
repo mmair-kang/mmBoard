@@ -102,6 +102,7 @@ export async function POST(request: Request) {
         repurchaseDays: payload.repurchaseDays,
         repurchaseActive: payload.repurchaseActive ? 1 : 0,
         foodScope: payload.foodScope,
+        hidden: payload.hidden ? 1 : 0,
         createdAt: new Date().toISOString(),
       })
       .returning()

@@ -50,6 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         repurchaseDays: payload.repurchaseDays,
         repurchaseActive: payload.repurchaseActive ? 1 : 0,
         foodScope: payload.foodScope,
+        hidden: payload.hidden ? 1 : 0,
       })
       .where(eq(collectionItems.id, itemId))
       .returning()

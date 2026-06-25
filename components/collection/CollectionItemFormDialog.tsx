@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11 (쇼핑·재구매주기)
+// 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
 
 import { AppDialog } from '@/components/common/AppDialog'
 
@@ -203,7 +203,7 @@ type FormState = {
 
   repurchaseDays: string
 
-  repurchaseActive: boolean
+  hidden: boolean
 
 }
 
@@ -265,7 +265,7 @@ const emptyForm = (): FormState => ({
 
   repurchaseDays: '30',
 
-  repurchaseActive: false,
+  hidden: false,
 
 })
 
@@ -307,7 +307,7 @@ function formFromItem(item: CollectionItem): FormState {
 
     repurchaseDays: item.repurchaseDays != null ? String(item.repurchaseDays) : '30',
 
-    repurchaseActive: item.repurchaseActive ?? false,
+    hidden: item.hidden ?? false,
 
   }
 
@@ -553,9 +553,9 @@ export function CollectionItemFormDialog({
     : null
   const livingMonthlyHelper =
     livingMonthlyPreview != null
-      ? form.repurchaseActive
-        ? `한달 예상 ${formatLivingMonthlyCost(livingMonthlyPreview)} · 상시 합계에 포함`
-        : `한달 예상 ${formatLivingMonthlyCost(livingMonthlyPreview)} · 합계 제외 (재구매중 OFF)`
+      ? form.hidden
+        ? `한달 예상 ${formatLivingMonthlyCost(livingMonthlyPreview)} · 합계 제외 (숨김 ON)`
+        : `한달 예상 ${formatLivingMonthlyCost(livingMonthlyPreview)} · 상시 합계에 포함`
       : '며칠마다 다시 구매하는지 입력하세요'
 
   const packDetailValid =
@@ -640,9 +640,11 @@ export function CollectionItemFormDialog({
 
         repurchaseDays: showFoodFields ? Math.round(Number(form.repurchaseDays)) : null,
 
-        repurchaseActive: showFoodFields ? form.repurchaseActive : false,
+        repurchaseActive: showFoodFields ? !form.hidden : false,
 
         foodScope: showFoodFields ? formFoodScope : 'regular',
+
+        hidden: form.hidden,
 
       })
 
@@ -1397,25 +1399,30 @@ export function CollectionItemFormDialog({
                     helperText={livingMonthlyHelper}
                     {...formDialogCompactTextFieldProps}
                   />
-                  <FormControlLabel
-                    sx={{ mx: 0, mt: -0.25, alignItems: 'center' }}
-                    control={
-                      <Switch
-                        size="small"
-                        checked={form.repurchaseActive}
-                        onChange={(_, checked) =>
-                          setForm((prev) => ({ ...prev, repurchaseActive: checked }))
-                        }
-                        color="warning"
-                      />
-                    }
-                    label={
-                      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700 }}>
-                        재구매중
-                      </Typography>
+                </>
+              ) : null}
+
+              <FormControlLabel
+                sx={{ mx: 0, mt: showFoodFields ? 0 : 0, alignItems: 'center' }}
+                control={
+                  <Switch
+                    size="small"
+                    checked={form.hidden}
+                    onChange={(_, checked) =>
+                      setForm((prev) => ({ ...prev, hidden: checked }))
                     }
                   />
-                </>
+                }
+                label={
+                  <Typography sx={{ fontSize: '0.82rem', fontWeight: 700 }}>
+                    숨김
+                  </Typography>
+                }
+              />
+              {showFoodFields ? (
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: -0.75, mb: 0.25 }}>
+                  OFF면 상시 합계에 포함됩니다
+                </Typography>
               ) : null}
 
               <DatePicker

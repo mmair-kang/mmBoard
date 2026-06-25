@@ -52,6 +52,8 @@ export const collectionItems = sqliteTable('collection_items', {
   repurchaseActive: integer('repurchase_active').notNull().default(0),
   /** food — 상시(regular) / 수시(occasional) */
   foodScope: text('food_scope').notNull().default('regular'),
+  /** 목록에서 숨김 */
+  hidden: integer('hidden').notNull().default(0),
   createdAt: text('created_at').notNull(),
 })
 

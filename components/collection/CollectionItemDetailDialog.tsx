@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11 (상세 헤더·생활 UI)
+// 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
@@ -191,14 +191,14 @@ export function CollectionItemDetailDialog({ open, item, onClose }: Props) {
             ) : null}
             {isFood ? (
               <DetailRow
-                label="재구매중"
-                value={item.repurchaseActive ? 'ON · 합계 포함' : 'OFF · 합계 제외'}
+                label="숨김"
+                value={item.hidden ? 'ON · 목록·합계 제외' : 'OFF · 상시 합계 포함'}
               />
             ) : null}
             {livingMonthly != null ? (
               <DetailRow
                 label="한달 예상"
-                value={`${formatLivingMonthlyCost(livingMonthly) ?? ''}${item.repurchaseActive ? '' : ' (합계 제외)'}`}
+                value={`${formatLivingMonthlyCost(livingMonthly) ?? ''}${item.hidden ? ' (합계 제외)' : ''}`}
               />
             ) : null}
             <DetailRow label="구매처" value={storeLabel} />

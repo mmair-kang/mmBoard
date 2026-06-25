@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-05 (푸드 필드)
+// 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
 
 import {
   deserializeCollectionOptionData,
@@ -48,6 +48,7 @@ export type CollectionItemDto = {
   repurchaseDays: number | null
   repurchaseActive: boolean
   foodScope: FoodScopeKey
+  hidden: boolean
   createdAt: string
 }
 
@@ -112,9 +113,11 @@ export function toCollectionItemDto(row: CollectionRow): CollectionItemDto {
     optionData,
     imageData: row.imageData,
     repurchaseDays: row.repurchaseDays ?? null,
-    repurchaseActive: (row.repurchaseActive ?? 0) === 1,
+    repurchaseActive:
+      mainCategory === 'food' ? (row.hidden ?? 0) !== 1 : (row.repurchaseActive ?? 0) === 1,
     foodScope:
       mainCategory === 'food' && isValidFoodScope(row.foodScope) ? row.foodScope : 'regular',
+    hidden: (row.hidden ?? 0) === 1,
     createdAt: row.createdAt,
   }
 }

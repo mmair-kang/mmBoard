@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-05 (푸드 필드·쇼핑 마이그레이션)
+// 수정: Auto — 2026-06-26 (숨김 필드)
 
 import { sql } from 'drizzle-orm'
 
@@ -136,7 +136,13 @@ export async function ensureCollectionSchema() {
       } catch {
         /* column already exists */
       }
+      try {
+        await db.run(sql`ALTER TABLE collection_items ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0`)
+      } catch {
+        /* column already exists */
+      }
       await db.run(sql`UPDATE collection_items SET food_scope = 'regular' WHERE main_category = 'food' AND (food_scope IS NULL OR food_scope = '')`)
+      await db.run(sql`UPDATE collection_items SET hidden = 1 WHERE main_category = 'food' AND repurchase_active = 0 AND hidden = 0`)
       await migrateShoppingToCollection()
     })().catch((e) => {
       schemaReady = null

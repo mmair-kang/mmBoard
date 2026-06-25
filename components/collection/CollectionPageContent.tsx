@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-15 (LivingMonthlyPanel subs 타입 수정)
+// 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
 
 import {
   sxCollectionAddButton,
@@ -74,6 +74,7 @@ import {
 import { buildLivingMonthlyBreakdown, calcLivingMonthlyCost, formatCompactLivingAmount } from '@/lib/livingCost'
 import { matchesAnySearch } from '@/lib/koreanSearch'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
@@ -120,6 +121,10 @@ function matchesCollectionItem(item: CollectionItem, query: string) {
     ],
     query,
   )
+}
+
+function filterByHiddenVisibility(items: CollectionItem[], showHiddenOnly: boolean) {
+  return items.filter((item) => (showHiddenOnly ? item.hidden : !item.hidden))
 }
 
 function LivingMonthlyPanel({
@@ -185,7 +190,7 @@ function LivingMonthlyPanel({
 
       {total === 0 ? (
         <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1.3, mt: 0.45 }}>
-          재구매중 ON인 항목만 합계에 포함됩니다
+          숨김 OFF인 항목만 합계에 포함됩니다
         </Typography>
       ) : null}
     </Box>
@@ -216,7 +221,7 @@ function CollectionItemCard({
   const foodLabels = isFood ? getCollectionFoodListLabels(item) : []
   const detailLine = isPackDetail ? [modelLine, packDetailLine].filter(Boolean).join(' · ') : modelLine
   const monthlyCost = showLivingCost ? calcLivingMonthlyCost(item.purchasePrice, item.repurchaseDays) : null
-  const monthlyActive = item.repurchaseActive === true
+  const monthlyActive = !item.hidden
   const hasThumb = Boolean(item.imageData)
   const showMonthly = showLivingCost && monthlyCost != null
   const showLeftColumn = hasThumb || showMonthly
@@ -355,6 +360,7 @@ export function CollectionPageContent() {
   const [detailItem, setDetailItem] = useState<CollectionItem | null>(null)
   const [subEditOpen, setSubEditOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showHiddenOnly, setShowHiddenOnly] = useState(false)
   const trimmedQuery = searchQuery.trim()
   const isSearching = Boolean(trimmedQuery)
   const { mutate: globalMutate } = useSWRConfig()
@@ -379,9 +385,16 @@ export function CollectionPageContent() {
     return map
   }, [livingMonthlyBreakdown.rows])
   const displayItems = useMemo(() => {
-    if (!trimmedQuery) return items
-    return allItems.filter((item) => matchesCollectionItem(item, trimmedQuery))
-  }, [items, allItems, trimmedQuery])
+    const base = trimmedQuery
+      ? allItems.filter((item) => matchesCollectionItem(item, trimmedQuery))
+      : items
+    return filterByHiddenVisibility(base, showHiddenOnly)
+  }, [items, allItems, trimmedQuery, showHiddenOnly])
+
+  const visibleItemCount = useMemo(() => {
+    const base = trimmedQuery ? allItems : items
+    return filterByHiddenVisibility(base, showHiddenOnly).length
+  }, [items, allItems, trimmedQuery, showHiddenOnly])
 
   const listLoading = isSearching ? allLoading && allItems.length === 0 : isLoading
 
@@ -534,6 +547,7 @@ export function CollectionPageContent() {
 
   const handleSectionChange = (next: CollectionSectionKey) => {
     setSection(next)
+    setShowHiddenOnly(false)
     const nextMain = getDefaultMainForSection(next)
     setMainCategory(nextMain)
     setSubCategory(getFirstSubcategory(nextMain))
@@ -558,15 +572,31 @@ export function CollectionPageContent() {
             <Typography variant="h5" sx={sxPageTitle}>
               쇼핑
             </Typography>
-            <Tooltip title={addTooltip}>
-              <IconButton
-                onClick={openAddDialog}
-                aria-label="항목 추가"
-                sx={sxCollectionAddButton(isConsumableSection(section) ? 'food' : mainCategory)}
-              >
-                <AddRoundedIcon />
-              </IconButton>
-            </Tooltip>
+            <Stack direction="row" alignItems="center" gap={0.25}>
+              <Tooltip title={showHiddenOnly ? '일반 목록' : '숨김만 보기'}>
+                <IconButton
+                  onClick={() => setShowHiddenOnly((prev) => !prev)}
+                  aria-label={showHiddenOnly ? '일반 목록' : '숨김만 보기'}
+                  aria-pressed={showHiddenOnly}
+                  size="small"
+                  sx={{
+                    color: showHiddenOnly ? 'primary.main' : 'text.secondary',
+                    bgcolor: showHiddenOnly ? 'action.selected' : 'transparent',
+                  }}
+                >
+                  <VisibilityOffRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={addTooltip}>
+                <IconButton
+                  onClick={openAddDialog}
+                  aria-label="항목 추가"
+                  sx={sxCollectionAddButton(isConsumableSection(section) ? 'food' : mainCategory)}
+                >
+                  <AddRoundedIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
           </Stack>
 
           <ListSearchField value={searchQuery} onChange={setSearchQuery} />
@@ -655,16 +685,20 @@ export function CollectionPageContent() {
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
             <CircularProgress />
           </Stack>
-        ) : !isSearching && items.length === 0 ? (
+        ) : !isSearching && visibleItemCount === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6, color: 'text.secondary' }}>
             <Typography sx={{ fontWeight: 600 }}>
-              {isConsumableSection(section)
-                ? `${section === 'regular' ? '상시' : '수시'} · ${subLabel} 목록이 비어 있습니다`
-                : `${mainMeta.label} · ${subLabel} 목록이 비어 있습니다`}
+              {showHiddenOnly
+                ? '숨김 항목이 없습니다'
+                : isConsumableSection(section)
+                  ? `${section === 'regular' ? '상시' : '수시'} · ${subLabel} 목록이 비어 있습니다`
+                  : `${mainMeta.label} · ${subLabel} 목록이 비어 있습니다`}
             </Typography>
-            <Typography variant="body2" sx={{ mt: 0.5 }}>
-              + 버튼으로 {isConsumableSection(section) ? '소모품' : '소장품'}을 추가해 보세요
-            </Typography>
+            {!showHiddenOnly ? (
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                + 버튼으로 {isConsumableSection(section) ? '소모품' : '소장품'}을 추가해 보세요
+              </Typography>
+            ) : null}
           </Stack>
         ) : displayItems.length === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6, color: 'text.secondary' }}>
