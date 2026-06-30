@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11 (size 옵션)
+// 수정: Auto — 2026-06-30 (연속 게이지 끝 각지게)
 
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
@@ -9,6 +9,8 @@ const SEGMENT_FILL_MS = 480
 const SEGMENT_STAGGER_MS = 18
 const DEFAULT_SIZE = 88
 const GAP_RAD = 0.035
+/** 이 값 초과 시 칸 분할 대신 연속 원형 게이지 */
+const MAX_SEGMENT_TOTAL = 31
 
 function polar(cx: number, cy: number, r: number, angle: number) {
   return {
@@ -49,6 +51,58 @@ function segmentAngles(index: number, total: number) {
   return { startAngle, endAngle }
 }
 
+function ContinuousRing({
+  cx,
+  cy,
+  rOuter,
+  rInner,
+  filled,
+  total,
+  barColor,
+  trackColor,
+}: {
+  cx: number
+  cy: number
+  rOuter: number
+  rInner: number
+  filled: number
+  total: number
+  barColor: string
+  trackColor: string
+}) {
+  const ratio = Math.max(0, Math.min(1, filled / total))
+  const startAngle = -Math.PI / 2
+  const endAngleFull = startAngle + 2 * Math.PI
+  const midAngle = startAngle + Math.PI
+  const endAngleFilled = startAngle + ratio * 2 * Math.PI
+
+  const trackHalf = (from: number, to: number) => (
+    <path key={`${from}-${to}`} d={annularSectorPath(cx, cy, rOuter, rInner, from, to)} fill={trackColor} />
+  )
+
+  return (
+    <>
+      {trackHalf(startAngle, midAngle)}
+      {trackHalf(midAngle, endAngleFull)}
+      {ratio > 0 && ratio < 1 ? (
+        <path
+          d={annularSectorPath(cx, cy, rOuter, rInner, startAngle, endAngleFilled)}
+          fill={barColor}
+          style={{
+            transition: `opacity ${SEGMENT_FILL_MS}ms ${SEGMENT_EASE}`,
+          }}
+        />
+      ) : null}
+      {ratio >= 1 ? (
+        <>
+          <path d={annularSectorPath(cx, cy, rOuter, rInner, startAngle, midAngle)} fill={barColor} />
+          <path d={annularSectorPath(cx, cy, rOuter, rInner, midAngle, endAngleFull)} fill={barColor} />
+        </>
+      ) : null}
+    </>
+  )
+}
+
 type Props = {
   total: number
   filled: number
@@ -72,6 +126,7 @@ export function CircleProgress360({
 }: Props) {
   const safeTotal = Math.max(1, Math.round(total))
   const safeFilled = Math.max(0, Math.min(safeTotal, Math.round(filled)))
+  const useSegments = safeTotal <= MAX_SEGMENT_TOTAL
   const scale = size / DEFAULT_SIZE
   const cx = size / 2
   const cy = size / 2
@@ -94,21 +149,34 @@ export function CircleProgress360({
         viewBox={`0 0 ${size} ${size}`}
         sx={{ display: 'block', width: '100%', height: '100%', overflow: 'visible' }}
       >
-        {Array.from({ length: safeTotal }, (_, i) => {
-          const { startAngle, endAngle } = segmentAngles(i, safeTotal)
-          const isFilled = i < safeFilled
-          return (
-            <path
-              key={i}
-              d={annularSectorPath(cx, cy, rOuter, rInner, startAngle, endAngle)}
-              fill={isFilled ? barColor : trackColor}
-              style={{
-                transition: `fill ${SEGMENT_FILL_MS}ms ${SEGMENT_EASE}`,
-                transitionDelay: isFilled ? `${Math.min(i * SEGMENT_STAGGER_MS, 240)}ms` : '0ms',
-              }}
+        {useSegments
+          ? Array.from({ length: safeTotal }, (_, i) => {
+              const { startAngle, endAngle } = segmentAngles(i, safeTotal)
+              const isFilled = i < safeFilled
+              return (
+                <path
+                  key={i}
+                  d={annularSectorPath(cx, cy, rOuter, rInner, startAngle, endAngle)}
+                  fill={isFilled ? barColor : trackColor}
+                  style={{
+                    transition: `fill ${SEGMENT_FILL_MS}ms ${SEGMENT_EASE}`,
+                    transitionDelay: isFilled ? `${Math.min(i * SEGMENT_STAGGER_MS, 240)}ms` : '0ms',
+                  }}
+                />
+              )
+            })
+          : (
+            <ContinuousRing
+              cx={cx}
+              cy={cy}
+              rOuter={rOuter}
+              rInner={rInner}
+              filled={safeFilled}
+              total={safeTotal}
+              barColor={barColor}
+              trackColor={trackColor}
             />
-          )
-        })}
+          )}
       </Box>
       <Box
         sx={{

@@ -3,7 +3,7 @@
 import type { CardExtraPayload } from '@/lib/monthlyTaskCardExtraPayload'
 import { parseCardExtrasPayload } from '@/lib/monthlyTaskCardExtraPayload'
 
-export const MONTHLY_TASK_OPTION_TYPES = ['card_target', 'switch'] as const
+export const MONTHLY_TASK_OPTION_TYPES = ['card_target', 'card_benefit', 'switch'] as const
 export type MonthlyTaskOptionType = (typeof MONTHLY_TASK_OPTION_TYPES)[number]
 
 const optionTypeSet = new Set<string>(MONTHLY_TASK_OPTION_TYPES)
@@ -40,7 +40,7 @@ export function parseMonthlyTaskPayload(body: Record<string, unknown>): ParsedMo
   }
 
   let targetAmount: number | null = null
-  if (optionType === 'card_target') {
+  if (optionType === 'card_target' || optionType === 'card_benefit') {
     const raw = Number(body.targetAmount)
     if (!Number.isFinite(raw) || raw < 1) return null
     targetAmount = Math.round(raw)

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-11
+// 수정: Auto — 2026-06-30 (남은 일수 오름차순 정렬)
 
 import { DdayItemCard } from '@/components/home/DdayItemCard'
 import { DdayItemFormDialog } from '@/components/home/DdayItemFormDialog'
@@ -7,6 +7,7 @@ import { ddayColorForIndex } from '@/config/ddayColors'
 import { type DdayItem, useDdayItems } from '@/hooks/useDdayItems'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import type { DdayItemPayload } from '@/lib/ddayPayload'
+import { sortDdayItemsByRemainingDays } from '@/lib/ddaySchedule'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -16,10 +17,11 @@ import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 export function DdayWidget() {
   const { items, isLoading, mutate } = useDdayItems()
+  const sortedItems = useMemo(() => sortDdayItemsByRemainingDays(items), [items])
   const [formOpen, setFormOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<DdayItem | null>(null)
 
@@ -114,7 +116,7 @@ export function DdayWidget() {
             <Stack alignItems="center" py={1.5}>
               <CircularProgress size={22} />
             </Stack>
-          ) : items.length === 0 ? (
+          ) : sortedItems.length === 0 ? (
             <Stack alignItems="center" py={1.5} spacing={0.25} color="text.secondary">
               <Typography sx={{ fontWeight: 600, fontSize: '0.78rem' }}>등록된 일정이 없습니다</Typography>
               <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
@@ -129,7 +131,7 @@ export function DdayWidget() {
                 gap: 0.6,
               }}
             >
-              {items.map((item, index) => (
+              {sortedItems.map((item, index) => (
                 <DdayItemCard
                   key={item.id}
                   item={item}

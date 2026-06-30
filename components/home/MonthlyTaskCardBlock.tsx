@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-15 (현재 실적 입력·카드관리 초록 칩)
+// 수정: Auto — 2026-06-30 (세로 간격 컴팩트)
 
 import { FreshAmountField } from '@/components/common/FreshAmountField'
 import type { MonthlyTask, MonthlyTaskCardExtra } from '@/hooks/useMonthlyTasks'
@@ -59,9 +59,9 @@ function ExtraRow({
       alignItems="center"
       spacing={0.75}
       sx={{
-        px: 1,
-        py: 0.55,
-        borderRadius: 1.5,
+        px: 0.85,
+        py: 0.38,
+        borderRadius: 1.25,
         bgcolor: (theme) =>
           active ? alpha(theme.palette.success.main, 0.08) : inactiveSwitchRowBg(theme),
         border: 1,
@@ -71,7 +71,7 @@ function ExtraRow({
       <Chip
         size="small"
         label={formatMonthlyDayLabel(extra.dayOfMonth)}
-        sx={{ height: 22, minWidth: 40, fontWeight: 800, fontSize: '0.72rem', flexShrink: 0 }}
+        sx={{ height: 20, minWidth: 36, fontWeight: 800, fontSize: '0.68rem', flexShrink: 0 }}
         variant="outlined"
         color="success"
       />
@@ -81,7 +81,7 @@ function ExtraRow({
           flex: 1,
           minWidth: 0,
           fontWeight: 700,
-          fontSize: '0.84rem',
+          fontSize: '0.8rem',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -93,7 +93,7 @@ function ExtraRow({
       <Typography
         sx={{
           fontWeight: 800,
-          fontSize: '0.8rem',
+          fontSize: '0.76rem',
           color: 'text.secondary',
           flexShrink: 0,
           whiteSpace: 'nowrap',
@@ -170,13 +170,13 @@ export function MonthlyTaskCardBlock({
         direction="row"
         alignItems="center"
         spacing={0.75}
-        sx={{ px: 1.25, pt: 1.1, pb: 0.75 }}
+        sx={{ px: 1.1, pt: 0.8, pb: 0.45 }}
       >
         {!isMonthlyAnytimeDay(item.dayOfMonth) ? (
           <Chip
             size="small"
             label={formatMonthlyDayLabel(item.dayOfMonth)}
-            sx={{ height: 22, fontWeight: 800, fontSize: '0.72rem', flexShrink: 0 }}
+            sx={{ height: 20, fontWeight: 800, fontSize: '0.68rem', flexShrink: 0 }}
             color="primary"
             variant="outlined"
           />
@@ -185,8 +185,8 @@ export function MonthlyTaskCardBlock({
           <Typography
             sx={{
               fontWeight: 800,
-              fontSize: '0.95rem',
-              lineHeight: 1.25,
+              fontSize: '0.9rem',
+              lineHeight: 1.2,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -201,141 +201,96 @@ export function MonthlyTaskCardBlock({
               icon={<CheckCircleRoundedIcon />}
               label="달성"
               color="success"
-              sx={{ height: 22, fontWeight: 800, fontSize: '0.72rem', flexShrink: 0 }}
+              sx={{ height: 20, fontWeight: 800, fontSize: '0.68rem', flexShrink: 0 }}
             />
           ) : null}
         </Stack>
         <Tooltip title="카드 설정 수정">
-          <IconButton size="small" onClick={onEdit} aria-label="수정" sx={{ flexShrink: 0 }}>
+          <IconButton size="small" onClick={onEdit} aria-label="수정" sx={{ flexShrink: 0, p: 0.45 }}>
             <EditRoundedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       </Stack>
 
-      <Box sx={{ px: 1.25, pb: 0.75 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.4 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-            현재 실적
-          </Typography>
-          <Typography variant="caption" sx={{ fontWeight: 800 }}>
-            {formatWon(item.currentAmount)}
-            {calc.totalDeduction > 0 ? ` + 예정 ${formatWon(calc.totalDeduction)}` : ''}
-            {' / '}
-            {formatWon(target)}
-          </Typography>
-        </Stack>
-        <Box
-          sx={{
-            position: 'relative',
-            height: 7,
-            borderRadius: 99,
-            bgcolor: (theme) => alpha(theme.palette.action.active, 0.12),
-            overflow: 'hidden',
-            mb: 1,
-          }}
-        >
-          <Box
-            sx={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: `${progress.currentPct}%`,
-              bgcolor: fulfilled ? 'success.main' : 'primary.main',
-              transition: 'width 0.25s ease',
-            }}
-          />
-          {progress.scheduledPct > 0 ? (
-            <Box
-              sx={{
-                position: 'absolute',
-                left: `${progress.currentPct}%`,
-                top: 0,
-                bottom: 0,
-                width: `${progress.scheduledPct}%`,
-                bgcolor: (theme) =>
-                  fulfilled ? alpha(theme.palette.success.main, 0.45) : alpha(theme.palette.info.main, 0.55),
-                transition: 'width 0.25s ease, left 0.25s ease',
-              }}
-            />
-          ) : null}
-        </Box>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{
-            px: 1.1,
-            py: 0.65,
-            borderRadius: 1.75,
-            bgcolor: (theme) =>
-              calc.needed === 0 && target > 0
-                ? alpha(theme.palette.success.main, 0.1)
-                : alpha(theme.palette.primary.main, 0.06),
-            border: 1,
-            borderColor: calc.needed === 0 && target > 0 ? 'success.light' : 'primary.light',
-          }}
-        >
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-            필요 금액
-          </Typography>
-          <Typography
-            sx={{
-              fontWeight: 900,
-              fontSize: '0.95rem',
-              lineHeight: 1.2,
-              color: calc.needed === 0 && target > 0 ? 'success.dark' : 'primary.dark',
-            }}
-          >
-            {calc.needed === 0 && target > 0 ? '충족' : formatWon(calc.needed)}
-          </Typography>
-        </Stack>
-      </Box>
-
-      <Box sx={{ px: 1.25, pb: item.cardExtras.length > 0 ? 0.85 : 1.1 }}>
+      <Box sx={{ px: 1.1, pb: item.cardExtras.length > 0 ? 0.55 : 0.75 }}>
         <Box
           sx={(theme) => ({
-            borderRadius: 2,
+            borderRadius: 1.75,
             border: 1,
-            px: 1.1,
-            py: 1,
+            px: 0.9,
+            py: 0.55,
             ...cardGreenSurface(theme),
           })}
         >
-          <Stack
-            direction="row"
-            alignItems="baseline"
-            justifyContent="space-between"
-            sx={{ mb: 0.65, gap: 1 }}
-          >
+          <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 0.2 }}>
             <Typography
               variant="caption"
-              sx={{ fontWeight: 700, fontSize: '0.72rem', color: 'success.dark' }}
+              color="text.secondary"
+              sx={{ fontWeight: 700, fontSize: '0.66rem' }}
             >
               현재 실적
             </Typography>
-            {amountUpdatedLabel ? (
-              <Typography
-                variant="caption"
-                color="text.disabled"
-                sx={{ fontWeight: 600, fontSize: '0.68rem', flexShrink: 0 }}
-              >
-                {amountUpdatedLabel}
-              </Typography>
-            ) : null}
+            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.66rem' }}>
+              {formatWon(item.currentAmount)}
+              {calc.totalDeduction > 0 ? ` + 예정 ${formatWon(calc.totalDeduction)}` : ''}
+              {' / '}
+              {formatWon(target)}
+            </Typography>
           </Stack>
+          <Box
+            sx={{
+              position: 'relative',
+              height: 5,
+              borderRadius: 99,
+              bgcolor: (theme) => alpha(theme.palette.action.active, 0.12),
+              overflow: 'hidden',
+              mb: 0.45,
+            }}
+          >
+            <Box
+              sx={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: `${progress.currentPct}%`,
+                bgcolor: fulfilled ? 'success.main' : 'primary.main',
+                transition: 'width 0.25s ease',
+              }}
+            />
+            {progress.scheduledPct > 0 ? (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  left: `${progress.currentPct}%`,
+                  top: 0,
+                  bottom: 0,
+                  width: `${progress.scheduledPct}%`,
+                  bgcolor: (theme) =>
+                    fulfilled ? alpha(theme.palette.success.main, 0.45) : alpha(theme.palette.info.main, 0.55),
+                  transition: 'width 0.25s ease, left 0.25s ease',
+                }}
+              />
+            ) : null}
+          </Box>
           <FreshAmountField
             value={item.currentAmount}
             onCommit={commitAmount}
             disabled={saving}
             softInput="success"
+            leadingLabel={amountUpdatedLabel}
+            compact
           />
         </Box>
       </Box>
 
       {item.cardExtras.length > 0 ? (
-        <Stack spacing={0.75} sx={{ px: 1.25, pb: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, px: 0.25 }}>
+        <Stack spacing={0.45} sx={{ px: 1.1, pb: 0.75 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontWeight: 800, fontSize: '0.66rem', px: 0.15, lineHeight: 1.2 }}
+          >
             카드 관리
           </Typography>
           {item.cardExtras.map((extra) => (

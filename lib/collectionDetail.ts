@@ -1,7 +1,12 @@
-// 수정: Auto — 2026-06-11 (가격 칩 — 원 포함만 파란색)
+// 수정: Auto — 2026-06-30 (패션 상세옵션 목록 메트릭)
 
-import { hasCollectionAmount, isMultiUnitPackType } from '@/config/shoppingCategories'
+import { isFashionMainCategory } from '@/config/collectionCategories'
+import {
+  COLLECTION_OPTION_FIELDS,
+  type CollectionOptionFieldKey,
+} from '@/config/collectionOptions'
 import type { CollectionItem } from '@/hooks/useCollectionItems'
+import { hasCollectionAmount, isMultiUnitPackType } from '@/config/shoppingCategories'
 import {
   formatAmountWithPackCount,
   formatPerPiecePriceLabel,
@@ -80,6 +85,27 @@ export function formatCollectionFoodListSubline(item: CollectionItem): string {
 
 export function formatCollectionPackListSubline(item: CollectionItem): string {
   return getCollectionPackDetailLabels(item).join(' · ')
+}
+
+export type CollectionFashionListMetric = {
+  key: CollectionOptionFieldKey
+  value: string
+}
+
+export function getCollectionFashionListMetrics(item: CollectionItem): CollectionFashionListMetric[] {
+  if (!isFashionMainCategory(item.mainCategory) || item.optionType === 'none') return []
+
+  return COLLECTION_OPTION_FIELDS[item.optionType]
+    .map((field) => {
+      const value = item.optionData[field.key]?.trim() ?? ''
+      return value ? { key: field.key, value } : null
+    })
+    .filter((row): row is CollectionFashionListMetric => row != null)
+}
+
+export function hasCollectionFashionListDetail(item: CollectionItem): boolean {
+  if (!isFashionMainCategory(item.mainCategory) || item.optionType === 'none') return false
+  return Boolean(item.size.trim() || item.model.trim()) || getCollectionFashionListMetrics(item).length > 0
 }
 
 /** 가격 단가 칩 — 100g당·1개당 등 (1박스당 N개 제외) */

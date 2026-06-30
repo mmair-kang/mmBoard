@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
+// 수정: Auto — 2026-06-30 (패션 상세옵션 목록 2줄)
 
 import {
   sxCollectionAddButton,
@@ -23,6 +23,7 @@ import {
   sxCollectionSubChipPanel,
 } from '@/components/collection/collectionStyles'
 import { ListSearchField } from '@/components/common/ListSearchField'
+import { CollectionFashionListMetrics } from '@/components/collection/CollectionFashionListMetrics'
 import { CollectionItemDetailDialog } from '@/components/collection/CollectionItemDetailDialog'
 import { CollectionItemFormDialog } from '@/components/collection/CollectionItemFormDialog'
 import { CollectionSubcategoryEditDialog } from '@/components/collection/CollectionSubcategoryEditDialog'
@@ -40,6 +41,7 @@ import {
   getFirstSubcategory,
   getSubcategoryLabel,
   isConsumableSection,
+  isFashionMainCategory,
   isFoodMainCategory,
   isCollectionPackDetailCategory,
   type CollectionMainKey,
@@ -60,7 +62,9 @@ import { useLongPress } from '@/hooks/useLongPress'
 import { formatLastPurchaseRelativeLabel } from '@/lib/shoppingDate'
 import {
   formatCollectionPackListSubline,
+  getCollectionFashionListMetrics,
   getCollectionFoodListLabels,
+  hasCollectionFashionListDetail,
   isCollectionFoodPriceMetric,
 } from '@/lib/collectionDetail'
 import { upsertCollectionItemSorted } from '@/lib/collectionItem'
@@ -215,7 +219,11 @@ function CollectionItemCard({
   const name = item.name.trim()
   const nameSuffix = item.nameSuffix.trim()
   const isFood = isFoodMainCategory(item.mainCategory)
+  const isFashion = isFashionMainCategory(item.mainCategory)
   const isPackDetail = isCollectionPackDetailCategory(item.mainCategory)
+  const fashionMetrics =
+    isFashion && item.optionType !== 'none' ? getCollectionFashionListMetrics(item) : []
+  const showFashionDetail = hasCollectionFashionListDetail(item)
   const modelLine = [item.model.trim(), item.size.trim()].filter(Boolean).join(' · ')
   const packDetailLine = isPackDetail ? formatCollectionPackListSubline(item) : ''
   const foodLabels = isFood ? getCollectionFoodListLabels(item) : []
@@ -314,7 +322,15 @@ function CollectionItemCard({
               ))}
             </Box>
           ) : null}
-          {!isFood && detailLine ? (
+          {showFashionDetail && item.optionType !== 'none' ? (
+            <CollectionFashionListMetrics
+              size={item.size}
+              model={item.model}
+              optionType={item.optionType}
+              metrics={fashionMetrics}
+            />
+          ) : null}
+          {!isFood && !showFashionDetail && detailLine ? (
             <Typography
               variant="body2"
               color="text.secondary"

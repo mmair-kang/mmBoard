@@ -1,11 +1,12 @@
 'use client'
-// 수정: Auto — 2026-06-15 (PC 2열·반응형)
+// 수정: Auto — 2026-06-30 (헤더 총 사용 금액)
 
 import { MonthlyTaskFormDialog } from '@/components/home/MonthlyTaskFormDialog'
 import { MonthlyTaskItemRow } from '@/components/home/MonthlyTaskItemRow'
 import { sxDesktopTwoColumnGrid } from '@/config/responsiveLayout'
 import { type MonthlyTask, type MonthlyTaskCardExtra, useMonthlyTasks } from '@/hooks/useMonthlyTasks'
 import { readApiErrorMessage } from '@/lib/apiResponse'
+import { calcMonthlyCardTotalSpent, formatWon } from '@/lib/monthlyTaskCardCalc'
 import { sortMonthlyTasks } from '@/lib/monthlyTaskMonth'
 import type { MonthlyTaskPayload } from '@/lib/monthlyTaskPayload'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -16,6 +17,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import { alpha } from '@mui/material/styles'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
 
@@ -30,6 +32,11 @@ export function MonthlyTaskWidget() {
 
   const sortedItems = useMemo(() => sortMonthlyTasks(items), [items])
   const monthLabel = dayjs().format('M월')
+  const totalSpent = useMemo(() => calcMonthlyCardTotalSpent(items), [items])
+  const hasSpendingCards = useMemo(
+    () => items.some((item) => item.optionType === 'card_target' || item.optionType === 'card_benefit'),
+    [items],
+  )
 
   const openAdd = () => {
     setEditingItem(null)
@@ -121,8 +128,8 @@ export function MonthlyTaskWidget() {
           alignItems="center"
           justifyContent="space-between"
           sx={{
-            px: { xs: 1.5, md: 2 },
-            py: { xs: 1.25, md: 1.5 },
+            px: { xs: 1.25, md: 1.5 },
+            py: { xs: 1, md: 1.15 },
             borderBottom: 1,
             borderColor: 'divider',
           }}
@@ -135,13 +142,49 @@ export function MonthlyTaskWidget() {
               {monthLabel}
             </Typography>
           </Stack>
-          <Tooltip title="카드 추가">
-            <IconButton size="small" color="primary" onClick={openAdd} aria-label="카드 추가">
-              <AddRoundedIcon />
-            </IconButton>
-          </Tooltip>
+          <Stack direction="row" alignItems="center" spacing={0.75} sx={{ minWidth: 0 }}>
+            {hasSpendingCards ? (
+              <Box
+                sx={(theme) => ({
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.5,
+                  px: 1,
+                  py: 0.35,
+                  borderRadius: 1.5,
+                  bgcolor: alpha(theme.palette.primary.main, 0.06),
+                  border: 1,
+                  borderColor: alpha(theme.palette.primary.main, 0.14),
+                  flexShrink: 0,
+                })}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 600, fontSize: '0.66rem', whiteSpace: 'nowrap' }}
+                >
+                  총 사용
+                </Typography>
+                <Typography
+                  sx={{
+                    fontWeight: 800,
+                    fontSize: { xs: '0.82rem', md: '0.88rem' },
+                    color: 'primary.dark',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {formatWon(totalSpent)}
+                </Typography>
+              </Box>
+            ) : null}
+            <Tooltip title="카드 추가">
+              <IconButton size="small" color="primary" onClick={openAdd} aria-label="카드 추가">
+                <AddRoundedIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </Stack>
-        <Box sx={{ p: { xs: 1.5, md: 2 } }}>
+        <Box sx={{ p: { xs: 1.1, md: 1.35 } }}>
           {isLoading ? (
             <Stack alignItems="center" py={3}>
               <CircularProgress size={28} />
@@ -152,7 +195,7 @@ export function MonthlyTaskWidget() {
               <Typography variant="caption">+ 버튼으로 매달 관리할 카드를 추가해 보세요</Typography>
             </Stack>
           ) : (
-            <Box sx={sxDesktopTwoColumnGrid}>
+            <Box sx={{ ...sxDesktopTwoColumnGrid, gap: { xs: 1, md: 1.25 } }}>
               {sortedItems.map((item) => (
                 <MonthlyTaskItemRow
                   key={item.id}

@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-05
+// 수정: Auto — 2026-06-30 (남은 일수 정렬)
 import dayjs, { type Dayjs } from 'dayjs'
 
 export const INTERVAL_UNITS = ['day', 'week', 'month'] as const
@@ -33,6 +33,24 @@ export function calcDaysElapsed(lastVisitDate: string, today = dayjs()): number 
 
 export function calcDaysRemaining(nextVisitDate: string, today = dayjs()): number {
   return Math.max(0, dayjs(nextVisitDate).startOf('day').diff(today.startOf('day'), 'day'))
+}
+
+export function calcDaysRemainingForItem(
+  item: { lastVisitDate: string; intervalValue: number; intervalUnit: IntervalUnit },
+  today = dayjs(),
+): number {
+  const nextVisit = calcNextVisitDate(item.lastVisitDate, item.intervalValue, item.intervalUnit)
+  return calcDaysRemaining(nextVisit.format('YYYY-MM-DD'), today)
+}
+
+export function sortDdayItemsByRemainingDays<
+  T extends { lastVisitDate: string; intervalValue: number; intervalUnit: IntervalUnit; createdAt?: string },
+>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const diff = calcDaysRemainingForItem(a) - calcDaysRemainingForItem(b)
+    if (diff !== 0) return diff
+    return (a.createdAt ?? '').localeCompare(b.createdAt ?? '')
+  })
 }
 
 export function calcProgressFilled(lastVisitDate: string, nextVisitDate: string, today = dayjs()) {

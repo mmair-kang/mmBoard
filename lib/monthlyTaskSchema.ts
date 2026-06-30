@@ -1,7 +1,8 @@
-// 수정: Auto — 2026-06-15 (current_amount_updated_at 마이그레이션)
+// 수정: Auto — 2026-06-30 (KB카드 시드)
 import { sql } from 'drizzle-orm'
 
-import { db } from '@/lib/db'
+import { db, getDbClient } from '@/lib/db'
+import { currentYearMonth } from '@/lib/monthlyTaskMonth'
 
 let schemaReady: Promise<void> | null = null
 
@@ -40,6 +41,20 @@ export async function ensureMonthlyTaskSchema() {
         sort_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )`)
+
+      const kbResult = await getDbClient().execute({
+        sql: `SELECT COUNT(*) AS cnt FROM monthly_task_items WHERE option_type = ? AND title = ?`,
+        args: ['card_benefit', 'KB카드'],
+      })
+      const kbCount = Number(kbResult.rows[0]?.[0] ?? 0)
+      if (kbCount === 0) {
+        const now = new Date().toISOString()
+        await db.run(sql`
+          INSERT INTO monthly_task_items (
+            title, day_of_month, option_type, target_amount, current_amount, switch_on, progress_month, created_at
+          ) VALUES ('KB카드', NULL, 'card_benefit', 400000, 0, 0, ${currentYearMonth()}, ${now})
+        `)
+      }
     })().catch((e) => {
       schemaReady = null
       throw e

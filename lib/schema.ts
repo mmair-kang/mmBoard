@@ -79,7 +79,7 @@ export const monthlyTaskItems = sqliteTable('monthly_task_items', {
   title: text('title').notNull(),
   /** 1–31, null = 이번 달 안에 */
   dayOfMonth: integer('day_of_month'),
-  /** card_target | switch */
+  /** card_target | card_benefit | switch */
   optionType: text('option_type').notNull(),
   targetAmount: integer('target_amount'),
   currentAmount: integer('current_amount').notNull().default(0),

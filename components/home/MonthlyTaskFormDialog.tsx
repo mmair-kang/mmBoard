@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-30 (card_benefit 혜택금액 옵션)
 
 import {
   CardExtrasEditor,
@@ -84,10 +84,11 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
   }, [open, item])
 
   const cardExtrasValid = optionType !== 'card_target' || validateCardExtras(cardExtraDrafts)
+  const needsAmount = optionType === 'card_target' || optionType === 'card_benefit'
 
   const canSubmit =
     title.trim() &&
-    (optionType !== 'card_target' ||
+    (!needsAmount ||
       (Number.isFinite(Number(targetAmount.replace(/,/g, ''))) &&
         Number(targetAmount.replace(/,/g, '')) >= 1)) &&
     cardExtrasValid
@@ -103,9 +104,7 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
         dayOfMonth: taskDayOfMonth,
         optionType,
         targetAmount:
-          optionType === 'card_target'
-            ? Math.round(Number(targetAmount.replace(/,/g, '')))
-            : null,
+          needsAmount ? Math.round(Number(targetAmount.replace(/,/g, ''))) : null,
         cardExtras: optionType === 'card_target' ? draftsToCardExtras(cardExtraDrafts) : [],
       })
       onClose()
@@ -175,13 +174,19 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
                   onChange={(e) => {
                     const next = e.target.value as MonthlyTaskOptionType
                     setOptionType(next)
-                    if (next === 'switch') setCardExtraDrafts([])
+                    if (next !== 'card_target') setCardExtraDrafts([])
+                    if (next === 'card_benefit' && !targetAmount) setTargetAmount('400000')
                   }}
                 >
                   <FormControlLabel
                     value="card_target"
                     control={<Radio size="small" />}
                     label="카드 실적 (목표 금액)"
+                  />
+                  <FormControlLabel
+                    value="card_benefit"
+                    control={<Radio size="small" />}
+                    label="카드 실적 (혜택 금액)"
                   />
                   <FormControlLabel
                     value="switch"
@@ -206,6 +211,20 @@ export function MonthlyTaskFormDialog({ open, item, onClose, onSubmit, onDelete 
                   />
                   <CardExtrasEditor drafts={cardExtraDrafts} onChange={setCardExtraDrafts} />
                 </>
+              ) : null}
+
+              {optionType === 'card_benefit' ? (
+                <TextField
+                  label="혜택 금액"
+                  placeholder="400000"
+                  value={targetAmount}
+                  onChange={(e) => setTargetAmount(e.target.value.replace(/[^\d]/g, ''))}
+                  required
+                  fullWidth
+                  inputProps={{ inputMode: 'numeric' }}
+                  InputProps={{ endAdornment: <Typography variant="body2">원</Typography> }}
+                  {...formDialogCompactTextFieldProps}
+                />
               ) : null}
 
               {formError ? (

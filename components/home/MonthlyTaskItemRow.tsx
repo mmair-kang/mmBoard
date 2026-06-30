@@ -1,6 +1,7 @@
 'use client'
 // 수정: Auto — 2026-06-08
 
+import { MonthlyTaskCardBenefitBlock } from '@/components/home/MonthlyTaskCardBenefitBlock'
 import { MonthlyTaskCardBlock } from '@/components/home/MonthlyTaskCardBlock'
 import type { MonthlyTask, MonthlyTaskCardExtra } from '@/hooks/useMonthlyTasks'
 import { formatMonthlyDayLabel, isMonthlyAnytimeDay } from '@/lib/monthlyDayLabel'
@@ -40,6 +41,12 @@ export function MonthlyTaskItemRow({
     )
   }
 
+  if (item.optionType === 'card_benefit') {
+    return (
+      <MonthlyTaskCardBenefitBlock item={item} onEdit={onEdit} onProgressChange={onProgressChange} />
+    )
+  }
+
   return <SwitchTaskRow item={item} onEdit={onEdit} onProgressChange={onProgressChange} />
 }
 
@@ -70,8 +77,8 @@ function SwitchTaskRow({
       alignItems="center"
       spacing={1}
       sx={{
-        px: 1.25,
-        py: 1,
+        px: 1.1,
+        py: 0.75,
         borderRadius: 2,
         border: 1,
         borderColor: achieved ? 'success.main' : 'divider',

@@ -392,6 +392,39 @@ export function sxCollectionFoodMetricChip(priceMetric: boolean) {
   } as const
 }
 
+const FASHION_ACCENT = '#8b5cf6'
+
+export function sxCollectionFashionSizeBadge() {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    px: 0.55,
+    py: 0.12,
+    borderRadius: 0.75,
+    fontSize: '0.7rem',
+    fontWeight: 800,
+    lineHeight: 1.2,
+    color: '#6d28d9',
+    bgcolor: (theme: Theme) => alpha(FASHION_ACCENT, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+    border: '1px solid',
+    borderColor: (theme: Theme) => alpha(FASHION_ACCENT, theme.palette.mode === 'dark' ? 0.28 : 0.18),
+    flexShrink: 0,
+  } as const
+}
+
+export function sxCollectionFashionMetricItem() {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 0.2,
+    px: 0.4,
+    py: 0.1,
+    borderRadius: 0.75,
+    bgcolor: (theme: Theme) => alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.1 : 0.06),
+    flexShrink: 0,
+  } as const
+}
+
 export function sxCollectionBadge(main: CollectionMainKey) {
   const hex = getCollectionMainMeta(main).color
   return {

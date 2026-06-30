@@ -1,10 +1,11 @@
 'use client'
-// 수정: Auto — 2026-06-15 (입력란 거의 흰색)
+// 수정: Auto — 2026-06-30 (compact 옵션)
 
 import { formatAmountDigitsInput, formatAmountDisplay, parseAmountDigits } from '@/lib/formatAmount'
 import { nearlyWhiteInputBg } from '@/lib/widgetSurfaces'
 import InputAdornment from '@mui/material/InputAdornment'
 import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
 import { alpha, type Theme } from '@mui/material/styles'
 import { useEffect, useRef, useState } from 'react'
 
@@ -17,6 +18,10 @@ type Props = {
   label?: string
   large?: boolean
   softInput?: SoftInputTone
+  /** input 왼쪽에 표시 (예: 오늘, 3일 전) */
+  leadingLabel?: string | null
+  /** 카드 등 좁은 영역용 */
+  compact?: boolean
 }
 
 function softInputSx(tone: SoftInputTone, theme: Theme) {
@@ -31,7 +36,16 @@ function softInputSx(tone: SoftInputTone, theme: Theme) {
   }
 }
 
-export function FreshAmountField({ value, onCommit, disabled, label, large, softInput }: Props) {
+export function FreshAmountField({
+  value,
+  onCommit,
+  disabled,
+  label,
+  large,
+  softInput,
+  leadingLabel,
+  compact,
+}: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [committing, setCommitting] = useState(false)
@@ -111,13 +125,30 @@ export function FreshAmountField({ value, onCommit, disabled, label, large, soft
         style: { textAlign: 'right' },
       }}
       InputProps={{
+        startAdornment: leadingLabel ? (
+          <InputAdornment position="start">
+            <Typography
+              component="span"
+              variant="caption"
+              color="text.disabled"
+              sx={{ fontWeight: 600, fontSize: '0.68rem', whiteSpace: 'nowrap' }}
+            >
+              {leadingLabel}
+            </Typography>
+          </InputAdornment>
+        ) : undefined,
         endAdornment: <InputAdornment position="end">원</InputAdornment>,
       }}
       sx={(theme) => ({
+        ...(compact ? { '& .MuiInputBase-root': { minHeight: 34 } } : {}),
         '& .MuiInputBase-input': {
           fontWeight: large ? 900 : 700,
-          fontSize: large ? '1.2rem' : '0.95rem',
+          fontSize: large ? '1.2rem' : compact ? '0.88rem' : '0.95rem',
+          ...(compact ? { py: 0.55 } : {}),
         },
+        ...(compact
+          ? { '& .MuiInputAdornment-root .MuiTypography-root': { fontSize: '0.64rem' } }
+          : {}),
         '& .MuiInputBase-input::placeholder': {
           textAlign: 'right',
           opacity: 0.45,

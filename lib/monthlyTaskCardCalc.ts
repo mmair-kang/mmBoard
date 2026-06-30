@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-06-30 (총 사용 금액 합산)
 
 import { formatMonthlyDayLabel, isMonthlyAnytimeDay } from '@/lib/monthlyDayLabel'
 
@@ -33,6 +33,17 @@ export type CardProgressBreakdown = {
 
 export function formatWon(value: number): string {
   return `${value.toLocaleString('ko-KR')}원`
+}
+
+export function calcMonthlyCardTotalSpent(
+  items: { optionType: string; currentAmount: number }[],
+): number {
+  return items.reduce((sum, item) => {
+    if (item.optionType === 'card_target' || item.optionType === 'card_benefit') {
+      return sum + item.currentAmount
+    }
+    return sum
+  }, 0)
 }
 
 function isExtraPending(extra: CardExtraLike): boolean {
