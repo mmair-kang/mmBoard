@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 02:00
 
 export type DividendEntryPayload = {
   id?: number
@@ -18,10 +18,14 @@ export type DividendMonthPayload = {
 export type DividendHoldingPayload = {
   id?: number
   ticker: string
+  market?: 'overseas' | 'domestic'
+  quoteSymbol?: string
   defaultShares: number
   perShareDividendUsd: number
+  perShareDividendKrw?: number
   referencePriceUsd?: number
-  referenceExchangeRate: number
+  referencePriceKrw?: number
+  referenceExchangeRate?: number
 }
 
 function parsePositiveInt(value: unknown): number | null {
@@ -137,24 +141,34 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
     const ticker = typeof row.ticker === 'string' ? row.ticker.trim().toUpperCase() : ''
     const defaultShares = parsePositiveInt(row.defaultShares)
     const perShareDividendUsd = parseDecimal(row.perShareDividendUsd) ?? 0
+    const perShareDividendKrw = parseDecimal(row.perShareDividendKrw) ?? 0
     const referencePriceUsd = parseDecimal(row.referencePriceUsd) ?? 0
-    const referenceExchangeRate = parseDecimal(row.referenceExchangeRate) ?? 0
+    const referencePriceKrw = parseDecimal(row.referencePriceKrw) ?? 0
+    const market = row.market === 'domestic' ? 'domestic' : row.market === 'overseas' ? 'overseas' : undefined
+    const quoteSymbol = typeof row.quoteSymbol === 'string' ? row.quoteSymbol.trim().toUpperCase() : undefined
     if (
       !ticker ||
       defaultShares == null ||
       perShareDividendUsd < 0 ||
+      perShareDividendKrw < 0 ||
       referencePriceUsd < 0 ||
-      referenceExchangeRate < 0
+      referencePriceKrw < 0
     ) {
       return null
     }
+    const referenceExchangeRate = parseDecimal(row.referenceExchangeRate) ?? undefined
+    if (referenceExchangeRate != null && referenceExchangeRate < 0) return null
     holdings.push({
       id: typeof row.id === 'number' ? row.id : undefined,
       ticker,
+      ...(market ? { market } : {}),
+      ...(quoteSymbol ? { quoteSymbol } : {}),
       defaultShares,
       perShareDividendUsd,
+      perShareDividendKrw,
       referencePriceUsd,
-      referenceExchangeRate,
+      referencePriceKrw,
+      ...(referenceExchangeRate != null ? { referenceExchangeRate } : {}),
     })
   }
 
@@ -162,13 +176,13 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
 }
 
 export function entriesFromHoldings(
-  holdings: Array<{ ticker: string; defaultShares: number }>,
+  holdings: Array<{ ticker: string; defaultShares: number; market?: 'overseas' | 'domestic' }>,
 ): DividendEntryPayload[] {
   return holdings.map((row) => ({
     dayOfMonth: 1,
     ticker: row.ticker,
     shares: row.defaultShares,
-    exchangeRate: 0,
+    exchangeRate: row.market === 'domestic' ? 1 : 0,
     foreignSettlement: 0,
     foreignTax: 0,
   }))

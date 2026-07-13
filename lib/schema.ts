@@ -129,9 +129,15 @@ export const annualPayments = sqliteTable('annual_payments', {
 export const dividendHoldings = sqliteTable('dividend_holdings', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   ticker: text('ticker').notNull(),
+  /** overseas | domestic */
+  market: text('market').notNull().default('overseas'),
+  /** Yahoo/KRX 시세 조회용 (예: JEPQ, 498400) */
+  quoteSymbol: text('quote_symbol').notNull().default(''),
   defaultShares: integer('default_shares').notNull().default(0),
   perShareDividendUsd: real('per_share_dividend_usd').notNull().default(0),
+  perShareDividendKrw: real('per_share_dividend_krw').notNull().default(0),
   referencePriceUsd: real('reference_price_usd').notNull().default(0),
+  referencePriceKrw: real('reference_price_krw').notNull().default(0),
   referenceExchangeRate: real('reference_exchange_rate').notNull().default(0),
   sortOrder: integer('sort_order').notNull().default(0),
 })
@@ -169,6 +175,7 @@ export const monthlyFixedExpenses = sqliteTable('monthly_fixed_expenses', {
 export const investmentAccountCash = sqliteTable('investment_account_cash', {
   category: text('category').primaryKey(),
   cashBalance: integer('cash_balance').notNull().default(0),
+  cashBalanceUpdatedAt: text('cash_balance_updated_at'),
 })
 
 export const investmentHoldings = sqliteTable('investment_holdings', {
@@ -196,5 +203,27 @@ export const monthlyTaskCardExtras = sqliteTable('monthly_task_card_extras', {
   switchOn: integer('switch_on').notNull().default(0),
   progressMonth: text('progress_month').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+})
+
+export const cardApplications = sqliteTable('card_applications', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  /** naverpay | toss */
+  platform: text('platform').notNull(),
+  cardCompany: text('card_company').notNull().default(''),
+  cardName: text('card_name').notNull().default(''),
+  applicationBlocked: integer('application_blocked').notNull().default(0),
+  /** benefit_received | in_use — 신청불가 사유 */
+  blockedReason: text('blocked_reason'),
+  blockedConfirmedDate: text('blocked_confirmed_date'),
+  annualFee: integer('annual_fee').notNull().default(0),
+  spendAmount: integer('spend_amount').notNull().default(0),
+  benefitAmount: integer('benefit_amount').notNull().default(0),
+  usageStartDate: text('usage_start_date'),
+  usageEndDate: text('usage_end_date'),
+  benefitDate: text('benefit_date'),
+  /** 혜택 수령 후 탈회 금지기간 — ISO 또는 자유 텍스트 */
+  withdrawalRestrictPeriod: text('withdrawal_restrict_period'),
+  cancelDate: text('cancel_date'),
   createdAt: text('created_at').notNull(),
 })

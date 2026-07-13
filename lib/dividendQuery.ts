@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 02:00
 import { asc, eq } from 'drizzle-orm'
 
 import {
@@ -6,26 +6,32 @@ import {
   calcDividendMonthSummary,
   calcHoldingReference,
   calcYearFinancialIncome,
+  type DividendMarket,
 } from '@/lib/dividendCalc'
-import { fetchStockQuoteMap } from '@/lib/stock'
 import type { DividendEntryPayload, DividendHoldingPayload } from '@/lib/dividendPayload'
 import { ensureDividendSchema } from '@/lib/dividendSchema'
 import { db } from '@/lib/db'
 import { dividendEntries, dividendHoldings, dividendMonths } from '@/lib/schema'
+import { fetchInvestmentPriceMap, fetchStockQuoteMap, fetchUsdKrwRate } from '@/lib/stock'
 import dayjs from 'dayjs'
 
 export type DividendHoldingRow = {
   id: number
   ticker: string
+  market: DividendMarket
+  quoteSymbol: string
   defaultShares: number
   perShareDividendUsd: number
+  perShareDividendKrw: number
   referencePriceUsd: number
+  referencePriceKrw: number
   referenceExchangeRate: number
   sortOrder: number
 }
 
 export type DividendHoldingView = DividendHoldingRow & {
   livePriceUsd: number | null
+  livePriceKrw: number | null
   grossMonthlyUsd: number
   netMonthlyUsd: number
   grossKrw: number | null
@@ -61,12 +67,45 @@ export type DividendMonthView = {
   summary: ReturnType<typeof calcDividendMonthSummary>
 }
 
-function toHoldingView(row: DividendHoldingRow, livePriceUsd?: number | null): DividendHoldingView {
-  const livePrice = livePriceUsd != null && livePriceUsd > 0 ? livePriceUsd : null
-  const calc = calcHoldingReference(row, livePrice)
+function normalizeHoldingRow(row: typeof dividendHoldings.$inferSelect): DividendHoldingRow {
+  return {
+    id: row.id,
+    ticker: row.ticker,
+    market: (row.market === 'domestic' ? 'domestic' : 'overseas') as DividendMarket,
+    quoteSymbol: row.quoteSymbol || row.ticker,
+    defaultShares: row.defaultShares,
+    perShareDividendUsd: row.perShareDividendUsd,
+    perShareDividendKrw: row.perShareDividendKrw,
+    referencePriceUsd: row.referencePriceUsd,
+    referencePriceKrw: row.referencePriceKrw,
+    referenceExchangeRate: row.referenceExchangeRate,
+    sortOrder: row.sortOrder,
+  }
+}
+
+function toHoldingView(
+  row: DividendHoldingRow,
+  livePriceUsd?: number | null,
+  livePriceKrw?: number | null,
+  liveExchangeRate?: number | null,
+): DividendHoldingView {
+  const livePrice =
+    row.market === 'overseas' && livePriceUsd != null && livePriceUsd > 0 ? livePriceUsd : null
+  const liveKrw =
+    row.market === 'domestic' && livePriceKrw != null && livePriceKrw > 0 ? livePriceKrw : null
+  const exchangeRate =
+    row.market === 'overseas' && liveExchangeRate != null && liveExchangeRate > 0
+      ? liveExchangeRate
+      : row.referenceExchangeRate
+  const calc = calcHoldingReference(
+    { ...row, referenceExchangeRate: exchangeRate },
+    livePrice,
+    liveKrw,
+  )
   return {
     ...row,
     livePriceUsd: livePrice,
+    livePriceKrw: liveKrw,
     grossMonthlyUsd: calc.grossMonthlyUsd,
     netMonthlyUsd: calc.netMonthlyUsd,
     grossKrw: calc.grossKrw,
@@ -75,13 +114,33 @@ function toHoldingView(row: DividendHoldingRow, livePriceUsd?: number | null): D
   }
 }
 
-async function loadLivePriceMap(tickers: string[]): Promise<Map<string, number>> {
+async function loadOverseasPriceMap(tickers: string[]): Promise<Map<string, number>> {
   const unique = [...new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))]
   if (unique.length === 0) return new Map()
   try {
     return await fetchStockQuoteMap(unique)
   } catch (error) {
-    console.warn('[dividend stock quotes]', error)
+    console.warn('[dividend overseas quotes]', error)
+    return new Map()
+  }
+}
+
+async function loadDomesticPriceMap(
+  rows: Array<{ ticker: string; quoteSymbol: string }>,
+): Promise<Map<string, number>> {
+  if (rows.length === 0) return new Map()
+  try {
+    const { priceMap } = await fetchInvestmentPriceMap(
+      rows.map((row) => ({ symbol: row.quoteSymbol, market: 'domestic' as const })),
+    )
+    const byTicker = new Map<string, number>()
+    for (const row of rows) {
+      const price = priceMap.get(row.quoteSymbol.toUpperCase())
+      if (price != null && price > 0) byTicker.set(row.ticker.toUpperCase(), price)
+    }
+    return byTicker
+  } catch (error) {
+    console.warn('[dividend domestic quotes]', error)
     return new Map()
   }
 }
@@ -119,12 +178,31 @@ function toMonthView(month: { id: number; yearMonth: string; createdAt: string }
 
 export async function loadDividendHoldings(): Promise<DividendHoldingView[]> {
   await ensureDividendSchema()
-  const rows = await db
+  const rows = (await db
     .select()
     .from(dividendHoldings)
-    .orderBy(asc(dividendHoldings.sortOrder), asc(dividendHoldings.id))
-  const priceMap = await loadLivePriceMap(rows.map((row) => row.ticker))
-  return rows.map((row) => toHoldingView(row, priceMap.get(row.ticker.toUpperCase()) ?? null))
+    .orderBy(asc(dividendHoldings.sortOrder), asc(dividendHoldings.id))).map(normalizeHoldingRow)
+
+  const overseas = rows.filter((row) => row.market === 'overseas')
+  const domestic = rows.filter((row) => row.market === 'domestic')
+
+  const [priceUsdMap, priceKrwMap, liveExchangeRate] = await Promise.all([
+    loadOverseasPriceMap(overseas.map((row) => row.quoteSymbol)),
+    loadDomesticPriceMap(domestic),
+    fetchUsdKrwRate().catch((error) => {
+      console.warn('[dividend usd/krw]', error)
+      return null as number | null
+    }),
+  ])
+
+  return rows.map((row) =>
+    toHoldingView(
+      row,
+      priceUsdMap.get(row.quoteSymbol.toUpperCase()) ?? priceUsdMap.get(row.ticker.toUpperCase()) ?? null,
+      priceKrwMap.get(row.ticker.toUpperCase()) ?? null,
+      liveExchangeRate,
+    ),
+  )
 }
 
 export async function loadDividendData(): Promise<DividendData> {
@@ -160,19 +238,36 @@ export async function loadDividendData(): Promise<DividendData> {
 
 export async function syncDividendHoldings(holdings: DividendHoldingPayload[]) {
   await ensureDividendSchema()
-  const existing = await loadDividendHoldings()
+  const existing = (await db
+    .select()
+    .from(dividendHoldings)
+    .orderBy(asc(dividendHoldings.sortOrder), asc(dividendHoldings.id))).map(normalizeHoldingRow)
   const existingById = new Map(existing.map((row) => [row.id, row]))
+
+  const liveExchangeRate = await fetchUsdKrwRate().catch((error) => {
+    console.warn('[dividend holdings sync rate]', error)
+    return null as number | null
+  })
+  const referenceExchangeRate =
+    liveExchangeRate != null && liveExchangeRate > 0
+      ? liveExchangeRate
+      : existing[0]?.referenceExchangeRate ?? 0
 
   for (let i = 0; i < holdings.length; i++) {
     const holding = holdings[i]
+    const existingRow = holding.id ? existingById.get(holding.id) : undefined
+    const market = holding.market ?? existingRow?.market ?? 'overseas'
+
     if (holding.id && existingById.has(holding.id)) {
       await db
         .update(dividendHoldings)
         .set({
           defaultShares: holding.defaultShares,
-          perShareDividendUsd: holding.perShareDividendUsd,
+          perShareDividendUsd: market === 'overseas' ? holding.perShareDividendUsd : 0,
+          perShareDividendKrw: market === 'domestic' ? (holding.perShareDividendKrw ?? 0) : 0,
           referencePriceUsd: holding.referencePriceUsd ?? 0,
-          referenceExchangeRate: holding.referenceExchangeRate,
+          referencePriceKrw: holding.referencePriceKrw ?? 0,
+          referenceExchangeRate: market === 'overseas' ? referenceExchangeRate : 0,
           sortOrder: i,
         })
         .where(eq(dividendHoldings.id, holding.id))
@@ -181,10 +276,14 @@ export async function syncDividendHoldings(holdings: DividendHoldingPayload[]) {
 
     await db.insert(dividendHoldings).values({
       ticker: holding.ticker,
+      market,
+      quoteSymbol: holding.quoteSymbol ?? holding.ticker,
       defaultShares: holding.defaultShares,
-      perShareDividendUsd: holding.perShareDividendUsd,
+      perShareDividendUsd: market === 'overseas' ? holding.perShareDividendUsd : 0,
+      perShareDividendKrw: market === 'domestic' ? (holding.perShareDividendKrw ?? 0) : 0,
       referencePriceUsd: holding.referencePriceUsd ?? 0,
-      referenceExchangeRate: holding.referenceExchangeRate,
+      referencePriceKrw: holding.referencePriceKrw ?? 0,
+      referenceExchangeRate: market === 'overseas' ? referenceExchangeRate : 0,
       sortOrder: i,
     })
   }

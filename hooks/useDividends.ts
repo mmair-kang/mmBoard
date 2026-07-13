@@ -1,7 +1,8 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 02:00
 
 import { swrJsonFetch } from '@/lib/swrFetch'
+import type { DividendMarket } from '@/lib/dividendCalc'
 import useSWR from 'swr'
 
 export const dividendsSwrKey = '/api/dividends' as const
@@ -9,12 +10,17 @@ export const dividendsSwrKey = '/api/dividends' as const
 export interface DividendHolding {
   id: number
   ticker: string
+  market: DividendMarket
+  quoteSymbol: string
   defaultShares: number
   perShareDividendUsd: number
+  perShareDividendKrw: number
   referencePriceUsd: number
+  referencePriceKrw: number
   referenceExchangeRate: number
   sortOrder: number
   livePriceUsd: number | null
+  livePriceKrw: number | null
   grossMonthlyUsd: number
   netMonthlyUsd: number
   grossKrw: number | null

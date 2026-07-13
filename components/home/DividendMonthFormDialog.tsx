@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 02:00
 
 import {
   DividendEntriesEditor,
@@ -27,7 +27,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import dayjs from 'dayjs'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export type DividendMonthFormPayload = {
   yearMonth: string
@@ -44,16 +44,18 @@ type Props = {
   onDelete?: () => Promise<void>
 }
 
-function validateDrafts(drafts: DividendEntryDraft[]): boolean {
+function validateDrafts(drafts: DividendEntryDraft[], holdings: DividendHolding[]): boolean {
+  const marketByTicker = new Map(holdings.map((row) => [row.ticker.toUpperCase(), row.market]))
   return drafts.every((row) => {
     const entry = draftToEntryPayload(row)
+    const domestic =
+      marketByTicker.get(entry.ticker) === 'domestic' || entry.exchangeRate === 1
     return (
       entry.dayOfMonth >= 1 &&
       entry.dayOfMonth <= 31 &&
       Boolean(entry.ticker) &&
       entry.shares >= 0 &&
-      entry.exchangeRate > 0 &&
-      entry.foreignSettlement > 0 &&
+      (domestic ? entry.foreignSettlement > 0 : entry.exchangeRate > 0 && entry.foreignSettlement > 0) &&
       entry.foreignTax >= 0
     )
   })
@@ -74,8 +76,6 @@ export function DividendMonthFormDialog({
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-
-  const tickerOptions = useMemo(() => holdings.map((row) => row.ticker), [holdings])
 
   useEffect(() => {
     if (!open) {
@@ -109,8 +109,8 @@ export function DividendMonthFormDialog({
       setFormError('이미 등록된 달입니다.')
       return
     }
-    if (!validateDrafts(entryDrafts)) {
-      setFormError('모든 항목의 배당일·종목·환율·금액을 확인해 주세요.')
+    if (!validateDrafts(entryDrafts, holdings)) {
+      setFormError('모든 항목의 배당일·종목·금액을 확인해 주세요.')
       return
     }
 
@@ -187,7 +187,7 @@ export function DividendMonthFormDialog({
               ) : null}
               <DividendEntriesEditor
                 drafts={entryDrafts}
-                tickerOptions={tickerOptions}
+                holdings={holdings}
                 onChange={setEntryDrafts}
               />
               {formError ? (

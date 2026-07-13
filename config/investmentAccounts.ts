@@ -12,6 +12,7 @@ export type InvestmentAccountMeta = {
   subtitle: string
   market: InvestmentMarket
   pensionNote?: string
+  cashLabel: string
 }
 
 export const INVESTMENT_ACCOUNTS: InvestmentAccountMeta[] = [
@@ -21,6 +22,7 @@ export const INVESTMENT_ACCOUNTS: InvestmentAccountMeta[] = [
     title: '국내주식',
     subtitle: '국내 상장',
     market: 'domestic',
+    cashLabel: '국내 예수금',
   },
   {
     id: 'ds',
@@ -28,6 +30,7 @@ export const INVESTMENT_ACCOUNTS: InvestmentAccountMeta[] = [
     title: '해외 배당주',
     subtitle: '미국 ETF·주식',
     market: 'overseas',
+    cashLabel: '해외 예수금',
   },
   {
     id: 'psf',
@@ -36,6 +39,7 @@ export const INVESTMENT_ACCOUNTS: InvestmentAccountMeta[] = [
     subtitle: '연금 수령 예정',
     market: 'fund',
     pensionNote: '연금',
+    cashLabel: '펀드 예수금',
   },
   {
     id: 'irp',
@@ -44,6 +48,7 @@ export const INVESTMENT_ACCOUNTS: InvestmentAccountMeta[] = [
     subtitle: '연금 수령 예정',
     market: 'fund',
     pensionNote: '연금',
+    cashLabel: 'IRP 예수금',
   },
 ]
 

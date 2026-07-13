@@ -1,8 +1,9 @@
 'use client'
-// 수정: Auto — 2026-06-15 (PC 표 — 원(후)만 굵게)
+// 수정: Auto — 2026-07-14 02:00
 
 import type { DividendEntry, DividendMonth } from '@/hooks/useDividends'
 import { formatRate, formatUsd } from '@/lib/dividendCalc'
+import { DIVIDEND_TICKER_ORDER, isDomesticDividendTicker } from '@/lib/dividendHoldingsConfig'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import Box from '@mui/material/Box'
@@ -27,7 +28,7 @@ type Props = {
   onEdit: () => void
 }
 
-const TICKER_ORDER = ['JEPQ', 'GPIX']
+const TICKER_ORDER = DIVIDEND_TICKER_ORDER
 
 const cellSx = {
   px: 0.45,
@@ -110,15 +111,20 @@ export function DividendMonthCard({ month, onEdit }: Props) {
     let netUsd = 0
     let grossKrw = 0
     let netKrw = 0
+    let hasOverseas = false
 
     for (const entry of rows) {
-      grossUsd += entry.foreignSettlement + entry.foreignTax
-      netUsd += entry.foreignSettlement
+      const domestic = isDomesticDividendTicker(entry.ticker)
       grossKrw += entry.grossKrw
       netKrw += entry.dividendKrw
+      if (!domestic) {
+        grossUsd += entry.foreignSettlement + entry.foreignTax
+        netUsd += entry.foreignSettlement
+        hasOverseas = true
+      }
     }
 
-    return { grossUsd, netUsd, grossKrw, netKrw }
+    return { grossUsd, netUsd, grossKrw, netKrw, hasOverseas }
   }, [rows])
 
   return (
@@ -202,52 +208,75 @@ export function DividendMonthCard({ month, onEdit }: Props) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((entry) => (
+            {rows.map((entry) => {
+              const domestic = isDomesticDividendTicker(entry.ticker)
+              return (
               <TableRow key={entry.id} hover>
                 <TableCell sx={cellSx}>
                   <Tooltip title={`${entry.dayOfMonth}일`}>
-                    <span>{entry.ticker}</span>
+                    <Stack direction="row" alignItems="center" spacing={0.35}>
+                      <span>{entry.ticker}</span>
+                      {domestic ? (
+                        <Chip
+                          size="small"
+                          label="국내"
+                          color="success"
+                          variant="outlined"
+                          sx={{ height: 16, fontSize: '0.55rem', fontWeight: 700 }}
+                        />
+                      ) : null}
+                    </Stack>
                   </Tooltip>
                 </TableCell>
                 <TableCell align="right" sx={cellSx}>
                   {entry.shares}
                 </TableCell>
                 <TableCell align="right" sx={cellSx}>
-                  {formatRate(entry.exchangeRate)}
+                  {domestic ? '—' : formatRate(entry.exchangeRate)}
                 </TableCell>
                 <TableCell align="right" sx={{ ...cellSx, bgcolor: grossBg }}>
-                  {formatUsd(entry.foreignSettlement + entry.foreignTax)}
+                  {domestic
+                    ? entry.grossKrw.toLocaleString('ko-KR')
+                    : formatUsd(entry.foreignSettlement + entry.foreignTax)}
                 </TableCell>
                 <TableCell align="right" sx={{ ...cellSx, bgcolor: grossBg }}>
-                  {entry.perShareGrossForeign != null ? formatUsd(entry.perShareGrossForeign) : '—'}
+                  {entry.perShareGrossForeign != null
+                    ? domestic
+                      ? Math.round(entry.perShareGrossForeign).toLocaleString('ko-KR')
+                      : formatUsd(entry.perShareGrossForeign)
+                    : '—'}
                 </TableCell>
                 <TableCell align="right" sx={{ ...cellSx, bgcolor: grossBg }}>
                   {formatKrwCell(entry.grossKrw)}
                 </TableCell>
                 <TableCell align="right" sx={{ ...cellSx, bgcolor: netBg }}>
-                  {formatUsd(entry.foreignSettlement)}
+                  {domestic ? entry.dividendKrw.toLocaleString('ko-KR') : formatUsd(entry.foreignSettlement)}
                 </TableCell>
                 <TableCell align="right" sx={{ ...cellSx, bgcolor: netBg }}>
-                  {entry.perShareForeign != null ? formatUsd(entry.perShareForeign) : '—'}
+                  {entry.perShareForeign != null
+                    ? domestic
+                      ? Math.round(entry.perShareForeign).toLocaleString('ko-KR')
+                      : formatUsd(entry.perShareForeign)
+                    : '—'}
                 </TableCell>
                 <TableCell align="right" sx={{ ...netKrwCellSx, bgcolor: netBg }}>
                   {formatKrwCell(entry.dividendKrw)}
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
             <TableRow>
               <TableCell sx={totalLabelCellSx}>합계</TableCell>
               <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={grossTotalCellSx}>
-                {formatUsd(totals.grossUsd)}
+                {totals.hasOverseas ? formatUsd(totals.grossUsd) : '—'}
               </TableCell>
               <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={grossTotalCellSx}>
                 {formatKrwCell(totals.grossKrw)}
               </TableCell>
               <TableCell align="right" sx={netUsdTotalCellSx}>
-                {formatUsd(totals.netUsd)}
+                {totals.hasOverseas ? formatUsd(totals.netUsd) : '—'}
               </TableCell>
               <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={netTotalCellSx}>

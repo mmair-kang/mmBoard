@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 01:37 (예수금 수정 시각)
 
 import {
   defaultMarketForAccount,
@@ -32,7 +32,9 @@ export type InvestmentAccountView = {
   title: string
   subtitle: string
   pensionNote?: string
+  cashLabel: string
   cashBalanceKrw: number
+  cashBalanceUpdatedAt: string | null
   holdings: InvestmentHoldingView[]
   summary: InvestmentAccountSummary
 }
@@ -57,13 +59,21 @@ function toHoldingRow(row: typeof investmentHoldings.$inferSelect): InvestmentHo
   }
 }
 
-async function loadCashMap(): Promise<Map<InvestmentAccountId, number>> {
+type CashRow = {
+  balance: number
+  updatedAt: string | null
+}
+
+async function loadCashMap(): Promise<Map<InvestmentAccountId, CashRow>> {
   const rows = await db.select().from(investmentAccountCash)
-  const map = new Map<InvestmentAccountId, number>()
-  for (const id of INVESTMENT_ACCOUNT_IDS) map.set(id, 0)
+  const map = new Map<InvestmentAccountId, CashRow>()
+  for (const id of INVESTMENT_ACCOUNT_IDS) map.set(id, { balance: 0, updatedAt: null })
   for (const row of rows) {
     if (INVESTMENT_ACCOUNT_IDS.includes(row.category as InvestmentAccountId)) {
-      map.set(row.category as InvestmentAccountId, row.cashBalance)
+      map.set(row.category as InvestmentAccountId, {
+        balance: row.cashBalance,
+        updatedAt: row.cashBalanceUpdatedAt ?? null,
+      })
     }
   }
   return map
@@ -99,14 +109,17 @@ export async function loadInvestmentData(): Promise<InvestmentData> {
 
   const accounts: InvestmentAccountView[] = INVESTMENT_ACCOUNTS.map((meta) => {
     const accountHoldings = holdingsByAccount.get(meta.id) ?? []
-    const cashBalanceKrw = cashMap.get(meta.id) ?? 0
+    const cash = cashMap.get(meta.id) ?? { balance: 0, updatedAt: null }
+    const cashBalanceKrw = cash.balance
     return {
       id: meta.id,
       label: meta.label,
       title: meta.title,
       subtitle: meta.subtitle,
       pensionNote: meta.pensionNote,
+      cashLabel: meta.cashLabel,
       cashBalanceKrw,
+      cashBalanceUpdatedAt: cash.updatedAt,
       holdings: accountHoldings,
       summary: calcInvestmentAccountSummary(accountHoldings, cashBalanceKrw),
     }
@@ -175,9 +188,10 @@ export async function deleteInvestmentHolding(id: number) {
 
 export async function updateInvestmentCash(payload: InvestmentCashPayload) {
   await ensureInvestmentSchema()
+  const now = new Date().toISOString()
   await db
     .update(investmentAccountCash)
-    .set({ cashBalance: payload.cashBalance })
+    .set({ cashBalance: payload.cashBalance, cashBalanceUpdatedAt: now })
     .where(eq(investmentAccountCash.category, payload.category))
 }
 

@@ -1,16 +1,20 @@
 'use client'
+// 수정: Auto — 2026-07-13 23:43 (자산 탭)
+// 수정: Auto — 2026-07-12 23:36 (카드탭 2depth)
+// 수정: Auto — 2026-07-12 23:17 (상단 탭 바 높이·폰트 조정)
 // 수정: Auto — 2026-06-15 (PC 그리드·반응형)
 
 import { AccountWidget } from '@/components/home/AccountWidget'
+import { AssetWidget } from '@/components/home/AssetWidget'
 import { InvestmentWidget } from '@/components/home/InvestmentWidget'
 import { AnnualPaymentWidget } from '@/components/home/AnnualPaymentWidget'
 import { DdayWidget } from '@/components/home/DdayWidget'
 import { TodoWidget } from '@/components/home/TodoWidget'
 import { WeatherWidget } from '@/components/home/WeatherWidget'
 import { DividendWidget } from '@/components/home/DividendWidget'
+import { CardTabContent } from '@/components/home/CardTabContent'
 import { ManageTabOrderDialog } from '@/components/home/ManageTabOrderDialog'
 import { MonthlyExpenseWidget } from '@/components/home/MonthlyExpenseWidget'
-import { MonthlyTaskWidget } from '@/components/home/MonthlyTaskWidget'
 import { useManageTabOrder } from '@/hooks/useManageTabOrder'
 import { useLongPress } from '@/hooks/useLongPress'
 import type { ManageTabId } from '@/lib/manageTabOrder'
@@ -27,6 +31,8 @@ function renderTabPanel(tab: ManageTabId) {
   switch (tab) {
     case 'investment':
       return <InvestmentWidget />
+    case 'asset':
+      return <AssetWidget />
     case 'main':
       return (
         <Box sx={sxMainTabLayout}>
@@ -42,7 +48,7 @@ function renderTabPanel(tab: ManageTabId) {
     case 'annual':
       return <AnnualPaymentWidget />
     case 'card':
-      return <MonthlyTaskWidget />
+      return <CardTabContent />
     case 'dividend':
       return <DividendWidget />
     case 'monthly':
@@ -98,17 +104,18 @@ export function HomePageContent() {
           sx={{
             width: '100%',
             minWidth: 0,
+            minHeight: { xs: 34, sm: 36, md: 40 },
             '& .MuiTabs-scroller': { overflow: 'hidden !important' },
-            '& .MuiTabs-flexContainer': { width: '100%' },
+            '& .MuiTabs-flexContainer': { width: '100%', minHeight: { xs: 34, sm: 36, md: 40 } },
             '& .MuiTab-root': {
               flex: '1 1 0',
               minWidth: 0,
               maxWidth: 'none',
               fontWeight: 800,
-              fontSize: { xs: '0.68rem', sm: '0.78rem', md: '0.9rem', lg: '0.95rem' },
-              minHeight: { xs: 40, sm: 44, md: 48 },
+              fontSize: { xs: '0.78rem', sm: '0.88rem', md: '1rem', lg: '1.05rem' },
+              minHeight: { xs: 34, sm: 36, md: 40 },
               px: { xs: 0.15, sm: 0.5, md: 1 },
-              py: { xs: 0.75, md: 0.85 },
+              py: { xs: 0.45, md: 0.5 },
               lineHeight: 1.2,
               whiteSpace: 'nowrap',
             },

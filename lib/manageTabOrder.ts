@@ -1,10 +1,11 @@
 // 수정: Auto — 2026-06-11 (서버 동기화 보조)
 
-export const MANAGE_TAB_IDS = ['investment', 'main', 'account', 'annual', 'card', 'dividend', 'monthly'] as const
+export const MANAGE_TAB_IDS = ['investment', 'asset', 'main', 'account', 'annual', 'card', 'dividend', 'monthly'] as const
 export type ManageTabId = (typeof MANAGE_TAB_IDS)[number]
 
 export const MANAGE_TAB_LABELS: Record<ManageTabId, string> = {
   investment: '투자',
+  asset: '자산',
   main: '메인',
   account: '계좌',
   annual: '연납',

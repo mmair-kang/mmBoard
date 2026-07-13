@@ -1,8 +1,8 @@
 'use client'
+// 수정: Auto — 2026-07-14 01:39 (표 클릭 수정·예수금 인라인)
 // 수정: Auto — 2026-06-15 (PC 타이포·굵기 균형)
 
 import { InvestmentAccountCard } from '@/components/home/InvestmentAccountCard'
-import { InvestmentAccountDetailDialog } from '@/components/home/InvestmentAccountDetailDialog'
 import { InvestmentAccountEditDialog } from '@/components/home/InvestmentAccountEditDialog'
 import type { InvestmentAccountId } from '@/config/investmentAccounts'
 import { type InvestmentAccountView, useInvestments } from '@/hooks/useInvestments'
@@ -21,13 +21,8 @@ import { useMemo, useState } from 'react'
 
 export function InvestmentWidget() {
   const { accounts, usdKrwRate, grandSummary, isLoading, mutate } = useInvestments()
-  const [detailAccountId, setDetailAccountId] = useState<InvestmentAccountId | null>(null)
   const [editAccountId, setEditAccountId] = useState<InvestmentAccountId | null>(null)
-
-  const detailAccount = useMemo(
-    () => accounts.find((row) => row.id === detailAccountId) ?? null,
-    [accounts, detailAccountId],
-  )
+  const [cashSavingId, setCashSavingId] = useState<InvestmentAccountId | null>(null)
 
   const editAccount = useMemo(
     () => accounts.find((row) => row.id === editAccountId) ?? null,
@@ -35,10 +30,6 @@ export function InvestmentWidget() {
   )
 
   const grandTone = returnTone(grandSummary?.returnRate ?? null)
-
-  const openDetail = (account: InvestmentAccountView) => {
-    setDetailAccountId(account.id)
-  }
 
   const openEdit = (account: InvestmentAccountView) => {
     setEditAccountId(account.id)
@@ -53,6 +44,22 @@ export function InvestmentWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
     const updated = await res.json()
     await mutate(updated, { revalidate: false })
+  }
+
+  const handleSaveCash = async (accountId: InvestmentAccountId, cashBalance: number) => {
+    setCashSavingId(accountId)
+    try {
+      const res = await fetch('/api/investments/cash', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: accountId, cashBalance }),
+      })
+      if (!res.ok) throw new Error(await readApiErrorMessage(res, '예수금 저장에 실패했습니다'))
+      const updated = await res.json()
+      await mutate(updated, { revalidate: false })
+    } finally {
+      setCashSavingId(null)
+    }
   }
 
   if (isLoading && !grandSummary) {
@@ -125,18 +132,13 @@ export function InvestmentWidget() {
             <InvestmentAccountCard
               key={account.id}
               account={account}
-              onOpenDetail={() => openDetail(account)}
-              onEdit={() => openEdit(account)}
+              cashSaving={cashSavingId === account.id}
+              onOpenEdit={() => openEdit(account)}
+              onCashCommit={(amount) => handleSaveCash(account.id, amount)}
             />
           ))}
         </Box>
       </Stack>
-
-      <InvestmentAccountDetailDialog
-        open={detailAccountId != null}
-        account={detailAccount}
-        onClose={() => setDetailAccountId(null)}
-      />
 
       <InvestmentAccountEditDialog
         open={editAccountId != null}

@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 01:37 (예수금 수정 시각)
 
 import { INVESTMENT_ACCOUNT_IDS } from '@/config/investmentAccounts'
 import { sql } from 'drizzle-orm'
@@ -12,7 +12,8 @@ export async function ensureInvestmentSchema() {
     schemaReady = (async () => {
       await db.run(sql`CREATE TABLE IF NOT EXISTS investment_account_cash (
         category TEXT PRIMARY KEY,
-        cash_balance INTEGER NOT NULL DEFAULT 0
+        cash_balance INTEGER NOT NULL DEFAULT 0,
+        cash_balance_updated_at TEXT
       )`)
       await db.run(sql`CREATE TABLE IF NOT EXISTS investment_holdings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,6 +31,12 @@ export async function ensureInvestmentSchema() {
         await db.run(
           sql`INSERT OR IGNORE INTO investment_account_cash (category, cash_balance) VALUES (${category}, 0)`,
         )
+      }
+
+      try {
+        await db.run(sql`ALTER TABLE investment_account_cash ADD COLUMN cash_balance_updated_at TEXT`)
+      } catch {
+        /* column already exists */
       }
     })().catch((e) => {
       schemaReady = null

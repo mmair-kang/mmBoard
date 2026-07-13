@@ -1,7 +1,8 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 02:00
 
 import { MonthlyDaySelect } from '@/components/home/MonthlyDaySelect'
+import type { DividendHolding } from '@/hooks/useDividends'
 import type { DividendEntryPayload } from '@/lib/dividendPayload'
 import {
   decimalToText,
@@ -10,18 +11,20 @@ import {
 } from '@/lib/dividendPayload'
 import { DividendAmountLines } from '@/components/home/DividendAmountLines'
 import { calcDividendEntry, formatRate, formatUsd } from '@/lib/dividendCalc'
+import { isDomesticDividendTicker } from '@/lib/dividendHoldingsConfig'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 export type DividendEntryDraft = {
   key: string
@@ -43,19 +46,22 @@ export function entriesToDrafts(
     dayOfMonth: row.dayOfMonth,
     ticker: row.ticker,
     shares: row.shares,
-    exchangeRateText: decimalToText(row.exchangeRate),
+    exchangeRateText: isDomesticDividendTicker(row.ticker)
+      ? '1'
+      : decimalToText(row.exchangeRate),
     foreignSettlementText: decimalToText(row.foreignSettlement),
     foreignTaxText: decimalToText(row.foreignTax),
   }))
 }
 
 export function draftToEntryPayload(draft: DividendEntryDraft): DividendEntryPayload {
+  const domestic = isDomesticDividendTicker(draft.ticker)
   return {
     id: draft.id,
     dayOfMonth: draft.dayOfMonth,
     ticker: draft.ticker.trim().toUpperCase(),
     shares: draft.shares,
-    exchangeRate: parseDecimalText(draft.exchangeRateText),
+    exchangeRate: domestic ? 1 : parseDecimalText(draft.exchangeRateText),
     foreignSettlement: parseDecimalText(draft.foreignSettlementText),
     foreignTax: parseDecimalText(draft.foreignTaxText),
   }
@@ -64,17 +70,28 @@ export function draftToEntryPayload(draft: DividendEntryDraft): DividendEntryPay
 export function draftsToEntries(drafts: DividendEntryDraft[]): DividendEntryPayload[] {
   return drafts
     .map(draftToEntryPayload)
-    .filter((row) => row.exchangeRate > 0 && row.foreignSettlement > 0)
+    .filter((row) => {
+      if (isDomesticDividendTicker(row.ticker)) {
+        return row.foreignSettlement > 0
+      }
+      return row.exchangeRate > 0 && row.foreignSettlement > 0
+    })
 }
 
 type Props = {
   drafts: DividendEntryDraft[]
-  tickerOptions: string[]
+  holdings: DividendHolding[]
   onChange: (drafts: DividendEntryDraft[]) => void
 }
 
-export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props) {
+export function DividendEntriesEditor({ drafts, holdings, onChange }: Props) {
   const [dragKey, setDragKey] = useState<string | null>(null)
+
+  const tickerOptions = useMemo(() => holdings.map((row) => row.ticker), [holdings])
+  const marketByTicker = useMemo(
+    () => new Map(holdings.map((row) => [row.ticker.toUpperCase(), row.market])),
+    [holdings],
+  )
 
   const updateDraft = (key: string, patch: Partial<DividendEntryDraft>) => {
     onChange(drafts.map((row) => (row.key === key ? { ...row, ...patch } : row)))
@@ -97,6 +114,7 @@ export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props
 
   const addDraft = () => {
     const ticker = tickerOptions[0] ?? 'JEPQ'
+    const domestic = isDomesticDividendTicker(ticker)
     onChange([
       ...drafts,
       {
@@ -104,7 +122,7 @@ export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props
         dayOfMonth: 1,
         ticker,
         shares: 0,
-        exchangeRateText: '',
+        exchangeRateText: domestic ? '1' : '',
         foreignSettlementText: '',
         foreignTaxText: '',
       },
@@ -134,10 +152,13 @@ export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props
       ) : null}
 
       {drafts.map((draft) => {
-        const exchangeRate = parseDecimalText(draft.exchangeRateText)
+        const domestic =
+          marketByTicker.get(draft.ticker.toUpperCase()) === 'domestic' ||
+          isDomesticDividendTicker(draft.ticker)
+        const exchangeRate = domestic ? 1 : parseDecimalText(draft.exchangeRateText)
         const foreignSettlement = parseDecimalText(draft.foreignSettlementText)
         const preview =
-          exchangeRate > 0 && foreignSettlement > 0
+          foreignSettlement > 0
             ? calcDividendEntry({
                 exchangeRate,
                 foreignSettlement,
@@ -162,7 +183,10 @@ export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props
               borderRadius: 1.5,
               border: 1,
               borderColor: dragKey === draft.key ? 'primary.main' : 'divider',
-              bgcolor: (theme) => alpha(theme.palette.background.default, 0.5),
+              bgcolor: (theme) =>
+                domestic
+                  ? alpha(theme.palette.success.main, 0.04)
+                  : alpha(theme.palette.background.default, 0.5),
               opacity: dragKey === draft.key ? 0.65 : 1,
               minWidth: 0,
               overflow: 'hidden',
@@ -173,6 +197,13 @@ export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props
               <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', flex: 1 }}>
                 {draft.ticker || '종목'}
               </Typography>
+              <Chip
+                size="small"
+                label={domestic ? '국내' : '해외'}
+                color={domestic ? 'success' : 'default'}
+                variant="outlined"
+                sx={{ height: 18, fontSize: '0.58rem', fontWeight: 700 }}
+              />
               <IconButton size="small" onClick={() => removeDraft(draft.key)} aria-label="삭제">
                 <DeleteOutlineRoundedIcon fontSize="small" />
               </IconButton>
@@ -194,7 +225,14 @@ export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props
                   margin="dense"
                   fullWidth
                   value={draft.ticker}
-                  onChange={(e) => updateDraft(draft.key, { ticker: e.target.value })}
+                  onChange={(e) => {
+                    const ticker = e.target.value
+                    const isDomestic = isDomesticDividendTicker(ticker)
+                    updateDraft(draft.key, {
+                      ticker,
+                      exchangeRateText: isDomestic ? '1' : draft.exchangeRateText,
+                    })
+                  }}
                 >
                   {tickerOptions.map((ticker) => (
                     <MenuItem key={ticker} value={ticker}>
@@ -219,47 +257,80 @@ export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props
                 InputProps={{ endAdornment: <Typography variant="caption">주</Typography> }}
               />
 
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75}>
-                <TextField
-                  label="환율"
-                  size="small"
-                  margin="dense"
-                  fullWidth
-                  value={draft.exchangeRateText}
-                  onChange={(e) =>
-                    updateDraft(draft.key, { exchangeRateText: sanitizeDecimalInput(e.target.value) })
-                  }
-                  inputProps={{ inputMode: 'decimal' }}
-                  placeholder="1515.6"
-                />
-                <TextField
-                  label="외화정산금액"
-                  size="small"
-                  margin="dense"
-                  fullWidth
-                  value={draft.foreignSettlementText}
-                  onChange={(e) =>
-                    updateDraft(draft.key, {
-                      foreignSettlementText: sanitizeDecimalInput(e.target.value),
-                    })
-                  }
-                  inputProps={{ inputMode: 'decimal' }}
-                  placeholder="12.34"
-                />
-              </Stack>
+              {domestic ? (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75}>
+                  <TextField
+                    label="배당금 (세전 원)"
+                    size="small"
+                    margin="dense"
+                    fullWidth
+                    value={draft.foreignSettlementText}
+                    onChange={(e) =>
+                      updateDraft(draft.key, {
+                        foreignSettlementText: sanitizeDecimalInput(e.target.value),
+                      })
+                    }
+                    inputProps={{ inputMode: 'decimal' }}
+                    placeholder="120000"
+                  />
+                  <TextField
+                    label="세금 (원)"
+                    size="small"
+                    margin="dense"
+                    fullWidth
+                    value={draft.foreignTaxText}
+                    onChange={(e) =>
+                      updateDraft(draft.key, { foreignTaxText: sanitizeDecimalInput(e.target.value) })
+                    }
+                    inputProps={{ inputMode: 'decimal' }}
+                    placeholder="18480"
+                  />
+                </Stack>
+              ) : (
+                <>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.75}>
+                    <TextField
+                      label="환율"
+                      size="small"
+                      margin="dense"
+                      fullWidth
+                      value={draft.exchangeRateText}
+                      onChange={(e) =>
+                        updateDraft(draft.key, { exchangeRateText: sanitizeDecimalInput(e.target.value) })
+                      }
+                      inputProps={{ inputMode: 'decimal' }}
+                      placeholder="1515.6"
+                    />
+                    <TextField
+                      label="외화정산금액"
+                      size="small"
+                      margin="dense"
+                      fullWidth
+                      value={draft.foreignSettlementText}
+                      onChange={(e) =>
+                        updateDraft(draft.key, {
+                          foreignSettlementText: sanitizeDecimalInput(e.target.value),
+                        })
+                      }
+                      inputProps={{ inputMode: 'decimal' }}
+                      placeholder="12.34"
+                    />
+                  </Stack>
 
-              <TextField
-                label="세금합 (외화)"
-                size="small"
-                margin="dense"
-                fullWidth
-                value={draft.foreignTaxText}
-                onChange={(e) =>
-                  updateDraft(draft.key, { foreignTaxText: sanitizeDecimalInput(e.target.value) })
-                }
-                inputProps={{ inputMode: 'decimal' }}
-                placeholder="1.85"
-              />
+                  <TextField
+                    label="세금합 (외화)"
+                    size="small"
+                    margin="dense"
+                    fullWidth
+                    value={draft.foreignTaxText}
+                    onChange={(e) =>
+                      updateDraft(draft.key, { foreignTaxText: sanitizeDecimalInput(e.target.value) })
+                    }
+                    inputProps={{ inputMode: 'decimal' }}
+                    placeholder="1.85"
+                  />
+                </>
+              )}
 
               {preview ? (
                 <Stack spacing={0.25} sx={{ minWidth: 0 }}>
@@ -270,7 +341,15 @@ export function DividendEntriesEditor({ drafts, tickerOptions, onChange }: Props
                       color="text.secondary"
                       sx={{ fontWeight: 600, lineHeight: 1.45, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                     >
-                      주당 {formatUsd(preview.perShareGrossForeign)} (세전) · 환율 {formatRate(exchangeRate)}
+                      {domestic ? (
+                        <>
+                          주당 {Math.round(preview.perShareGrossForeign).toLocaleString('ko-KR')}원 (세전)
+                        </>
+                      ) : (
+                        <>
+                          주당 {formatUsd(preview.perShareGrossForeign)} (세전) · 환율 {formatRate(exchangeRate)}
+                        </>
+                      )}
                     </Typography>
                   ) : null}
                 </Stack>

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-15 (PC 표 — 주가$/원(후)만 굵게)
+// 수정: Auto — 2026-07-14 02:00
 
 import type { DividendHolding } from '@/hooks/useDividends'
 import { calcPortfolioYieldPercent, formatUsd, formatYieldPercent } from '@/lib/dividendCalc'
@@ -44,13 +44,13 @@ const headCellSx = {
   color: 'text.secondary',
 } as const
 
-const priceUsdCellSx = {
+const priceCellSx = {
   ...cellSx,
   color: 'secondary.dark',
   fontWeight: { xs: 800, md: 700 },
 } as const
 
-const priceUsdHeadSx = {
+const priceHeadSx = {
   ...headCellSx,
   fontWeight: { xs: 800, md: 700 },
 } as const
@@ -69,6 +69,7 @@ const refHeadBg = (theme: Theme) => alpha(theme.palette.secondary.main, 0.1)
 const grossBg = (theme: Theme) => alpha(theme.palette.secondary.main, 0.06)
 const netBg = (theme: Theme) => alpha(theme.palette.info.main, 0.08)
 const usdBg = (theme: Theme) => alpha(theme.palette.action.hover, 0.04)
+const domesticBg = (theme: Theme) => alpha(theme.palette.success.main, 0.06)
 
 const grossTotalCellSx = (theme: Theme) => ({
   ...cellSx,
@@ -113,6 +114,25 @@ function formatUsdCell(value: number, ready: boolean) {
   return formatUsd(value)
 }
 
+function isRowReady(row: DividendHolding) {
+  if (row.defaultShares <= 0) return false
+  return row.market === 'domestic' ? row.perShareDividendKrw > 0 : row.perShareDividendUsd > 0
+}
+
+function formatPrice(row: DividendHolding) {
+  if (row.market === 'domestic') {
+    return row.livePriceKrw != null ? row.livePriceKrw.toLocaleString('ko-KR') : '—'
+  }
+  return row.livePriceUsd != null ? formatUsd(row.livePriceUsd) : '—'
+}
+
+function formatPerShare(row: DividendHolding) {
+  if (row.market === 'domestic') {
+    return row.perShareDividendKrw > 0 ? row.perShareDividendKrw.toLocaleString('ko-KR') : '—'
+  }
+  return row.perShareDividendUsd > 0 ? formatUsd(row.perShareDividendUsd) : '—'
+}
+
 export function DividendHoldingsCard({ holdings, onEdit }: Props) {
   const totals = useMemo(() => {
     const portfolioYield = calcPortfolioYieldPercent(holdings)
@@ -132,7 +152,7 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
       if (row.netKrw != null) {
         netKrw += row.netKrw
       }
-      if (row.defaultShares > 0 && row.perShareDividendUsd > 0) {
+      if (row.market === 'overseas' && row.defaultShares > 0 && row.perShareDividendUsd > 0) {
         grossUsd += row.grossMonthlyUsd
         netUsd += row.netMonthlyUsd
         hasUsd = true
@@ -190,12 +210,13 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
       </Stack>
 
       <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <Table size="small" sx={{ minWidth: 520 }}>
+        <Table size="small" sx={{ minWidth: 560 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ ...headCellSx, bgcolor: refHeadBg }}>종목</TableCell>
-              <TableCell align="right" sx={{ ...priceUsdHeadSx, bgcolor: refHeadBg }}>
-                주가$
+              <TableCell sx={{ ...headCellSx, bgcolor: refHeadBg }}>시장</TableCell>
+              <TableCell align="right" sx={{ ...priceHeadSx, bgcolor: refHeadBg }}>
+                주가
               </TableCell>
               <TableCell align="right" sx={{ ...headCellSx, bgcolor: refHeadBg }}>
                 주
@@ -204,7 +225,7 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
                 배당률
               </TableCell>
               <TableCell align="right" sx={{ ...headCellSx, bgcolor: refHeadBg }}>
-                주당$
+                주당
               </TableCell>
               <TableCell align="right" sx={{ ...headCellSx, bgcolor: grossBg }}>
                 원(전)
@@ -222,12 +243,35 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
           </TableHead>
           <TableBody>
             {holdings.map((row) => {
-              const ready = row.defaultShares > 0 && row.perShareDividendUsd > 0
+              const ready = isRowReady(row)
+              const isDomestic = row.market === 'domestic'
               return (
                 <TableRow key={row.id} hover>
-                  <TableCell sx={{ ...cellSx, fontWeight: { xs: 900, md: 500 } }}>{row.ticker}</TableCell>
-                  <TableCell align="right" sx={priceUsdCellSx}>
-                    {row.livePriceUsd != null ? formatUsd(row.livePriceUsd) : '—'}
+                  <TableCell sx={{ ...cellSx, fontWeight: { xs: 900, md: 500 } }}>
+                    <Stack spacing={0.1}>
+                      <span>{row.ticker}</span>
+                      {isDomestic ? (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontSize: '0.58rem', fontWeight: 600, lineHeight: 1.2 }}
+                        >
+                          위클리커버드콜
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                  </TableCell>
+                  <TableCell sx={{ ...cellSx, bgcolor: isDomestic ? domesticBg : undefined }}>
+                    <Chip
+                      size="small"
+                      label={isDomestic ? '국내' : '해외'}
+                      color={isDomestic ? 'success' : 'default'}
+                      variant="outlined"
+                      sx={{ height: 18, fontSize: '0.58rem', fontWeight: 800 }}
+                    />
+                  </TableCell>
+                  <TableCell align="right" sx={priceCellSx}>
+                    {formatPrice(row)}
                   </TableCell>
                   <TableCell align="right" sx={cellSx}>
                     {row.defaultShares > 0 ? row.defaultShares : '—'}
@@ -236,7 +280,7 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
                     {formatYieldPercent(row.yieldPercent)}
                   </TableCell>
                   <TableCell align="right" sx={cellSx}>
-                    {row.perShareDividendUsd > 0 ? formatUsd(row.perShareDividendUsd) : '—'}
+                    {formatPerShare(row)}
                   </TableCell>
                   <TableCell align="right" sx={{ ...cellSx, bgcolor: grossBg }}>
                     {formatKrwCell(row.grossKrw)}
@@ -245,16 +289,17 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
                     {formatKrwCell(row.netKrw)}
                   </TableCell>
                   <TableCell align="right" sx={{ ...cellSx, bgcolor: usdBg }}>
-                    {formatUsdCell(row.grossMonthlyUsd, ready)}
+                    {isDomestic ? '—' : formatUsdCell(row.grossMonthlyUsd, ready)}
                   </TableCell>
                   <TableCell align="right" sx={{ ...cellSx, bgcolor: usdBg }}>
-                    {formatUsdCell(row.netMonthlyUsd, ready)}
+                    {isDomestic ? '—' : formatUsdCell(row.netMonthlyUsd, ready)}
                   </TableCell>
                 </TableRow>
               )
             })}
             <TableRow>
               <TableCell sx={totalLabelCellSx}>합계</TableCell>
+              <TableCell sx={cellSx} />
               <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={cellSx} />
               <TableCell align="right" sx={{ ...cellSx, color: 'text.secondary' }}>

@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography'
 import { alpha, type Theme } from '@mui/material/styles'
 import { useEffect, useRef, useState } from 'react'
 
-type SoftInputTone = 'primary' | 'success'
+type SoftInputTone = 'primary' | 'success' | 'loan'
 
 type Props = {
   value: number
@@ -22,9 +22,26 @@ type Props = {
   leadingLabel?: string | null
   /** 카드 등 좁은 영역용 */
   compact?: boolean
+  /** 헤더 인라인 등 더 작은 입력 */
+  dense?: boolean
+  fullWidth?: boolean
 }
 
 function softInputSx(tone: SoftInputTone, theme: Theme) {
+  if (tone === 'loan') {
+    const loanBorder = alpha(theme.palette.error.main, 0.16)
+    const loanText = `color-mix(in srgb, ${theme.palette.text.primary} 86%, ${theme.palette.error.main} 14%)`
+    return {
+      '& .MuiOutlinedInput-root': {
+        bgcolor: nearlyWhiteInputBg(theme),
+        '& fieldset': { borderColor: loanBorder },
+        '&:hover fieldset': { borderColor: alpha(theme.palette.error.main, 0.22) },
+        '&.Mui-focused fieldset': { borderColor: alpha(theme.palette.error.main, 0.3) },
+      },
+      '& .MuiInputBase-input': { color: loanText, fontWeight: 900 },
+    }
+  }
+
   const main = theme.palette[tone].main
   return {
     '& .MuiOutlinedInput-root': {
@@ -45,6 +62,8 @@ export function FreshAmountField({
   softInput,
   leadingLabel,
   compact,
+  dense,
+  fullWidth = true,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -107,7 +126,7 @@ export function FreshAmountField({
   return (
     <TextField
       size="small"
-      fullWidth
+      fullWidth={fullWidth}
       label={label}
       value={displayValue}
       placeholder={placeholder}
@@ -140,13 +159,28 @@ export function FreshAmountField({
         endAdornment: <InputAdornment position="end">원</InputAdornment>,
       }}
       sx={(theme) => ({
-        ...(compact ? { '& .MuiInputBase-root': { minHeight: 34 } } : {}),
+        ...(dense
+          ? {
+              '& .MuiInputBase-root': { minHeight: 26 },
+              '& .MuiInputBase-input': {
+                fontWeight: 700,
+                fontSize: '0.72rem',
+                py: 0.15,
+                px: 0.35,
+              },
+              '& .MuiInputAdornment-root': { ml: 0.15, mr: 0.1 },
+              '& .MuiInputAdornment-root .MuiTypography-root': { fontSize: '0.58rem' },
+            }
+          : compact
+            ? { '& .MuiInputBase-root': { minHeight: 34 } }
+            : {}),
         '& .MuiInputBase-input': {
-          fontWeight: large ? 900 : 700,
-          fontSize: large ? '1.2rem' : compact ? '0.88rem' : '0.95rem',
-          ...(compact ? { py: 0.55 } : {}),
+          fontWeight: large ? 900 : dense ? 700 : 700,
+          fontSize: large ? '1.2rem' : dense ? '0.72rem' : compact ? '0.88rem' : '0.95rem',
+          ...(compact && !dense ? { py: 0.55 } : {}),
+          ...(dense ? { py: 0.15, px: 0.35 } : {}),
         },
-        ...(compact
+        ...(compact && !dense
           ? { '& .MuiInputAdornment-root .MuiTypography-root': { fontSize: '0.64rem' } }
           : {}),
         '& .MuiInputBase-input::placeholder': {

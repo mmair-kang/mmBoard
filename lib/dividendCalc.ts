@@ -1,4 +1,11 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 02:00
+
+import {
+  getDividendHoldingSeed,
+  type DividendMarket,
+} from '@/lib/dividendHoldingsConfig'
+
+export type { DividendMarket }
 
 /** 월별 금융소득 한도 (1,000만원) */
 export const MONTHLY_FINANCIAL_INCOME_LIMIT = 10_000_000
@@ -109,19 +116,18 @@ export function formatDividendGrossNet(grossKrw: number, dividendKrw: number): s
   return `세전 ${formatKrw(grossKrw)} · 세후 ${formatKrw(dividendKrw)}`
 }
 
-/** 연 배당률(%) 추정용 참고 시세 — 사용자 기준가 미입력 시에만 사용 */
-const YIELD_HINT_PRICE_USD: Record<string, number> = {
-  JEPQ: 54,
-  GPIX: 28,
-}
-
 export const US_WITHHOLDING_RATE = 0.15
+/** 국내 배당 원천징수(소득세+지방소득세) */
+export const DOMESTIC_WITHHOLDING_RATE = 0.154
 
 export type HoldingReferenceInput = {
   ticker: string
+  market: DividendMarket
   defaultShares: number
   perShareDividendUsd: number
+  perShareDividendKrw: number
   referencePriceUsd: number
+  referencePriceKrw: number
   referenceExchangeRate: number
 }
 
@@ -133,14 +139,25 @@ export type HoldingReferenceCalc = {
   yieldPercent: number | null
 }
 
-/** 배당률용 주가 — 실시간 시세 우선 */
+/** 배당률용 주가($) — 실시간 시세 우선 */
 export function resolveHoldingPriceUsd(
   holding: Pick<HoldingReferenceInput, 'ticker' | 'referencePriceUsd'>,
   marketPriceUsd?: number | null,
 ): number {
   if (marketPriceUsd != null && marketPriceUsd > 0) return marketPriceUsd
   if (holding.referencePriceUsd > 0) return holding.referencePriceUsd
-  return YIELD_HINT_PRICE_USD[holding.ticker] ?? 0
+  return getDividendHoldingSeed(holding.ticker)?.yieldHintPrice ?? 0
+}
+
+/** 배당률용 주가(원) — 실시간 시세 우선 */
+export function resolveHoldingPriceKrw(
+  holding: Pick<HoldingReferenceInput, 'ticker' | 'referencePriceKrw'>,
+  marketPriceKrw?: number | null,
+): number {
+  if (marketPriceKrw != null && marketPriceKrw > 0) return marketPriceKrw
+  if (holding.referencePriceKrw > 0) return holding.referencePriceKrw
+  const seed = getDividendHoldingSeed(holding.ticker)
+  return seed?.market === 'domestic' ? (seed.yieldHintPrice ?? 0) : 0
 }
 
 /**
@@ -155,35 +172,82 @@ export function calcAnnualDividendYieldPercent(
   return Math.round(((monthlyPerShareDividendUsd * 12) / priceUsd) * 1000) / 10
 }
 
-/** 보유 포트폴리오 가중 연 배당률(세전 %) — 합계 행용 */
+/** 보유 포트폴리오 가중 연 배당률(세전 %) — 합계 행용 (원화 기준 통합) */
 export function calcPortfolioYieldPercent(
   rows: Array<{
+    market: DividendMarket
     defaultShares: number
     perShareDividendUsd: number
+    perShareDividendKrw: number
     livePriceUsd: number | null
+    livePriceKrw: number | null
     referencePriceUsd: number
+    referencePriceKrw: number
+    referenceExchangeRate: number
     ticker: string
   }>,
 ): number | null {
-  let annualDividendUsd = 0
-  let marketValueUsd = 0
+  let annualDividendKrw = 0
+  let marketValueKrw = 0
 
   for (const row of rows) {
-    if (row.defaultShares <= 0 || row.perShareDividendUsd <= 0) continue
-    const price = resolveHoldingPriceUsd(row, row.livePriceUsd)
-    if (price <= 0) continue
-    annualDividendUsd += row.defaultShares * row.perShareDividendUsd * 12
-    marketValueUsd += row.defaultShares * price
+    if (row.defaultShares <= 0) continue
+
+    if (row.market === 'domestic') {
+      if (row.perShareDividendKrw <= 0) continue
+      const price = resolveHoldingPriceKrw(row, row.livePriceKrw)
+      if (price <= 0) continue
+      annualDividendKrw += row.defaultShares * row.perShareDividendKrw * 12
+      marketValueKrw += row.defaultShares * price
+      continue
+    }
+
+    if (row.perShareDividendUsd <= 0) continue
+    const priceUsd = resolveHoldingPriceUsd(row, row.livePriceUsd)
+    if (priceUsd <= 0) continue
+    const rate = row.referenceExchangeRate > 0 ? row.referenceExchangeRate : 0
+    if (rate <= 0) continue
+    annualDividendKrw += Math.round(row.defaultShares * row.perShareDividendUsd * 12 * rate)
+    marketValueKrw += Math.round(row.defaultShares * priceUsd * rate)
   }
 
-  if (marketValueUsd <= 0) return null
-  return Math.round((annualDividendUsd / marketValueUsd) * 1000) / 10
+  if (marketValueKrw <= 0) return null
+  return Math.round((annualDividendKrw / marketValueKrw) * 1000) / 10
+}
+
+export function calcDomesticHoldingReference(
+  holding: Pick<
+    HoldingReferenceInput,
+    'ticker' | 'defaultShares' | 'perShareDividendKrw' | 'referencePriceKrw'
+  >,
+  marketPriceKrw?: number | null,
+): HoldingReferenceCalc {
+  const shares = holding.defaultShares
+  const perShare = holding.perShareDividendKrw
+  const grossKrw = Math.round(shares * perShare)
+  const netKrw = Math.round(grossKrw * (1 - DOMESTIC_WITHHOLDING_RATE))
+
+  const price = resolveHoldingPriceKrw(holding, marketPriceKrw)
+  const yieldPercent = calcAnnualDividendYieldPercent(perShare, price)
+
+  return {
+    grossMonthlyUsd: 0,
+    netMonthlyUsd: 0,
+    grossKrw,
+    netKrw,
+    yieldPercent,
+  }
 }
 
 export function calcHoldingReference(
   holding: HoldingReferenceInput,
   marketPriceUsd?: number | null,
+  marketPriceKrw?: number | null,
 ): HoldingReferenceCalc {
+  if (holding.market === 'domestic') {
+    return calcDomesticHoldingReference(holding, marketPriceKrw)
+  }
+
   const shares = holding.defaultShares
   const perShare = holding.perShareDividendUsd
   const grossMonthlyUsd = shares * perShare

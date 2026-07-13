@@ -1,12 +1,20 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 02:00
 import { sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
+import { DIVIDEND_HOLDING_SEEDS } from '@/lib/dividendHoldingsConfig'
 import { dividendHoldings } from '@/lib/schema'
 
-const DEFAULT_TICKERS = ['JEPQ', 'GPIX'] as const
-
 let schemaReady: Promise<void> | null = null
+
+async function ensureColumn(ddl: string) {
+  try {
+    await db.run(sql.raw(ddl))
+  } catch {
+    /* column exists */
+  }
+}
 
 export async function ensureDividendSchema() {
   if (!schemaReady) {
@@ -36,34 +44,64 @@ export async function ensureDividendSchema() {
         sort_order INTEGER NOT NULL DEFAULT 0
       )`)
 
-      try {
-        await db.run(
-          sql`ALTER TABLE dividend_holdings ADD COLUMN per_share_dividend_usd REAL NOT NULL DEFAULT 0`,
-        )
-      } catch {
-        /* column exists */
-      }
-      try {
-        await db.run(
-          sql`ALTER TABLE dividend_holdings ADD COLUMN reference_price_usd REAL NOT NULL DEFAULT 0`,
-        )
-      } catch {
-        /* column exists */
-      }
-      try {
-        await db.run(
-          sql`ALTER TABLE dividend_holdings ADD COLUMN reference_exchange_rate REAL NOT NULL DEFAULT 0`,
-        )
-      } catch {
-        /* column exists */
+      await ensureColumn(
+        `ALTER TABLE dividend_holdings ADD COLUMN per_share_dividend_usd REAL NOT NULL DEFAULT 0`,
+      )
+      await ensureColumn(
+        `ALTER TABLE dividend_holdings ADD COLUMN reference_price_usd REAL NOT NULL DEFAULT 0`,
+      )
+      await ensureColumn(
+        `ALTER TABLE dividend_holdings ADD COLUMN reference_exchange_rate REAL NOT NULL DEFAULT 0`,
+      )
+      await ensureColumn(`ALTER TABLE dividend_holdings ADD COLUMN market TEXT NOT NULL DEFAULT 'overseas'`)
+      await ensureColumn(`ALTER TABLE dividend_holdings ADD COLUMN quote_symbol TEXT NOT NULL DEFAULT ''`)
+      await ensureColumn(
+        `ALTER TABLE dividend_holdings ADD COLUMN per_share_dividend_krw REAL NOT NULL DEFAULT 0`,
+      )
+      await ensureColumn(
+        `ALTER TABLE dividend_holdings ADD COLUMN reference_price_krw REAL NOT NULL DEFAULT 0`,
+      )
+
+      const existing = await db.select().from(dividendHoldings)
+      const existingByTicker = new Map(existing.map((row) => [row.ticker.toUpperCase(), row]))
+
+      if (existing.length === 0) {
+        for (let i = 0; i < DIVIDEND_HOLDING_SEEDS.length; i++) {
+          const seed = DIVIDEND_HOLDING_SEEDS[i]
+          await db.run(
+            sql`INSERT INTO dividend_holdings (
+              ticker, market, quote_symbol, default_shares, sort_order
+            ) VALUES (
+              ${seed.ticker}, ${seed.market}, ${seed.quoteSymbol}, ${seed.defaultShares ?? 0}, ${i}
+            )`,
+          )
+        }
+        return
       }
 
-      const existing = await db.select().from(dividendHoldings).limit(1)
-      if (existing.length === 0) {
-        for (let i = 0; i < DEFAULT_TICKERS.length; i++) {
-          await db.run(
-            sql`INSERT INTO dividend_holdings (ticker, default_shares, sort_order) VALUES (${DEFAULT_TICKERS[i]}, 0, ${i})`,
-          )
+      for (let i = 0; i < DIVIDEND_HOLDING_SEEDS.length; i++) {
+        const seed = DIVIDEND_HOLDING_SEEDS[i]
+        const row = existingByTicker.get(seed.ticker)
+        if (!row) {
+          await db.insert(dividendHoldings).values({
+            ticker: seed.ticker,
+            market: seed.market,
+            quoteSymbol: seed.quoteSymbol,
+            defaultShares: seed.defaultShares ?? 0,
+            sortOrder: i,
+          })
+          continue
+        }
+
+        const patch: Record<string, unknown> = { sortOrder: i }
+        if (!row.quoteSymbol) patch.quoteSymbol = seed.quoteSymbol
+        if (row.market !== seed.market) patch.market = seed.market
+        if (seed.defaultShares != null && row.defaultShares === 0) {
+          patch.defaultShares = seed.defaultShares
+        }
+
+        if (Object.keys(patch).length > 0) {
+          await db.update(dividendHoldings).set(patch).where(eq(dividendHoldings.id, row.id))
         }
       }
     })().catch((e) => {

@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-14 01:33 (투자 연동 환율)
 // 수정: Auto — 2026-06-08 (금융소득 요약 통합)
 
 import { DividendHoldingsCard } from '@/components/home/DividendHoldingsCard'
@@ -9,6 +10,7 @@ import {
   type DividendMonthFormPayload,
 } from '@/components/home/DividendMonthFormDialog'
 import { type DividendMonth, useDividends } from '@/hooks/useDividends'
+import { useInvestments } from '@/hooks/useInvestments'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import { MONTHLY_FINANCIAL_INCOME_LIMIT } from '@/lib/dividendCalc'
@@ -26,6 +28,7 @@ import { useMemo, useState } from 'react'
 
 export function DividendWidget() {
   const { holdings, months, yearFinancialIncome, yearLabel, isLoading, mutate } = useDividends()
+  const { usdKrwRate } = useInvestments()
   const [formOpen, setFormOpen] = useState(false)
   const [holdingsEditOpen, setHoldingsEditOpen] = useState(false)
   const [editingMonth, setEditingMonth] = useState<DividendMonth | null>(null)
@@ -192,6 +195,7 @@ export function DividendWidget() {
       <DividendHoldingsEditDialog
         open={holdingsEditOpen}
         holdings={holdings}
+        usdKrwRate={usdKrwRate}
         onClose={() => setHoldingsEditOpen(false)}
         onSubmit={handleSaveHoldings}
       />

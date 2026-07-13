@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-14 02:00
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogFooter } from '@/components/common/FormDialogFooter'
@@ -17,48 +17,51 @@ import type { DividendHolding } from '@/hooks/useDividends'
 import type { DividendHoldingPayload } from '@/lib/dividendPayload'
 import { decimalToText, sanitizeDecimalInput } from '@/lib/dividendPayload'
 import Box from '@mui/material/Box'
+import Chip from '@mui/material/Chip'
 import DialogContent from '@mui/material/DialogContent'
 import Divider from '@mui/material/Divider'
+import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useEffect, useState } from 'react'
+import { alpha } from '@mui/material/styles'
+import { useEffect, useMemo, useState } from 'react'
 
 type RowDraft = {
   shares: string
-  perShareUsd: string
+  perShare: string
 }
 
 type Props = {
   open: boolean
   holdings: DividendHolding[]
+  usdKrwRate: number | null
   onClose: () => void
   onSubmit: (holdings: DividendHoldingPayload[]) => Promise<void>
 }
 
-export function DividendHoldingsEditDialog({ open, holdings, onClose, onSubmit }: Props) {
-  const [exchangeRateText, setExchangeRateText] = useState('')
+export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose, onSubmit }: Props) {
   const [rowDrafts, setRowDrafts] = useState<Record<number, RowDraft>>({})
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
+  const hasOverseas = useMemo(() => holdings.some((row) => row.market === 'overseas'), [holdings])
+
   useEffect(() => {
     if (!open) {
-      setExchangeRateText('')
       setRowDrafts({})
       setSubmitting(false)
       setFormError(null)
       return
     }
 
-    const rate = holdings[0]?.referenceExchangeRate ?? 0
-    setExchangeRateText(rate > 0 ? decimalToText(rate) : '')
-
     const drafts: Record<number, RowDraft> = {}
     for (const row of holdings) {
+      const perShare =
+        row.market === 'domestic' ? row.perShareDividendKrw : row.perShareDividendUsd
       drafts[row.id] = {
         shares: row.defaultShares > 0 ? String(row.defaultShares) : '',
-        perShareUsd: decimalToText(row.perShareDividendUsd),
+        perShare: decimalToText(perShare),
       }
     }
     setRowDrafts(drafts)
@@ -68,9 +71,8 @@ export function DividendHoldingsEditDialog({ open, holdings, onClose, onSubmit }
     e.preventDefault()
     setFormError(null)
 
-    const exchangeRate = Number(exchangeRateText.replace(/[^\d.]/g, '')) || 0
-    if (exchangeRate <= 0) {
-      setFormError('환율을 입력해 주세요.')
+    if (hasOverseas && (usdKrwRate == null || usdKrwRate <= 0)) {
+      setFormError('해외 종목 환율(투자 연동)을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
       return
     }
 
@@ -79,22 +81,26 @@ export function DividendHoldingsEditDialog({ open, holdings, onClose, onSubmit }
       const draft = rowDrafts[row.id]
       if (!draft) continue
       const shares = Math.round(Number(draft.shares.replace(/[^\d]/g, ''))) || 0
-      const perShareText = draft.perShareUsd.trim()
-      const perShareDividendUsd =
+      const perShareText = draft.perShare.trim()
+      const perShareValue =
         !perShareText || perShareText === '.' ? 0 : Number(perShareText.replace(/[^\d.]/g, '')) || 0
 
-      if (shares < 0 || perShareDividendUsd <= 0) {
-        setFormError(`${row.ticker}의 주수와 주당$를 확인해 주세요.`)
+      if (shares < 0 || perShareValue <= 0) {
+        const unit = row.market === 'domestic' ? '주당 원' : '주당 $'
+        setFormError(`${row.ticker}의 주수와 ${unit}를 확인해 주세요.`)
         return
       }
 
       payload.push({
         id: row.id,
         ticker: row.ticker,
+        market: row.market,
+        quoteSymbol: row.quoteSymbol,
         defaultShares: shares,
-        perShareDividendUsd,
+        perShareDividendUsd: row.market === 'overseas' ? perShareValue : 0,
+        perShareDividendKrw: row.market === 'domestic' ? perShareValue : 0,
         referencePriceUsd: row.referencePriceUsd,
-        referenceExchangeRate: exchangeRate,
+        referencePriceKrw: row.referencePriceKrw,
       })
     }
 
@@ -112,6 +118,65 @@ export function DividendHoldingsEditDialog({ open, holdings, onClose, onSubmit }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const overseasHoldings = holdings.filter((row) => row.market === 'overseas')
+  const domesticHoldings = holdings.filter((row) => row.market === 'domestic')
+
+  const renderRow = (row: DividendHolding, index: number, total: number) => {
+    const draft = rowDrafts[row.id] ?? { shares: '', perShare: '' }
+    const isDomestic = row.market === 'domestic'
+    return (
+      <Box key={row.id}>
+        {index > 0 ? <Divider sx={{ my: 1 }} /> : null}
+        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 0.75 }}>
+          <Typography sx={{ fontWeight: 900, fontSize: '0.9rem' }}>{row.ticker}</Typography>
+          <Chip
+            size="small"
+            label={isDomestic ? '국내' : '해외'}
+            color={isDomestic ? 'success' : 'default'}
+            variant="outlined"
+            sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
+          />
+        </Stack>
+        {isDomestic ? (
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+            KODEX200타겟위클리커버드콜 · {row.quoteSymbol}
+          </Typography>
+        ) : null}
+        <Stack spacing={0.75}>
+          <TextField
+            label="보유 주수"
+            fullWidth
+            value={draft.shares}
+            onChange={(e) =>
+              setRowDrafts((prev) => ({
+                ...prev,
+                [row.id]: { ...draft, shares: e.target.value.replace(/[^\d]/g, '') },
+              }))
+            }
+            inputProps={{ inputMode: 'numeric' }}
+            InputProps={{ endAdornment: <Typography variant="caption">주</Typography> }}
+            {...formDialogCompactTextFieldProps}
+          />
+          <TextField
+            label={isDomestic ? '주당 배당 (세전 원)' : '주당 배당 (세전 $)'}
+            fullWidth
+            value={draft.perShare}
+            onChange={(e) =>
+              setRowDrafts((prev) => ({
+                ...prev,
+                [row.id]: { ...draft, perShare: sanitizeDecimalInput(e.target.value) },
+              }))
+            }
+            placeholder={isDomestic ? '120' : '0.45'}
+            inputProps={{ inputMode: 'decimal' }}
+            {...formDialogCompactTextFieldProps}
+          />
+        </Stack>
+        {index < total - 1 ? null : null}
+      </Box>
+    )
   }
 
   return (
@@ -137,58 +202,59 @@ export function DividendHoldingsEditDialog({ open, holdings, onClose, onSubmit }
         <DialogContent sx={formDialogContentSx}>
           <Box sx={formDialogContentScrollSx}>
             <Stack spacing={formDialogFieldStackSpacing} sx={formDialogFieldStackSx}>
-              <TextField
-                label="환율 (원화 계산용)"
-                fullWidth
-                value={exchangeRateText}
-                onChange={(e) => setExchangeRateText(sanitizeDecimalInput(e.target.value))}
-                placeholder="1450"
-                inputProps={{ inputMode: 'decimal' }}
-                {...formDialogCompactTextFieldProps}
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, lineHeight: 1.45 }}>
-                배당률 = (월 주당$ × 12 ÷ 실시간 주가$). 주식수는 배당금 총액에만 반영됩니다.
-              </Typography>
-
-              {holdings.map((row, index) => {
-                const draft = rowDrafts[row.id] ?? { shares: '', perShareUsd: '' }
-                return (
-                  <Box key={row.id}>
-                    {index > 0 ? <Divider sx={{ my: 1 }} /> : null}
-                    <Typography sx={{ fontWeight: 900, fontSize: '0.9rem', mb: 0.75 }}>{row.ticker}</Typography>
-                    <Stack spacing={0.75}>
-                      <TextField
-                        label="보유 주수"
-                        fullWidth
-                        value={draft.shares}
-                        onChange={(e) =>
-                          setRowDrafts((prev) => ({
-                            ...prev,
-                            [row.id]: { ...draft, shares: e.target.value.replace(/[^\d]/g, '') },
-                          }))
-                        }
-                        inputProps={{ inputMode: 'numeric' }}
-                        InputProps={{ endAdornment: <Typography variant="caption">주</Typography> }}
-                        {...formDialogCompactTextFieldProps}
-                      />
-                      <TextField
-                        label="주당 배당 (세전 $)"
-                        fullWidth
-                        value={draft.perShareUsd}
-                        onChange={(e) =>
-                          setRowDrafts((prev) => ({
-                            ...prev,
-                            [row.id]: { ...draft, perShareUsd: sanitizeDecimalInput(e.target.value) },
-                          }))
-                        }
-                        placeholder="0.45"
-                        inputProps={{ inputMode: 'decimal' }}
-                        {...formDialogCompactTextFieldProps}
+              {hasOverseas ? (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    px: 1,
+                    py: 0.85,
+                    borderRadius: 1.5,
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
+                    borderColor: (theme) => alpha(theme.palette.primary.main, 0.16),
+                  }}
+                >
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                        해외 환율
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label="투자연동"
+                        color="primary"
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
                       />
                     </Stack>
-                  </Box>
-                )
-              })}
+                    <Typography sx={{ fontWeight: 900, fontSize: '0.9rem' }}>
+                      {usdKrwRate != null ? `${usdKrwRate.toLocaleString('ko-KR')}원/$` : '—'}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              ) : null}
+
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, lineHeight: 1.45 }}>
+                해외·국내 배당을 한 화면에서 관리합니다. 국내는 원화 기준, 해외는 달러 기준으로 입력하세요.
+              </Typography>
+
+              {overseasHoldings.length > 0 ? (
+                <Box>
+                  <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', color: 'text.secondary', mb: 0.5 }}>
+                    해외 배당
+                  </Typography>
+                  {overseasHoldings.map((row, index) => renderRow(row, index, overseasHoldings.length))}
+                </Box>
+              ) : null}
+
+              {domesticHoldings.length > 0 ? (
+                <Box>
+                  {overseasHoldings.length > 0 ? <Divider sx={{ my: 0.5 }} /> : null}
+                  <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', color: 'success.dark', mb: 0.5 }}>
+                    국내 배당
+                  </Typography>
+                  {domesticHoldings.map((row, index) => renderRow(row, index, domesticHoldings.length))}
+                </Box>
+              ) : null}
 
               {formError ? (
                 <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>
