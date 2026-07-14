@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-15 01:34 (연금 칩 제거)
 
 export const INVESTMENT_ACCOUNT_IDS = ['nh', 'ds', 'psf', 'irp'] as const
 export type InvestmentAccountId = (typeof INVESTMENT_ACCOUNT_IDS)[number]
@@ -11,7 +11,6 @@ export type InvestmentAccountMeta = {
   title: string
   subtitle: string
   market: InvestmentMarket
-  pensionNote?: string
   cashLabel: string
 }
 
@@ -38,7 +37,6 @@ export const INVESTMENT_ACCOUNTS: InvestmentAccountMeta[] = [
     title: '연금저축펀드',
     subtitle: '연금 수령 예정',
     market: 'fund',
-    pensionNote: '연금',
     cashLabel: '펀드 예수금',
   },
   {
@@ -47,7 +45,6 @@ export const INVESTMENT_ACCOUNTS: InvestmentAccountMeta[] = [
     title: '개인IRP',
     subtitle: '연금 수령 예정',
     market: 'fund',
-    pensionNote: '연금',
     cashLabel: 'IRP 예수금',
   },
 ]

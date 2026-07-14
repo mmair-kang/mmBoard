@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-07-14 02:00
+// 수정: Auto — 2026-07-14 23:37
 import { sql } from 'drizzle-orm'
 import { eq } from 'drizzle-orm'
 
@@ -41,6 +41,7 @@ export async function ensureDividendSchema() {
         exchange_rate REAL NOT NULL,
         foreign_settlement REAL NOT NULL,
         foreign_tax REAL NOT NULL,
+        per_share_tax_base_krw REAL NOT NULL DEFAULT 0,
         sort_order INTEGER NOT NULL DEFAULT 0
       )`)
 
@@ -60,6 +61,12 @@ export async function ensureDividendSchema() {
       )
       await ensureColumn(
         `ALTER TABLE dividend_holdings ADD COLUMN reference_price_krw REAL NOT NULL DEFAULT 0`,
+      )
+      await ensureColumn(
+        `ALTER TABLE dividend_holdings ADD COLUMN per_share_tax_base_krw REAL NOT NULL DEFAULT 0`,
+      )
+      await ensureColumn(
+        `ALTER TABLE dividend_entries ADD COLUMN per_share_tax_base_krw REAL NOT NULL DEFAULT 0`,
       )
 
       const existing = await db.select().from(dividendHoldings)

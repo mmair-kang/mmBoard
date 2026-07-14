@@ -1,4 +1,6 @@
-// 수정: Auto — 2026-07-14 02:00
+// 수정: Auto — 2026-07-14 23:37
+
+import { calcDomesticNetFromCashAndTaxBase } from '@/lib/dividendCalc'
 
 export type DividendEntryPayload = {
   id?: number
@@ -8,6 +10,8 @@ export type DividendEntryPayload = {
   exchangeRate: number
   foreignSettlement: number
   foreignTax: number
+  /** 국내 ETF 주당 과세표준액 */
+  perShareTaxBaseKrw?: number
 }
 
 export type DividendMonthPayload = {
@@ -23,6 +27,7 @@ export type DividendHoldingPayload = {
   defaultShares: number
   perShareDividendUsd: number
   perShareDividendKrw?: number
+  perShareTaxBaseKrw?: number
   referencePriceUsd?: number
   referencePriceKrw?: number
   referenceExchangeRate?: number
@@ -92,6 +97,7 @@ export function parseDividendEntryPayload(value: unknown): DividendEntryPayload 
   const exchangeRate = parseDecimal(row.exchangeRate)
   const foreignSettlement = parseDecimal(row.foreignSettlement)
   const foreignTax = parseDecimal(row.foreignTax)
+  const perShareTaxBaseKrw = parseDecimal(row.perShareTaxBaseKrw) ?? 0
 
   if (
     dayOfMonth == null ||
@@ -113,6 +119,7 @@ export function parseDividendEntryPayload(value: unknown): DividendEntryPayload 
     exchangeRate,
     foreignSettlement,
     foreignTax,
+    perShareTaxBaseKrw,
   }
 }
 
@@ -142,6 +149,7 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
     const defaultShares = parsePositiveInt(row.defaultShares)
     const perShareDividendUsd = parseDecimal(row.perShareDividendUsd) ?? 0
     const perShareDividendKrw = parseDecimal(row.perShareDividendKrw) ?? 0
+    const perShareTaxBaseKrw = parseDecimal(row.perShareTaxBaseKrw) ?? 0
     const referencePriceUsd = parseDecimal(row.referencePriceUsd) ?? 0
     const referencePriceKrw = parseDecimal(row.referencePriceKrw) ?? 0
     const market = row.market === 'domestic' ? 'domestic' : row.market === 'overseas' ? 'overseas' : undefined
@@ -151,6 +159,7 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
       defaultShares == null ||
       perShareDividendUsd < 0 ||
       perShareDividendKrw < 0 ||
+      perShareTaxBaseKrw < 0 ||
       referencePriceUsd < 0 ||
       referencePriceKrw < 0
     ) {
@@ -166,6 +175,7 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
       defaultShares,
       perShareDividendUsd,
       perShareDividendKrw,
+      perShareTaxBaseKrw,
       referencePriceUsd,
       referencePriceKrw,
       ...(referenceExchangeRate != null ? { referenceExchangeRate } : {}),
@@ -176,14 +186,44 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
 }
 
 export function entriesFromHoldings(
-  holdings: Array<{ ticker: string; defaultShares: number; market?: 'overseas' | 'domestic' }>,
+  holdings: Array<{
+    ticker: string
+    defaultShares: number
+    market?: 'overseas' | 'domestic'
+    perShareDividendUsd?: number
+    perShareDividendKrw?: number
+    perShareTaxBaseKrw?: number
+  }>,
 ): DividendEntryPayload[] {
-  return holdings.map((row) => ({
-    dayOfMonth: 1,
-    ticker: row.ticker,
-    shares: row.defaultShares,
-    exchangeRate: row.market === 'domestic' ? 1 : 0,
-    foreignSettlement: 0,
-    foreignTax: 0,
-  }))
+  return holdings.map((row) => {
+    const domestic = row.market === 'domestic'
+    if (domestic) {
+      const perShare = row.perShareDividendKrw ?? 0
+      const taxBase = row.perShareTaxBaseKrw ?? 0
+      const { taxKrw, netKrw } = calcDomesticNetFromCashAndTaxBase(
+        row.defaultShares,
+        perShare,
+        taxBase,
+      )
+      return {
+        dayOfMonth: 1,
+        ticker: row.ticker,
+        shares: row.defaultShares,
+        exchangeRate: 1,
+        foreignSettlement: perShare > 0 ? netKrw : 0,
+        foreignTax: perShare > 0 ? taxKrw : 0,
+        perShareTaxBaseKrw: taxBase,
+      }
+    }
+
+    return {
+      dayOfMonth: 1,
+      ticker: row.ticker,
+      shares: row.defaultShares,
+      exchangeRate: 0,
+      foreignSettlement: 0,
+      foreignTax: 0,
+      perShareTaxBaseKrw: 0,
+    }
+  })
 }

@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-07-14 02:00
+// 수정: Auto — 2026-07-14 23:37
 import { asc, eq } from 'drizzle-orm'
 
 import {
@@ -23,6 +23,7 @@ export type DividendHoldingRow = {
   defaultShares: number
   perShareDividendUsd: number
   perShareDividendKrw: number
+  perShareTaxBaseKrw: number
   referencePriceUsd: number
   referencePriceKrw: number
   referenceExchangeRate: number
@@ -36,6 +37,7 @@ export type DividendHoldingView = DividendHoldingRow & {
   netMonthlyUsd: number
   grossKrw: number | null
   netKrw: number | null
+  taxableKrw: number | null
   yieldPercent: number | null
 }
 
@@ -48,6 +50,7 @@ export type DividendEntryRow = {
   exchangeRate: number
   foreignSettlement: number
   foreignTax: number
+  perShareTaxBaseKrw: number
   sortOrder: number
 }
 
@@ -55,6 +58,7 @@ export type DividendEntryView = DividendEntryRow & {
   dividendKrw: number
   taxKrw: number
   grossKrw: number
+  financialIncomeKrw: number
   perShareForeign: number | null
   perShareGrossForeign: number | null
 }
@@ -76,6 +80,7 @@ function normalizeHoldingRow(row: typeof dividendHoldings.$inferSelect): Dividen
     defaultShares: row.defaultShares,
     perShareDividendUsd: row.perShareDividendUsd,
     perShareDividendKrw: row.perShareDividendKrw,
+    perShareTaxBaseKrw: row.perShareTaxBaseKrw ?? 0,
     referencePriceUsd: row.referencePriceUsd,
     referencePriceKrw: row.referencePriceKrw,
     referenceExchangeRate: row.referenceExchangeRate,
@@ -110,6 +115,7 @@ function toHoldingView(
     netMonthlyUsd: calc.netMonthlyUsd,
     grossKrw: calc.grossKrw,
     netKrw: calc.netKrw,
+    taxableKrw: calc.taxableKrw,
     yieldPercent: calc.yieldPercent,
   }
 }
@@ -159,6 +165,7 @@ function toEntryView(row: DividendEntryRow): DividendEntryView {
     dividendKrw: calc.dividendKrw,
     taxKrw: calc.taxKrw,
     grossKrw: calc.grossKrw,
+    financialIncomeKrw: calc.financialIncomeKrw,
     perShareForeign: calc.perShareForeign,
     perShareGrossForeign: calc.perShareGrossForeign,
   }
@@ -217,7 +224,18 @@ export async function loadDividendData(): Promise<DividendData> {
   const entriesByMonth = new Map<number, DividendEntryRow[]>()
   for (const entry of allEntries) {
     const list = entriesByMonth.get(entry.monthId) ?? []
-    list.push(entry)
+    list.push({
+      id: entry.id,
+      monthId: entry.monthId,
+      dayOfMonth: entry.dayOfMonth,
+      ticker: entry.ticker,
+      shares: entry.shares,
+      exchangeRate: entry.exchangeRate,
+      foreignSettlement: entry.foreignSettlement,
+      foreignTax: entry.foreignTax,
+      perShareTaxBaseKrw: entry.perShareTaxBaseKrw ?? 0,
+      sortOrder: entry.sortOrder,
+    })
     entriesByMonth.set(entry.monthId, list)
   }
 
@@ -265,6 +283,7 @@ export async function syncDividendHoldings(holdings: DividendHoldingPayload[]) {
           defaultShares: holding.defaultShares,
           perShareDividendUsd: market === 'overseas' ? holding.perShareDividendUsd : 0,
           perShareDividendKrw: market === 'domestic' ? (holding.perShareDividendKrw ?? 0) : 0,
+          perShareTaxBaseKrw: market === 'domestic' ? (holding.perShareTaxBaseKrw ?? 0) : 0,
           referencePriceUsd: holding.referencePriceUsd ?? 0,
           referencePriceKrw: holding.referencePriceKrw ?? 0,
           referenceExchangeRate: market === 'overseas' ? referenceExchangeRate : 0,
@@ -281,6 +300,7 @@ export async function syncDividendHoldings(holdings: DividendHoldingPayload[]) {
       defaultShares: holding.defaultShares,
       perShareDividendUsd: market === 'overseas' ? holding.perShareDividendUsd : 0,
       perShareDividendKrw: market === 'domestic' ? (holding.perShareDividendKrw ?? 0) : 0,
+      perShareTaxBaseKrw: market === 'domestic' ? (holding.perShareTaxBaseKrw ?? 0) : 0,
       referencePriceUsd: holding.referencePriceUsd ?? 0,
       referencePriceKrw: holding.referencePriceKrw ?? 0,
       referenceExchangeRate: market === 'overseas' ? referenceExchangeRate : 0,
@@ -307,6 +327,7 @@ export async function syncDividendEntries(monthId: number, entries: DividendEntr
           exchangeRate: entry.exchangeRate,
           foreignSettlement: entry.foreignSettlement,
           foreignTax: entry.foreignTax,
+          perShareTaxBaseKrw: entry.perShareTaxBaseKrw ?? 0,
           sortOrder: i,
         })
         .where(eq(dividendEntries.id, entry.id))
@@ -321,6 +342,7 @@ export async function syncDividendEntries(monthId: number, entries: DividendEntr
       exchangeRate: entry.exchangeRate,
       foreignSettlement: entry.foreignSettlement,
       foreignTax: entry.foreignTax,
+      perShareTaxBaseKrw: entry.perShareTaxBaseKrw ?? 0,
       sortOrder: i,
     })
   }

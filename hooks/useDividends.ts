@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-07-14 02:00
+// 수정: Auto — 2026-07-14 23:51
 
 import { swrJsonFetch } from '@/lib/swrFetch'
 import type { DividendMarket } from '@/lib/dividendCalc'
@@ -15,6 +15,7 @@ export interface DividendHolding {
   defaultShares: number
   perShareDividendUsd: number
   perShareDividendKrw: number
+  perShareTaxBaseKrw: number
   referencePriceUsd: number
   referencePriceKrw: number
   referenceExchangeRate: number
@@ -25,6 +26,7 @@ export interface DividendHolding {
   netMonthlyUsd: number
   grossKrw: number | null
   netKrw: number | null
+  taxableKrw: number | null
   yieldPercent: number | null
 }
 
@@ -37,10 +39,12 @@ export interface DividendEntry {
   exchangeRate: number
   foreignSettlement: number
   foreignTax: number
+  perShareTaxBaseKrw: number
   sortOrder: number
   dividendKrw: number
   taxKrw: number
   grossKrw: number
+  financialIncomeKrw: number
   perShareForeign: number | null
   perShareGrossForeign: number | null
 }

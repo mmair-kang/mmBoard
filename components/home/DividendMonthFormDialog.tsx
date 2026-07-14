@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-07-14 02:00
+// 수정: Auto — 2026-07-14 23:37
 
 import {
   DividendEntriesEditor,
@@ -50,12 +50,25 @@ function validateDrafts(drafts: DividendEntryDraft[], holdings: DividendHolding[
     const entry = draftToEntryPayload(row)
     const domestic =
       marketByTicker.get(entry.ticker) === 'domestic' || entry.exchangeRate === 1
+    if (domestic) {
+      const perShare = Number(row.perShareKrwText.replace(/[^\d.]/g, '')) || 0
+      return (
+        entry.dayOfMonth >= 1 &&
+        entry.dayOfMonth <= 31 &&
+        Boolean(entry.ticker) &&
+        entry.shares >= 0 &&
+        perShare > 0 &&
+        entry.foreignSettlement >= 0 &&
+        entry.foreignTax >= 0
+      )
+    }
     return (
       entry.dayOfMonth >= 1 &&
       entry.dayOfMonth <= 31 &&
       Boolean(entry.ticker) &&
       entry.shares >= 0 &&
-      (domestic ? entry.foreignSettlement > 0 : entry.exchangeRate > 0 && entry.foreignSettlement > 0) &&
+      entry.exchangeRate > 0 &&
+      entry.foreignSettlement > 0 &&
       entry.foreignTax >= 0
     )
   })

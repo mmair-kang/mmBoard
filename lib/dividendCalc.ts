@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-07-14 02:00
+// 수정: Auto — 2026-07-14 23:37
 
 import {
   getDividendHoldingSeed,
@@ -15,6 +15,8 @@ export type DividendEntryLike = {
   foreignSettlement: number
   foreignTax: number
   shares: number
+  /** 국내 ETF 주당 과세표준액 — 있으면 금융소득은 이 기준으로 산정 */
+  perShareTaxBaseKrw?: number
 }
 
 export type DividendEntryCalc = {
@@ -26,8 +28,10 @@ export type DividendEntryCalc = {
   /** 배당금 = 정산 × 환율 */
   dividendKrw: number
   taxKrw: number
-  /** 금융소득 = (정산 + 세금) × 환율 */
+  /** 세전 현금배당 원화 = (정산 + 세금) × 환율 */
   grossKrw: number
+  /** 금융소득 원화 — 국내 과세표준 우선 */
+  financialIncomeKrw: number
   /** 주당 배당 (세후 외화) */
   perShareForeign: number | null
   /** 주당 배당 (세전 외화) */
@@ -42,6 +46,9 @@ export function calcDividendEntry(entry: DividendEntryLike): DividendEntryCalc {
   const dividendKrw = Math.round(settlementForeign * rate)
   const taxKrw = Math.round(taxForeign * rate)
   const grossKrw = Math.round(grossForeign * rate)
+  const taxBase = entry.perShareTaxBaseKrw ?? 0
+  const financialIncomeKrw =
+    taxBase > 0 ? Math.round(entry.shares * taxBase) : grossKrw
   const perShareForeign = entry.shares > 0 ? settlementForeign / entry.shares : null
   const perShareGrossForeign = entry.shares > 0 ? grossForeign / entry.shares : null
 
@@ -52,6 +59,7 @@ export function calcDividendEntry(entry: DividendEntryLike): DividendEntryCalc {
     dividendKrw,
     taxKrw,
     grossKrw,
+    financialIncomeKrw,
     perShareForeign,
     perShareGrossForeign,
   }
@@ -71,15 +79,15 @@ export function calcDividendMonthSummary(
   let dividendKrw = 0
   let taxKrw = 0
   let grossKrw = 0
+  let financialIncome = 0
 
   for (const entry of entries) {
     const calc = calcDividendEntry(entry)
     dividendKrw += calc.dividendKrw
     taxKrw += calc.taxKrw
     grossKrw += calc.grossKrw
+    financialIncome += calc.financialIncomeKrw
   }
-
-  const financialIncome = grossKrw
 
   return {
     dividendKrw,
@@ -120,12 +128,36 @@ export const US_WITHHOLDING_RATE = 0.15
 /** 국내 배당 원천징수(소득세+지방소득세) */
 export const DOMESTIC_WITHHOLDING_RATE = 0.154
 
+/** 국내 ETF — 과세표준액 기준 원천세·세후 입금 */
+export function calcDomesticTaxFromTaxBase(shares: number, perShareTaxBaseKrw: number): number {
+  if (shares <= 0 || perShareTaxBaseKrw <= 0) return 0
+  const taxableTotal = Math.round(shares * perShareTaxBaseKrw)
+  return Math.round(taxableTotal * DOMESTIC_WITHHOLDING_RATE)
+}
+
+export function calcDomesticNetFromCashAndTaxBase(
+  shares: number,
+  perShareDividendKrw: number,
+  perShareTaxBaseKrw: number,
+): { cashGross: number; taxKrw: number; netKrw: number; taxableKrw: number } {
+  const cashGross = Math.round(shares * perShareDividendKrw)
+  const taxableKrw = Math.round(shares * perShareTaxBaseKrw)
+  const taxKrw = calcDomesticTaxFromTaxBase(shares, perShareTaxBaseKrw)
+  return {
+    cashGross,
+    taxKrw,
+    netKrw: cashGross - taxKrw,
+    taxableKrw,
+  }
+}
+
 export type HoldingReferenceInput = {
   ticker: string
   market: DividendMarket
   defaultShares: number
   perShareDividendUsd: number
   perShareDividendKrw: number
+  perShareTaxBaseKrw?: number
   referencePriceUsd: number
   referencePriceKrw: number
   referenceExchangeRate: number
@@ -136,6 +168,8 @@ export type HoldingReferenceCalc = {
   netMonthlyUsd: number
   grossKrw: number | null
   netKrw: number | null
+  /** 국내 금융소득(과세표준 총액) — 해외는 grossKrw와 동일 */
+  taxableKrw: number | null
   yieldPercent: number | null
 }
 
@@ -218,14 +252,18 @@ export function calcPortfolioYieldPercent(
 export function calcDomesticHoldingReference(
   holding: Pick<
     HoldingReferenceInput,
-    'ticker' | 'defaultShares' | 'perShareDividendKrw' | 'referencePriceKrw'
+    'ticker' | 'defaultShares' | 'perShareDividendKrw' | 'perShareTaxBaseKrw' | 'referencePriceKrw'
   >,
   marketPriceKrw?: number | null,
 ): HoldingReferenceCalc {
   const shares = holding.defaultShares
   const perShare = holding.perShareDividendKrw
-  const grossKrw = Math.round(shares * perShare)
-  const netKrw = Math.round(grossKrw * (1 - DOMESTIC_WITHHOLDING_RATE))
+  const taxBase = holding.perShareTaxBaseKrw ?? 0
+  const { cashGross, netKrw, taxableKrw } = calcDomesticNetFromCashAndTaxBase(
+    shares,
+    perShare,
+    taxBase,
+  )
 
   const price = resolveHoldingPriceKrw(holding, marketPriceKrw)
   const yieldPercent = calcAnnualDividendYieldPercent(perShare, price)
@@ -233,8 +271,9 @@ export function calcDomesticHoldingReference(
   return {
     grossMonthlyUsd: 0,
     netMonthlyUsd: 0,
-    grossKrw,
+    grossKrw: cashGross,
     netKrw,
+    taxableKrw,
     yieldPercent,
   }
 }
@@ -260,7 +299,14 @@ export function calcHoldingReference(
   const grossKrw = rate > 0 ? Math.round(grossMonthlyUsd * rate) : null
   const netKrw = rate > 0 ? Math.round(netMonthlyUsd * rate) : null
 
-  return { grossMonthlyUsd, netMonthlyUsd, grossKrw, netKrw, yieldPercent }
+  return {
+    grossMonthlyUsd,
+    netMonthlyUsd,
+    grossKrw,
+    netKrw,
+    taxableKrw: grossKrw,
+    yieldPercent,
+  }
 }
 
 export function formatYieldPercent(value: number | null): string {

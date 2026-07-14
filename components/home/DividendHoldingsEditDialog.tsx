@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-07-14 02:00
+// 수정: Auto — 2026-07-14 23:37
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogFooter } from '@/components/common/FormDialogFooter'
@@ -14,8 +14,9 @@ import {
   formDialogPaperSlotSx,
 } from '@/config/formDialogLayout'
 import type { DividendHolding } from '@/hooks/useDividends'
+import { calcDomesticNetFromCashAndTaxBase, formatKrw } from '@/lib/dividendCalc'
 import type { DividendHoldingPayload } from '@/lib/dividendPayload'
-import { decimalToText, sanitizeDecimalInput } from '@/lib/dividendPayload'
+import { decimalToText, parseDecimalText, sanitizeDecimalInput } from '@/lib/dividendPayload'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import DialogContent from '@mui/material/DialogContent'
@@ -30,6 +31,7 @@ import { useEffect, useMemo, useState } from 'react'
 type RowDraft = {
   shares: string
   perShare: string
+  taxBase: string
 }
 
 type Props = {
@@ -62,6 +64,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
       drafts[row.id] = {
         shares: row.defaultShares > 0 ? String(row.defaultShares) : '',
         perShare: decimalToText(perShare),
+        taxBase: row.market === 'domestic' ? decimalToText(row.perShareTaxBaseKrw) : '',
       }
     }
     setRowDrafts(drafts)
@@ -81,13 +84,17 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
       const draft = rowDrafts[row.id]
       if (!draft) continue
       const shares = Math.round(Number(draft.shares.replace(/[^\d]/g, ''))) || 0
-      const perShareText = draft.perShare.trim()
-      const perShareValue =
-        !perShareText || perShareText === '.' ? 0 : Number(perShareText.replace(/[^\d.]/g, '')) || 0
+      const perShareValue = parseDecimalText(draft.perShare)
+      const taxBaseValue = parseDecimalText(draft.taxBase)
 
       if (shares < 0 || perShareValue <= 0) {
         const unit = row.market === 'domestic' ? '주당 원' : '주당 $'
         setFormError(`${row.ticker}의 주수와 ${unit}를 확인해 주세요.`)
+        return
+      }
+
+      if (row.market === 'domestic' && taxBaseValue < 0) {
+        setFormError(`${row.ticker}의 과세표준액을 확인해 주세요.`)
         return
       }
 
@@ -99,6 +106,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
         defaultShares: shares,
         perShareDividendUsd: row.market === 'overseas' ? perShareValue : 0,
         perShareDividendKrw: row.market === 'domestic' ? perShareValue : 0,
+        perShareTaxBaseKrw: row.market === 'domestic' ? taxBaseValue : 0,
         referencePriceUsd: row.referencePriceUsd,
         referencePriceKrw: row.referencePriceKrw,
       })
@@ -123,9 +131,17 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
   const overseasHoldings = holdings.filter((row) => row.market === 'overseas')
   const domesticHoldings = holdings.filter((row) => row.market === 'domestic')
 
-  const renderRow = (row: DividendHolding, index: number, total: number) => {
-    const draft = rowDrafts[row.id] ?? { shares: '', perShare: '' }
+  const renderRow = (row: DividendHolding, index: number) => {
+    const draft = rowDrafts[row.id] ?? { shares: '', perShare: '', taxBase: '' }
     const isDomestic = row.market === 'domestic'
+    const shares = Math.round(Number(draft.shares.replace(/[^\d]/g, ''))) || 0
+    const perShare = parseDecimalText(draft.perShare)
+    const taxBase = parseDecimalText(draft.taxBase)
+    const domesticPreview =
+      isDomestic && shares > 0 && perShare > 0
+        ? calcDomesticNetFromCashAndTaxBase(shares, perShare, taxBase)
+        : null
+
     return (
       <Box key={row.id}>
         {index > 0 ? <Divider sx={{ my: 1 }} /> : null}
@@ -139,11 +155,6 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
             sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
           />
         </Stack>
-        {isDomestic ? (
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-            KODEX200타겟위클리커버드콜 · {row.quoteSymbol}
-          </Typography>
-        ) : null}
         <Stack spacing={0.75}>
           <TextField
             label="보유 주수"
@@ -160,7 +171,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
             {...formDialogCompactTextFieldProps}
           />
           <TextField
-            label={isDomestic ? '주당 배당 (세전 원)' : '주당 배당 (세전 $)'}
+            label={isDomestic ? '주당 배당 (원)' : '주당 배당 (세전 $)'}
             fullWidth
             value={draft.perShare}
             onChange={(e) =>
@@ -173,8 +184,32 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
             inputProps={{ inputMode: 'decimal' }}
             {...formDialogCompactTextFieldProps}
           />
+          {isDomestic ? (
+            <TextField
+              label="과세표준액 (주당 원)"
+              fullWidth
+              value={draft.taxBase}
+              onChange={(e) =>
+                setRowDrafts((prev) => ({
+                  ...prev,
+                  [row.id]: { ...draft, taxBase: sanitizeDecimalInput(e.target.value) },
+                }))
+              }
+              placeholder="1"
+              helperText="현금배당이 아닌 과세표준 기준 · 세금혜택 ETF"
+              inputProps={{ inputMode: 'decimal' }}
+              {...formDialogCompactTextFieldProps}
+            />
+          ) : null}
+          {domesticPreview ? (
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, lineHeight: 1.45 }}>
+              세후 입금 예상 {formatKrw(domesticPreview.netKrw)}
+              {taxBase > 0
+                ? ` · 세금 ${formatKrw(domesticPreview.taxKrw)} (과세표준 ${formatKrw(domesticPreview.taxableKrw)})`
+                : null}
+            </Typography>
+          ) : null}
         </Stack>
-        {index < total - 1 ? null : null}
       </Box>
     )
   }
@@ -197,7 +232,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
     >
       <Box component="form" onSubmit={(e) => void handleSubmit(e)} sx={formDialogFormSx}>
         <FormDialogHeader onClose={onClose} closeDisabled={submitting}>
-          <Typography sx={{ fontSize: '1.05rem', fontWeight: 700 }}>보유 참고 수정</Typography>
+          <Typography sx={{ fontSize: '1.05rem', fontWeight: 700 }}>보유 배당주 수정</Typography>
         </FormDialogHeader>
         <DialogContent sx={formDialogContentSx}>
           <Box sx={formDialogContentScrollSx}>
@@ -234,7 +269,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
               ) : null}
 
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, lineHeight: 1.45 }}>
-                해외·국내 배당을 한 화면에서 관리합니다. 국내는 원화 기준, 해외는 달러 기준으로 입력하세요.
+                해외·국내 배당을 한 화면에서 관리합니다. KODEX는 주당 배당·과세표준액으로 세후 입금을 계산합니다.
               </Typography>
 
               {overseasHoldings.length > 0 ? (
@@ -242,7 +277,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
                   <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', color: 'text.secondary', mb: 0.5 }}>
                     해외 배당
                   </Typography>
-                  {overseasHoldings.map((row, index) => renderRow(row, index, overseasHoldings.length))}
+                  {overseasHoldings.map((row, index) => renderRow(row, index))}
                 </Box>
               ) : null}
 
@@ -252,7 +287,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
                   <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', color: 'success.dark', mb: 0.5 }}>
                     국내 배당
                   </Typography>
-                  {domesticHoldings.map((row, index) => renderRow(row, index, domesticHoldings.length))}
+                  {domesticHoldings.map((row, index) => renderRow(row, index))}
                 </Box>
               ) : null}
 

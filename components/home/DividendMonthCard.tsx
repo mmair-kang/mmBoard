@@ -1,14 +1,11 @@
 'use client'
-// 수정: Auto — 2026-07-14 02:00
+// 수정: Auto — 2026-07-15 01:00
 
 import type { DividendEntry, DividendMonth } from '@/hooks/useDividends'
-import { formatRate, formatUsd } from '@/lib/dividendCalc'
+import { calcDividendEntry, formatRate, formatUsd } from '@/lib/dividendCalc'
 import { DIVIDEND_TICKER_ORDER, isDomesticDividendTicker } from '@/lib/dividendHoldingsConfig'
 import { formatWon } from '@/lib/annualPaymentCalc'
-import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
-import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
@@ -46,7 +43,6 @@ const headCellSx = {
   color: 'text.secondary',
 } as const
 
-/** PC — 원(후) 열 */
 const netKrwCellSx = {
   ...cellSx,
   fontWeight: { xs: 700, md: 700 },
@@ -57,33 +53,17 @@ const netKrwHeadSx = {
   fontWeight: { xs: 800, md: 700 },
 } as const
 
-const grossBg = (theme: Theme) => alpha(theme.palette.primary.main, 0.06)
+const perShareBg = (theme: Theme) => alpha(theme.palette.primary.main, 0.06)
+const taxBaseBg = (theme: Theme) => alpha(theme.palette.warning.main, 0.06)
+const incomeBg = (theme: Theme) => alpha(theme.palette.primary.main, 0.08)
 const netBg = (theme: Theme) => alpha(theme.palette.success.main, 0.07)
 
-const grossTotalCellSx = (theme: Theme) => ({
-  ...cellSx,
-  fontWeight: { xs: 900, md: 500 },
-  bgcolor: alpha(theme.palette.primary.main, 0.16),
-  color: theme.palette.primary.dark,
-})
-
-const netTotalCellSx = (theme: Theme) => ({
-  ...netKrwCellSx,
-  bgcolor: alpha(theme.palette.success.main, 0.16),
-  color: theme.palette.success.dark,
-})
-
-const netUsdTotalCellSx = (theme: Theme) => ({
-  ...cellSx,
-  fontWeight: { xs: 900, md: 500 },
-  bgcolor: alpha(theme.palette.success.main, 0.16),
-  color: theme.palette.success.dark,
-})
-
-const totalLabelCellSx = {
-  ...cellSx,
-  fontWeight: { xs: 900, md: 500 },
-  color: 'text.primary',
+const amountChipSx = {
+  height: 20,
+  fontWeight: 800,
+  fontSize: '0.68rem',
+  borderRadius: 1,
+  '& .MuiChip-label': { px: 0.7, py: 0 },
 } as const
 
 function sortEntries(entries: DividendEntry[]) {
@@ -97,8 +77,28 @@ function sortEntries(entries: DividendEntry[]) {
   })
 }
 
-function formatKrwCell(value: number) {
+function formatKrwCell(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return '—'
   return value.toLocaleString('ko-KR')
+}
+
+function resolveFinancialIncome(entry: DividendEntry): number {
+  if (entry.financialIncomeKrw != null && Number.isFinite(entry.financialIncomeKrw)) {
+    return entry.financialIncomeKrw
+  }
+  return calcDividendEntry(entry).financialIncomeKrw
+}
+
+function formatPerShareDividend(entry: DividendEntry, domestic: boolean) {
+  if (entry.perShareGrossForeign == null) return '—'
+  return domestic
+    ? Math.round(entry.perShareGrossForeign).toLocaleString('ko-KR')
+    : formatUsd(entry.perShareGrossForeign)
+}
+
+function formatTaxBase(entry: DividendEntry, domestic: boolean) {
+  if (!domestic || entry.perShareTaxBaseKrw == null || !(entry.perShareTaxBaseKrw > 0)) return '—'
+  return entry.perShareTaxBaseKrw.toLocaleString('ko-KR')
 }
 
 export function DividendMonthCard({ month, onEdit }: Props) {
@@ -106,70 +106,100 @@ export function DividendMonthCard({ month, onEdit }: Props) {
   const { summary } = month
   const rows = useMemo(() => sortEntries(month.entries), [month.entries])
 
-  const totals = useMemo(() => {
-    let grossUsd = 0
-    let netUsd = 0
-    let grossKrw = 0
-    let netKrw = 0
-    let hasOverseas = false
+  const netKrwTotal = useMemo(
+    () => rows.reduce((sum, entry) => sum + (entry.dividendKrw ?? 0), 0),
+    [rows],
+  )
 
-    for (const entry of rows) {
-      const domestic = isDomesticDividendTicker(entry.ticker)
-      grossKrw += entry.grossKrw
-      netKrw += entry.dividendKrw
-      if (!domestic) {
-        grossUsd += entry.foreignSettlement + entry.foreignTax
-        netUsd += entry.foreignSettlement
-        hasOverseas = true
-      }
-    }
+  const financialIncomeTotal = useMemo(
+    () => rows.reduce((sum, entry) => sum + resolveFinancialIncome(entry), 0),
+    [rows],
+  )
 
-    return { grossUsd, netUsd, grossKrw, netKrw, hasOverseas }
-  }, [rows])
+  const financialIncome = summary.financialIncome ?? financialIncomeTotal
 
   return (
     <Paper
       variant="outlined"
+      role="button"
+      tabIndex={0}
+      onClick={onEdit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onEdit()
+        }
+      }}
       sx={{
         borderRadius: 2,
         minWidth: 0,
         overflow: 'hidden',
+        cursor: 'pointer',
         borderColor: summary.overMonthlyLimit ? 'warning.main' : 'divider',
         bgcolor: (theme) =>
           summary.overMonthlyLimit ? alpha(theme.palette.warning.main, 0.06) : 'background.paper',
+        transition: 'border-color 0.15s',
+        '&:hover': {
+          borderColor: summary.overMonthlyLimit ? 'warning.dark' : 'primary.light',
+        },
       }}
     >
       <Stack
         direction="row"
         alignItems="center"
-        spacing={0.75}
-        sx={{ px: 1, py: 0.75, minWidth: 0, borderBottom: 1, borderColor: 'divider' }}
+        spacing={0.5}
+        sx={{ px: 1, py: 0.55, minWidth: 0, minHeight: 32, borderBottom: 1, borderColor: 'divider' }}
       >
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexWrap: 'wrap', rowGap: 0.25 }}>
-            <Typography sx={{ fontWeight: 900, fontSize: '0.88rem' }}>{label}</Typography>
-            {summary.overMonthlyLimit ? (
-              <Chip
-                size="small"
-                color="warning"
-                label="한도초과"
-                sx={{ height: 20, fontWeight: 800, fontSize: '0.62rem' }}
-              />
-            ) : null}
-          </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mt: 0.15 }}>
-            금융소득 {formatWon(summary.financialIncome)}
+        <Stack direction="row" alignItems="center" spacing={0.4} sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 900, fontSize: '0.84rem', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+            {label}
           </Typography>
-        </Box>
-        <Tooltip title="수정">
-          <IconButton size="small" onClick={onEdit} aria-label="수정" sx={{ flexShrink: 0 }}>
-            <EditRoundedIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+          {summary.overMonthlyLimit ? (
+            <Chip
+              size="small"
+              color="warning"
+              label="한도초과"
+              sx={{ height: 18, fontWeight: 800, fontSize: '0.58rem', '& .MuiChip-label': { px: 0.55 } }}
+            />
+          ) : null}
+        </Stack>
+
+        <Stack direction="row" alignItems="center" spacing={0.75} sx={{ flexShrink: 0 }}>
+          <Stack direction="row" alignItems="center" spacing={0.35}>
+            <Typography
+              component="span"
+              sx={{ fontWeight: 700, fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}
+            >
+              금융소득
+            </Typography>
+            <Chip
+              size="small"
+              color="primary"
+              variant="outlined"
+              label={formatWon(financialIncome)}
+              sx={amountChipSx}
+            />
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={0.35}>
+            <Typography
+              component="span"
+              sx={{ fontWeight: 700, fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}
+            >
+              세후
+            </Typography>
+            <Chip
+              size="small"
+              color="success"
+              variant="outlined"
+              label={formatWon(netKrwTotal)}
+              sx={amountChipSx}
+            />
+          </Stack>
+        </Stack>
       </Stack>
 
       <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <Table size="small" sx={{ minWidth: 480 }}>
+        <Table size="small" sx={{ minWidth: 360 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ ...headCellSx, bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}>
@@ -187,23 +217,17 @@ export function DividendMonthCard({ month, onEdit }: Props) {
               >
                 환율
               </TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, bgcolor: grossBg }}>
-                세전$
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: perShareBg }}>
+                배당금
               </TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, bgcolor: grossBg }}>
-                주당(전)
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: taxBaseBg }}>
+                과세표준
               </TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, bgcolor: grossBg }}>
-                원(전)
-              </TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, bgcolor: netBg }}>
-                세후$
-              </TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, bgcolor: netBg }}>
-                주당(후)
+              <TableCell align="right" sx={{ ...headCellSx, bgcolor: incomeBg }}>
+                금융소득
               </TableCell>
               <TableCell align="right" sx={{ ...netKrwHeadSx, bgcolor: netBg }}>
-                원(후)
+                세후 원화
               </TableCell>
             </TableRow>
           </TableHead>
@@ -211,78 +235,44 @@ export function DividendMonthCard({ month, onEdit }: Props) {
             {rows.map((entry) => {
               const domestic = isDomesticDividendTicker(entry.ticker)
               return (
-              <TableRow key={entry.id} hover>
-                <TableCell sx={cellSx}>
-                  <Tooltip title={`${entry.dayOfMonth}일`}>
-                    <Stack direction="row" alignItems="center" spacing={0.35}>
-                      <span>{entry.ticker}</span>
-                      {domestic ? (
-                        <Chip
-                          size="small"
-                          label="국내"
-                          color="success"
-                          variant="outlined"
-                          sx={{ height: 16, fontSize: '0.55rem', fontWeight: 700 }}
-                        />
-                      ) : null}
-                    </Stack>
-                  </Tooltip>
-                </TableCell>
-                <TableCell align="right" sx={cellSx}>
-                  {entry.shares}
-                </TableCell>
-                <TableCell align="right" sx={cellSx}>
-                  {domestic ? '—' : formatRate(entry.exchangeRate)}
-                </TableCell>
-                <TableCell align="right" sx={{ ...cellSx, bgcolor: grossBg }}>
-                  {domestic
-                    ? entry.grossKrw.toLocaleString('ko-KR')
-                    : formatUsd(entry.foreignSettlement + entry.foreignTax)}
-                </TableCell>
-                <TableCell align="right" sx={{ ...cellSx, bgcolor: grossBg }}>
-                  {entry.perShareGrossForeign != null
-                    ? domestic
-                      ? Math.round(entry.perShareGrossForeign).toLocaleString('ko-KR')
-                      : formatUsd(entry.perShareGrossForeign)
-                    : '—'}
-                </TableCell>
-                <TableCell align="right" sx={{ ...cellSx, bgcolor: grossBg }}>
-                  {formatKrwCell(entry.grossKrw)}
-                </TableCell>
-                <TableCell align="right" sx={{ ...cellSx, bgcolor: netBg }}>
-                  {domestic ? entry.dividendKrw.toLocaleString('ko-KR') : formatUsd(entry.foreignSettlement)}
-                </TableCell>
-                <TableCell align="right" sx={{ ...cellSx, bgcolor: netBg }}>
-                  {entry.perShareForeign != null
-                    ? domestic
-                      ? Math.round(entry.perShareForeign).toLocaleString('ko-KR')
-                      : formatUsd(entry.perShareForeign)
-                    : '—'}
-                </TableCell>
-                <TableCell align="right" sx={{ ...netKrwCellSx, bgcolor: netBg }}>
-                  {formatKrwCell(entry.dividendKrw)}
-                </TableCell>
-              </TableRow>
-            )})}
-            <TableRow>
-              <TableCell sx={totalLabelCellSx}>합계</TableCell>
-              <TableCell align="right" sx={cellSx} />
-              <TableCell align="right" sx={cellSx} />
-              <TableCell align="right" sx={grossTotalCellSx}>
-                {totals.hasOverseas ? formatUsd(totals.grossUsd) : '—'}
-              </TableCell>
-              <TableCell align="right" sx={cellSx} />
-              <TableCell align="right" sx={grossTotalCellSx}>
-                {formatKrwCell(totals.grossKrw)}
-              </TableCell>
-              <TableCell align="right" sx={netUsdTotalCellSx}>
-                {totals.hasOverseas ? formatUsd(totals.netUsd) : '—'}
-              </TableCell>
-              <TableCell align="right" sx={cellSx} />
-              <TableCell align="right" sx={netTotalCellSx}>
-                {formatKrwCell(totals.netKrw)}
-              </TableCell>
-            </TableRow>
+                <TableRow key={entry.id} hover>
+                  <TableCell sx={cellSx}>
+                    <Tooltip title={`${entry.dayOfMonth}일`}>
+                      <Stack direction="row" alignItems="center" spacing={0.35}>
+                        <span>{entry.ticker}</span>
+                        {domestic ? (
+                          <Chip
+                            size="small"
+                            label="국내"
+                            color="success"
+                            variant="outlined"
+                            sx={{ height: 16, fontSize: '0.55rem', fontWeight: 700 }}
+                          />
+                        ) : null}
+                      </Stack>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell align="right" sx={cellSx}>
+                    {entry.shares}
+                  </TableCell>
+                  <TableCell align="right" sx={cellSx}>
+                    {domestic ? '—' : formatRate(entry.exchangeRate)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ ...cellSx, bgcolor: perShareBg }}>
+                    {formatPerShareDividend(entry, domestic)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ ...cellSx, bgcolor: taxBaseBg }}>
+                    {formatTaxBase(entry, domestic)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ ...cellSx, bgcolor: incomeBg }}>
+                    {formatKrwCell(resolveFinancialIncome(entry))}
+                  </TableCell>
+                  <TableCell align="right" sx={{ ...netKrwCellSx, bgcolor: netBg }}>
+                    {formatKrwCell(entry.dividendKrw)}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </TableContainer>

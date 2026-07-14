@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-07-15 01:34 (연금 칩 제거)
+// 수정: Auto — 2026-07-15 01:29 (예수금 input 너비)
 // 수정: Auto — 2026-07-14 01:50 (요약 오른쪽 정렬)
 // 수정: Auto — 2026-07-14 01:49 (요약 금액 붙여 표시)
 // 수정: Auto — 2026-07-14 01:47 (현재가·수익금 열 너비)
@@ -155,14 +157,6 @@ export function InvestmentAccountCard({ account, cashSaving, onOpenEdit, onCashC
           >
             {account.title}
           </Typography>
-          {account.pensionNote ? (
-            <Chip
-              size="small"
-              variant="outlined"
-              label={account.pensionNote}
-              sx={{ height: 17, fontWeight: 700, fontSize: '0.55rem', '& .MuiChip-label': { px: 0.5 } }}
-            />
-          ) : null}
         </Stack>
 
         <Stack
@@ -182,7 +176,7 @@ export function InvestmentAccountCard({ account, cashSaving, onOpenEdit, onCashC
           >
             {account.cashLabel}
           </Typography>
-          <Box sx={{ width: { xs: 88, sm: 96 }, flexShrink: 0, '& .MuiFormControl-root': { width: '100%' } }}>
+          <Box sx={{ width: { xs: 118, sm: 132 }, flexShrink: 0, '& .MuiFormControl-root': { width: '100%' } }}>
             <FreshAmountField
               value={account.cashBalanceKrw}
               onCommit={onCashCommit}

@@ -136,6 +136,8 @@ export const dividendHoldings = sqliteTable('dividend_holdings', {
   defaultShares: integer('default_shares').notNull().default(0),
   perShareDividendUsd: real('per_share_dividend_usd').notNull().default(0),
   perShareDividendKrw: real('per_share_dividend_krw').notNull().default(0),
+  /** 국내 ETF 주당 과세표준액 (원) — KODEX 등 */
+  perShareTaxBaseKrw: real('per_share_tax_base_krw').notNull().default(0),
   referencePriceUsd: real('reference_price_usd').notNull().default(0),
   referencePriceKrw: real('reference_price_krw').notNull().default(0),
   referenceExchangeRate: real('reference_exchange_rate').notNull().default(0),
@@ -157,6 +159,8 @@ export const dividendEntries = sqliteTable('dividend_entries', {
   exchangeRate: real('exchange_rate').notNull(),
   foreignSettlement: real('foreign_settlement').notNull(),
   foreignTax: real('foreign_tax').notNull(),
+  /** 국내 ETF 주당 과세표준액 (원) */
+  perShareTaxBaseKrw: real('per_share_tax_base_krw').notNull().default(0),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 

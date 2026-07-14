@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-15 01:34 (연금 칩 제거)
 // 수정: Auto — 2026-07-14 01:37 (예수금 수정 시각)
 
 import {
@@ -31,7 +32,6 @@ export type InvestmentAccountView = {
   label: string
   title: string
   subtitle: string
-  pensionNote?: string
   cashLabel: string
   cashBalanceKrw: number
   cashBalanceUpdatedAt: string | null
@@ -116,7 +116,6 @@ export async function loadInvestmentData(): Promise<InvestmentData> {
       label: meta.label,
       title: meta.title,
       subtitle: meta.subtitle,
-      pensionNote: meta.pensionNote,
       cashLabel: meta.cashLabel,
       cashBalanceKrw,
       cashBalanceUpdatedAt: cash.updatedAt,
