@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-18 01:35 (성남사랑 잔액 파싱)
 
 import { isMonthlyAnytimeDay, monthlyDayToDb } from '@/lib/monthlyDayLabel'
 
@@ -87,6 +87,13 @@ export function parseAccountPayload(body: Record<string, unknown>): AccountPaylo
 export function parseAccountBalancePayload(body: Record<string, unknown>): number | null {
   if (!('balance' in body)) return null
   const balance = Math.round(Number(body.balance))
+  if (!Number.isFinite(balance)) return null
+  return balance
+}
+
+export function parseSeongnamLoveBalancePayload(body: Record<string, unknown>): number | null {
+  if (!('seongnamLoveBalance' in body)) return null
+  const balance = Math.round(Number(body.seongnamLoveBalance))
   if (!Number.isFinite(balance)) return null
   return balance
 }

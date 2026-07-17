@@ -1,4 +1,7 @@
 'use client'
+// 수정: Auto — 2026-07-18 01:42 (순자산 파랑·칩·순가치 톤)
+// 수정: Auto — 2026-07-18 01:40 (순가치·계좌잔고 UI)
+// 수정: Auto — 2026-07-18 01:35 (미래에셋·성남사랑 계좌연동)
 // 수정: Auto — 2026-07-14 01:29 (아파트·대출 통합·순서)
 // 수정: Auto — 2026-07-14 01:29 (연동 라벨)
 // 수정: Auto — 2026-07-14 01:27 (금리·납부일 모달 편집)
@@ -80,6 +83,91 @@ function AssetAutoRow({
   )
 }
 
+function AccountBalanceAutoRow({
+  miraeAssetBalanceKrw,
+  seongnamLoveBalanceKrw,
+}: {
+  miraeAssetBalanceKrw: number
+  seongnamLoveBalanceKrw: number
+}) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        px: 1.25,
+        py: 1,
+        borderRadius: 2,
+        borderColor: 'divider',
+      }}
+    >
+      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.25}>
+        <Stack spacing={0.2} sx={{ minWidth: 0 }}>
+          <Stack direction="row" alignItems="center" spacing={0.75}>
+            <Typography sx={{ fontWeight: 800, fontSize: '0.88rem' }}>계좌잔고</Typography>
+            <Chip
+              size="small"
+              label="계좌연동"
+              sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
+              color="primary"
+              variant="outlined"
+            />
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            계좌 탭 · 현재 잔액
+          </Typography>
+        </Stack>
+
+        <Stack spacing={0.5} sx={{ flexShrink: 0, minWidth: 0 }}>
+          <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.75}>
+            <Chip
+              size="small"
+              label="미래에셋"
+              color="primary"
+              variant="outlined"
+              sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
+            />
+            <Typography
+              sx={{
+                fontWeight: 900,
+                fontSize: '0.88rem',
+                whiteSpace: 'nowrap',
+                fontVariantNumeric: 'tabular-nums',
+                minWidth: '6.5rem',
+                textAlign: 'right',
+                color: 'primary.dark',
+              }}
+            >
+              {formatWon(miraeAssetBalanceKrw)}
+            </Typography>
+          </Stack>
+          <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.75}>
+            <Chip
+              size="small"
+              label="성남사랑"
+              color="success"
+              variant="outlined"
+              sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
+            />
+            <Typography
+              sx={{
+                fontWeight: 900,
+                fontSize: '0.88rem',
+                whiteSpace: 'nowrap',
+                fontVariantNumeric: 'tabular-nums',
+                minWidth: '6.5rem',
+                textAlign: 'right',
+                color: 'success.dark',
+              }}
+            >
+              {formatWon(seongnamLoveBalanceKrw)}
+            </Typography>
+          </Stack>
+        </Stack>
+      </Stack>
+    </Paper>
+  )
+}
+
 function ApartmentLoanCard({
   apartmentValue,
   bogeumjariLoan,
@@ -114,15 +202,18 @@ function ApartmentLoanCard({
       <Stack spacing={1}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
           <Typography sx={{ fontWeight: 800, fontSize: '0.88rem' }}>아파트</Typography>
-          <Stack alignItems="flex-end" spacing={0.1}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.64rem' }}>
+          <Stack direction="row" alignItems="baseline" spacing={0.6}>
+            <Typography
+              variant="caption"
+              sx={{ fontWeight: 600, fontSize: '0.68rem', color: 'text.disabled' }}
+            >
               순가치
             </Typography>
             <Typography
               sx={{
-                fontWeight: 900,
+                fontWeight: 800,
                 fontSize: '0.88rem',
-                color: netPropertyKrw >= 0 ? 'text.primary' : 'error.main',
+                color: netPropertyKrw >= 0 ? 'text.secondary' : 'error.main',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -131,19 +222,14 @@ function ApartmentLoanCard({
           </Stack>
         </Stack>
 
-        <Box>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-            시세 또는 추정 가치
-          </Typography>
-          <FreshAmountField
-            value={apartmentValue}
-            onCommit={onApartmentCommit}
-            disabled={saving}
-            large
-            softInput="primary"
-            leadingLabel={apartmentUpdatedLabel}
-          />
-        </Box>
+        <FreshAmountField
+          value={apartmentValue}
+          onCommit={onApartmentCommit}
+          disabled={saving}
+          large
+          softInput="primary"
+          leadingLabel={apartmentUpdatedLabel}
+        />
 
         <Box
           sx={(theme) => ({
@@ -202,18 +288,26 @@ export function AssetWidget() {
   const [loanDetailOpen, setLoanDetailOpen] = useState(false)
 
   const summary = useMemo(() => {
-    return calcAssetBreakdown(accounts, account?.balance ?? 0, {
-      apartmentValue,
-      apartmentValueUpdatedAt,
-      bogeumjariLoan,
-      bogeumjariLoanUpdatedAt,
-      bogeumjariLoanRate,
-      bogeumjariMonthlyPayment,
-      bogeumjariPaymentDay,
-    })
+    return calcAssetBreakdown(
+      accounts,
+      {
+        miraeAssetBalanceKrw: account?.balance ?? 0,
+        seongnamLoveBalanceKrw: account?.seongnamLoveBalance ?? 0,
+      },
+      {
+        apartmentValue,
+        apartmentValueUpdatedAt,
+        bogeumjariLoan,
+        bogeumjariLoanUpdatedAt,
+        bogeumjariLoanRate,
+        bogeumjariMonthlyPayment,
+        bogeumjariPaymentDay,
+      },
+    )
   }, [
     accounts,
     account?.balance,
+    account?.seongnamLoveBalance,
     apartmentValue,
     apartmentValueUpdatedAt,
     bogeumjariLoan,
@@ -266,8 +360,8 @@ export function AssetWidget() {
           px: 1.5,
           py: 1.25,
           borderRadius: 2.5,
-          bgcolor: (theme) => alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.1 : 0.05),
-          borderColor: (theme) => alpha(theme.palette.success.main, 0.28),
+          bgcolor: (theme) => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.1 : 0.05),
+          borderColor: (theme) => alpha(theme.palette.primary.main, 0.28),
         }}
       >
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.35 }}>
@@ -277,7 +371,7 @@ export function AssetWidget() {
           sx={{
             fontWeight: 900,
             fontSize: { xs: '1.45rem', sm: '1.65rem' },
-            color: summary.netAssetsKrw >= 0 ? 'success.dark' : 'error.main',
+            color: summary.netAssetsKrw >= 0 ? 'primary.dark' : 'error.main',
             lineHeight: 1.2,
           }}
         >
@@ -300,11 +394,9 @@ export function AssetWidget() {
         onLoanInfoClick={() => setLoanDetailOpen(true)}
       />
 
-      <AssetAutoRow
-        label="계좌 잔액"
-        amount={summary.accountBalanceKrw}
-        hint="계좌 탭 · 현재 잔액"
-        syncLabel="계좌연동"
+      <AccountBalanceAutoRow
+        miraeAssetBalanceKrw={summary.miraeAssetBalanceKrw}
+        seongnamLoveBalanceKrw={summary.seongnamLoveBalanceKrw}
       />
 
       <AssetAutoRow

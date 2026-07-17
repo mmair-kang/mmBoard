@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-07-13 23:56
+// 수정: Auto — 2026-07-18 01:35 (성남사랑 순자산 포함)
 
 import type { InvestmentAccountView } from '@/lib/investmentQuery'
 
@@ -16,10 +16,17 @@ export type AssetManualSettings = {
   bogeumjariPaymentDay: number
 }
 
+export type AccountBalancesInput = {
+  miraeAssetBalanceKrw: number
+  seongnamLoveBalanceKrw: number
+}
+
 export type AssetBreakdown = AssetManualSettings & {
   domesticStocksKrw: number
   overseasDividendKrw: number
   pensionKrw: number
+  miraeAssetBalanceKrw: number
+  seongnamLoveBalanceKrw: number
   accountBalanceKrw: number
 }
 
@@ -34,12 +41,15 @@ function accountTotalKrw(accounts: InvestmentAccountView[], id: string): number 
 
 export function calcAssetBreakdown(
   accounts: InvestmentAccountView[],
-  accountBalanceKrw: number,
+  accountBalances: AccountBalancesInput,
   manual: AssetManualSettings,
 ): AssetSummary {
   const domesticStocksKrw = accountTotalKrw(accounts, 'nh')
   const overseasDividendKrw = accountTotalKrw(accounts, 'ds')
   const pensionKrw = accountTotalKrw(accounts, 'psf') + accountTotalKrw(accounts, 'irp')
+  const miraeAssetBalanceKrw = accountBalances.miraeAssetBalanceKrw
+  const seongnamLoveBalanceKrw = accountBalances.seongnamLoveBalanceKrw
+  const accountBalanceKrw = miraeAssetBalanceKrw + seongnamLoveBalanceKrw
 
   const grossAssetsKrw =
     manual.apartmentValue +
@@ -61,6 +71,8 @@ export function calcAssetBreakdown(
     domesticStocksKrw,
     overseasDividendKrw,
     pensionKrw,
+    miraeAssetBalanceKrw,
+    seongnamLoveBalanceKrw,
     accountBalanceKrw,
     grossAssetsKrw,
     netAssetsKrw,

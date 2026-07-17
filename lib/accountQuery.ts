@@ -1,5 +1,6 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-18 01:35 (성남사랑 잔액)
 import { asc, eq } from 'drizzle-orm'
+
 
 import type { OutflowPayload } from '@/lib/accountPayload'
 import { outflowDayForDb } from '@/lib/accountPayload'
@@ -15,6 +16,8 @@ export type AccountRow = {
   balance: number
   updatedAt: string
   balanceUpdatedAt: string | null
+  seongnamLoveBalance: number
+  seongnamLoveBalanceUpdatedAt: string | null
 }
 
 export type OutflowRow = {
@@ -68,7 +71,14 @@ export async function ensureMainAccount(): Promise<AccountRow> {
   const now = new Date().toISOString()
   const inserted = await db
     .insert(mainAccounts)
-    .values({ name: '미래에셋', balance: 0, updatedAt: now, balanceUpdatedAt: now })
+    .values({
+      name: '미래에셋',
+      balance: 0,
+      updatedAt: now,
+      balanceUpdatedAt: now,
+      seongnamLoveBalance: 0,
+      seongnamLoveBalanceUpdatedAt: now,
+    })
     .returning()
 
   if (!inserted[0]) throw new Error('account insert failed')
@@ -88,7 +98,12 @@ export async function loadOutflows(accountId: number): Promise<NormalizedOutflow
 export async function getAccountWithOutflows(): Promise<AccountWithOutflows> {
   const account = await ensureMainAccount()
   const outflows = await loadOutflows(account.id)
-  return { ...account, outflows }
+  return {
+    ...account,
+    seongnamLoveBalance: account.seongnamLoveBalance ?? 0,
+    seongnamLoveBalanceUpdatedAt: account.seongnamLoveBalanceUpdatedAt ?? null,
+    outflows,
+  }
 }
 
 export async function syncOutflows(accountId: number, outflows: OutflowPayload[]) {

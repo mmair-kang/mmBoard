@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-15 (balance_updated_at 마이그레이션)
+// 수정: Auto — 2026-07-18 01:35 (성남사랑 잔액 컬럼)
 import { sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
@@ -33,6 +33,18 @@ export async function ensureAccountSchema() {
       await db.run(
         sql`UPDATE main_accounts SET balance_updated_at = updated_at WHERE balance_updated_at IS NULL`,
       )
+      try {
+        await db.run(
+          sql`ALTER TABLE main_accounts ADD COLUMN seongnam_love_balance INTEGER NOT NULL DEFAULT 0`,
+        )
+      } catch {
+        /* column already exists */
+      }
+      try {
+        await db.run(sql`ALTER TABLE main_accounts ADD COLUMN seongnam_love_balance_updated_at TEXT`)
+      } catch {
+        /* column already exists */
+      }
     })().catch((e) => {
       schemaReady = null
       throw e

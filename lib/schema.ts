@@ -96,6 +96,8 @@ export const mainAccounts = sqliteTable('main_accounts', {
   balance: integer('balance').notNull().default(0),
   updatedAt: text('updated_at').notNull(),
   balanceUpdatedAt: text('balance_updated_at'),
+  seongnamLoveBalance: integer('seongnam_love_balance').notNull().default(0),
+  seongnamLoveBalanceUpdatedAt: text('seongnam_love_balance_updated_at'),
 })
 
 export const accountOutflows = sqliteTable('account_outflows', {

@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-06-15
+// 수정: Auto — 2026-07-18 01:35 (성남사랑 잔액)
 
 import { swrJsonFetch } from '@/lib/swrFetch'
 import useSWR from 'swr'
@@ -24,6 +24,8 @@ export interface MainAccount {
   balance: number
   updatedAt: string
   balanceUpdatedAt: string | null
+  seongnamLoveBalance: number
+  seongnamLoveBalanceUpdatedAt: string | null
   outflows: AccountOutflow[]
 }
 

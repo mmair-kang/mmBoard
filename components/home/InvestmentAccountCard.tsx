@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-18 01:48 (주 열 너비)
 // 수정: Auto — 2026-07-15 01:34 (연금 칩 제거)
 // 수정: Auto — 2026-07-15 01:29 (예수금 input 너비)
 // 수정: Auto — 2026-07-14 01:50 (요약 오른쪽 정렬)
@@ -213,11 +214,11 @@ export function InvestmentAccountCard({ account, cashSaving, onOpenEdit, onCashC
           >
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-root': headCellSx }}>
-                <TableCell sx={{ width: '20%' }}>종목</TableCell>
-                <TableCell align="right" sx={{ width: '9%' }}>
+                <TableCell sx={{ width: '19%' }}>종목</TableCell>
+                <TableCell align="right" sx={{ width: '11%' }}>
                   주
                 </TableCell>
-                <TableCell align="right" sx={{ width: '16%' }}>
+                <TableCell align="right" sx={{ width: '15%' }}>
                   매수가
                 </TableCell>
                 <TableCell align="right" sx={{ width: '18%' }}>
