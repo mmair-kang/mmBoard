@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
+// 수정: Auto — 2026-07-19 00:15 (선택 변형만 상시비)
 
 /** 생활비 월 환산 기준 일수 */
 export const LIVING_DAYS_PER_MONTH = 30
@@ -9,6 +9,8 @@ export type LivingCostItem = {
   /** @deprecated food 항목은 hidden으로 대체 — DTO에서 !hidden으로 유지 */
   repurchaseActive?: boolean
   hidden?: boolean
+  /** food 변형 — 미선택이면 상시비 제외 */
+  isSelected?: boolean
 }
 
 export type LivingSubMonthlyRow = {
@@ -27,6 +29,7 @@ export function calcLivingMonthlyCost(
 
 export function isLivingCostCountable(item: LivingCostItem): boolean {
   if (item.hidden === true) return false
+  if (item.isSelected === false) return false
   return item.repurchaseActive !== false
 }
 

@@ -1,6 +1,14 @@
+// 수정: Auto — 2026-07-19 03:08 (주황/초록 조화 회색 테두리)
+// 수정: Auto — 2026-07-19 03:05 (항목명 테두리 회색)
+// 수정: Auto — 2026-07-19 03:02 (항목명 테두리만 진하게)
+// 수정: Auto — 2026-07-19 03:00 (항목명 배경 더 연하게)
+// 수정: Auto — 2026-07-19 02:55 (수시 초록·항목명 톤)
+// 수정: Auto — 2026-07-19 02:20 (심플 목록·썸네일 프레임)
+// 수정: Auto — 2026-07-19 01:55 (월비용 인라인·항목명 썸네일 아래)
+// 수정: Auto — 2026-07-19 01:05 (항목명 칩 상시/수시 색)
 // 수정: Auto — 2026-06-15 (상시비 합계·비활성 텍스트 톤)
 
-import type { CollectionMainKey, CollectionSectionKey } from '@/config/collectionCategories'
+import type { CollectionMainKey, CollectionSectionKey, FoodScopeKey } from '@/config/collectionCategories'
 import { getCollectionMainMeta, getCollectionSectionMeta } from '@/config/collectionCategories'
 import { alpha, type Theme } from '@mui/material/styles'
 
@@ -12,6 +20,25 @@ const FOOD_LIVING_TOTAL = '#b45309'
 const FOOD_LIVING_AMOUNT_ACTIVE = '#9a3412'
 const FOOD_LIVING_AMOUNT_IDLE = '#d97706'
 const FOOD_LIVING_LABEL_IDLE = '#ca8a04'
+
+/** 항목명(사진 아래) — 연한 배경 + 진한 글자 + 회색에 가까운 조화 테두리 */
+const SCOPE_NAME_UNDER_THUMB: Record<
+  FoodScopeKey,
+  { bg: string; text: string; border: string }
+> = {
+  regular: {
+    bg: alpha('#f59e0b', 0.04),
+    text: '#7c2d12',
+    // 따뜻한 회색 — 주황과 어울림
+    border: 'rgba(180, 140, 90, 0.38)',
+  },
+  occasional: {
+    bg: alpha('#22c55e', 0.04),
+    text: '#14532d',
+    // 차가운 회색 — 초록과 어울림
+    border: 'rgba(110, 145, 120, 0.4)',
+  },
+}
 
 /** 0depth — iOS 스타일 세그먼트 (상시 / 수시 / 소장) */
 export function sxCollectionSectionSegmentTrack() {
@@ -123,7 +150,10 @@ export function sxCollectionMainChip(main: CollectionMainKey, selected: boolean)
 
 /** 2depth — 필터 pill (작고 가벼움) */
 export function sxCollectionSubChip(main: CollectionMainKey, selected: boolean) {
-  const hex = getCollectionMainMeta(main).color
+  return sxCollectionSubChipByColor(getCollectionMainMeta(main).color, selected)
+}
+
+export function sxCollectionSubChipByColor(hex: string, selected: boolean) {
   return {
     px: 1.1,
     py: 0.45,
@@ -150,7 +180,10 @@ export function sxCollectionSubChip(main: CollectionMainKey, selected: boolean) 
 }
 
 export function sxCollectionSubChipPanel(main: CollectionMainKey) {
-  const hex = getCollectionMainMeta(main).color
+  return sxCollectionSubChipPanelByColor(getCollectionMainMeta(main).color)
+}
+
+export function sxCollectionSubChipPanelByColor(hex: string) {
   return {
     display: 'flex',
     flexWrap: 'wrap' as const,
@@ -201,7 +234,10 @@ export function sxCollectionSearchResultQuery() {
 }
 
 export function sxCollectionAddButton(main: CollectionMainKey) {
-  const hex = getCollectionMainMeta(main).color
+  return sxCollectionAddButtonByColor(getCollectionMainMeta(main).color)
+}
+
+export function sxCollectionAddButtonByColor(hex: string) {
   return {
     flexShrink: 0,
     width: 40,
@@ -246,6 +282,27 @@ export function sxCollectionBrandChip() {
     fontSize: '0.78rem',
     lineHeight: 1.3,
     flexShrink: 0,
+  } as const
+}
+
+/** food 항목명 칩 — 상시/수시 섹션 색 (글자는 진한 톤) */
+export function sxCollectionProductNameChip(foodScope: 'regular' | 'occasional') {
+  const tone = SCOPE_NAME_UNDER_THUMB[foodScope]
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    px: 0.85,
+    py: 0.2,
+    borderRadius: 1.25,
+    border: '1px solid',
+    borderColor: tone.border,
+    bgcolor: tone.bg,
+    color: tone.text,
+    fontWeight: 800,
+    fontSize: '0.78rem',
+    lineHeight: 1.3,
+    flexShrink: 0,
+    maxWidth: '100%',
   } as const
 }
 
@@ -366,6 +423,87 @@ export function sxCollectionMonthlyUnderThumb(active: boolean) {
           alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.12 : 0.06),
     border: '1px solid',
     borderColor: active ? 'warning.light' : 'divider',
+  } as const
+}
+
+/** 목록 오른쪽 2행용 월 비용 칩 */
+export function sxCollectionMonthlyInline(active: boolean) {
+  return {
+    ...sxCollectionMonthlyUnderThumb(active),
+    width: 'auto',
+    flexShrink: 0,
+    px: 0.55,
+    py: 0.12,
+    fontSize: '0.68rem',
+    borderRadius: 0.75,
+  } as const
+}
+
+/** 썸네일 아래 항목명 */
+export function sxCollectionNameUnderThumb(foodScope: FoodScopeKey = 'regular') {
+  const tone = SCOPE_NAME_UNDER_THUMB[foodScope]
+  return {
+    width: '100%',
+    px: 0.35,
+    py: 0.4,
+    textAlign: 'center' as const,
+    fontSize: { xs: '0.72rem', md: '0.76rem' },
+    fontWeight: 800,
+    lineHeight: 1.2,
+    letterSpacing: '-0.02em',
+    color: tone.text,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+    borderTop: 1,
+    borderColor: tone.border,
+    bgcolor: tone.bg,
+  } as const
+}
+
+/** 상시/수시: 사진+항목명 한 덩어리 테두리 */
+export function sxCollectionThumbNameFrame(foodScope: FoodScopeKey = 'regular') {
+  const tone = SCOPE_NAME_UNDER_THUMB[foodScope]
+  return {
+    width: { xs: 72, md: 84 },
+    flexShrink: 0,
+    border: 1,
+    borderColor: tone.border,
+    borderRadius: 1,
+    overflow: 'hidden',
+    bgcolor: 'action.hover',
+  } as const
+}
+
+/** 쇼핑 목록 행 — 카드 없이 구분선만 */
+export function sxCollectionListRow(dimmed = false) {
+  return {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 1.25,
+    px: { xs: 1, sm: 1.25, md: 1.5 },
+    py: 1,
+    cursor: 'pointer',
+    borderBottom: 1,
+    borderColor: 'divider',
+    bgcolor: 'transparent',
+    opacity: dimmed ? 0.4 : 1,
+    transition: 'opacity 0.15s ease, background-color 0.12s ease',
+    '&:hover': {
+      bgcolor: 'action.hover',
+    },
+  } as const
+}
+
+/** 쇼핑 목록 컨테이너 — 행 간격 없음 */
+export function sxCollectionListStack() {
+  return {
+    display: 'grid',
+    gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' },
+    gap: 0,
+    width: '100%',
+    borderTop: 1,
+    borderColor: 'divider',
   } as const
 }
 

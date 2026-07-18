@@ -1,5 +1,4 @@
-// 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
-
+// 수정: Auto — 2026-07-19 00:15 (productId·isSelected)
 import {
   deserializeCollectionOptionData,
   emptyOptionData,
@@ -49,6 +48,8 @@ export type CollectionItemDto = {
   repurchaseActive: boolean
   foodScope: FoodScopeKey
   hidden: boolean
+  productId: number | null
+  isSelected: boolean
   createdAt: string
 }
 
@@ -118,6 +119,8 @@ export function toCollectionItemDto(row: CollectionRow): CollectionItemDto {
     foodScope:
       mainCategory === 'food' && isValidFoodScope(row.foodScope) ? row.foodScope : 'regular',
     hidden: (row.hidden ?? 0) === 1,
+    productId: row.productId ?? null,
+    isSelected: (row.isSelected ?? 1) === 1,
     createdAt: row.createdAt,
   }
 }

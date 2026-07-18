@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-19 02:55 (수시 초록·항목명 톤)
 // 수정: Auto — 2026-06-11 (상시·수시·소장)
 
 import type { PackType } from '@/config/shoppingCategories'
@@ -6,7 +7,7 @@ import { SHOPPING_STORES } from '@/config/shoppingCategories'
 /** 0depth — 상시 / 수시 / 소장 */
 export const COLLECTION_SECTIONS = [
   { key: 'regular', label: '상시', color: '#f59e0b' },
-  { key: 'occasional', label: '수시', color: '#14b8a6' },
+  { key: 'occasional', label: '수시', color: '#22c55e' },
   { key: 'own', label: '소장', color: '#6366f1' },
 ] as const
 

@@ -21,6 +21,18 @@ export const shoppingItems = sqliteTable('shopping_items', {
   createdAt: text('created_at').notNull(),
 })
 
+/** food 상시/수시 — 항목(체다치즈) 단위 */
+export const collectionProducts = sqliteTable('collection_products', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  mainCategory: text('main_category').notNull(),
+  subCategory: text('sub_category').notNull(),
+  foodScope: text('food_scope').notNull().default('regular'),
+  /** JSON — 목록 칩 표시 on/off */
+  listChipFlags: text('list_chip_flags').notNull().default('{"amount":true,"unitsPerPack":true,"unitPrice":true,"perPiece":true}'),
+  createdAt: text('created_at').notNull(),
+})
+
 export const collectionItems = sqliteTable('collection_items', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   mainCategory: text('main_category').notNull(),
@@ -54,6 +66,10 @@ export const collectionItems = sqliteTable('collection_items', {
   foodScope: text('food_scope').notNull().default('regular'),
   /** 목록에서 숨김 */
   hidden: integer('hidden').notNull().default(0),
+  /** food 항목(product) FK — 소장은 null */
+  productId: integer('product_id'),
+  /** 같은 product 안에서 선택된 변형 1개 */
+  isSelected: integer('is_selected').notNull().default(1),
   createdAt: text('created_at').notNull(),
 })
 

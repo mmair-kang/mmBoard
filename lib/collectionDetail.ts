@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-19 02:45 (목록 칩 필터)
 // 수정: Auto — 2026-06-30 (패션 상세옵션 목록 메트릭)
 
 import { isFashionMainCategory } from '@/config/collectionCategories'
@@ -6,6 +7,10 @@ import {
   type CollectionOptionFieldKey,
 } from '@/config/collectionOptions'
 import type { CollectionItem } from '@/hooks/useCollectionItems'
+import {
+  defaultFoodListChipFlags,
+  type CollectionFoodListChipFlags,
+} from '@/lib/collectionFoodListChips'
 import { hasCollectionAmount, isMultiUnitPackType } from '@/config/shoppingCategories'
 import {
   formatAmountWithPackCount,
@@ -15,7 +20,11 @@ import {
   getTotalPieces,
 } from '@/lib/shoppingUnitPrice'
 
-function buildFoodLabels(item: CollectionItem, includeTotalCount: boolean): string[] {
+function buildFoodLabels(
+  item: CollectionItem,
+  includeTotalCount: boolean,
+  flags: CollectionFoodListChipFlags = defaultFoodListChipFlags(),
+): string[] {
   const packType = item.packType === 'box' ? 'box' : item.packType === 'bundle' ? 'bundle' : 'piece'
   const packCount = item.packCount ?? 1
   const unitsPerPack = item.unitsPerPack ?? 1
@@ -29,11 +38,13 @@ function buildFoodLabels(item: CollectionItem, includeTotalCount: boolean): stri
     seen.add(label)
   }
 
-  if (hasAmount) {
+  if (flags.amount && hasAmount) {
     push(formatAmountWithPackCount(item.amount, item.amountUnit, packType, packCount))
   }
 
-  push(formatUnitsPerPackLabel(packType, unitsPerPack))
+  if (flags.unitsPerPack) {
+    push(formatUnitsPerPackLabel(packType, unitsPerPack))
+  }
 
   if (includeTotalCount) {
     if (isMultiUnitPackType(packType) && packCount > 1) {
@@ -43,23 +54,28 @@ function buildFoodLabels(item: CollectionItem, includeTotalCount: boolean): stri
     }
   }
 
-  if (hasAmount) {
+  if (flags.unitPrice && hasAmount) {
     push(formatUnitPriceLabel(item.purchasePrice, item.amount, item.amountUnit as 'g', packCount))
   }
 
-  push(formatPerPiecePriceLabel(item.purchasePrice, packType, packCount, unitsPerPack))
+  if (flags.perPiece) {
+    push(formatPerPiecePriceLabel(item.purchasePrice, packType, packCount, unitsPerPack))
+  }
 
   return parts
 }
 
-/** 목록용 — 총 N개 제외 */
-export function getCollectionFoodListLabels(item: CollectionItem): string[] {
-  return buildFoodLabels(item, false)
+/** 목록용 — 총 N개 제외 · 항목 칩 설정 반영 */
+export function getCollectionFoodListLabels(
+  item: CollectionItem,
+  flags?: CollectionFoodListChipFlags,
+): string[] {
+  return buildFoodLabels(item, false, flags ?? defaultFoodListChipFlags())
 }
 
-/** 상세용 — 전체 */
+/** 상세용 — 전체 (칩 필터 없음) */
 export function getCollectionFoodDetailLabels(item: CollectionItem): string[] {
-  return buildFoodLabels(item, true)
+  return buildFoodLabels(item, true, defaultFoodListChipFlags())
 }
 /** 박스/묶음 상세옵션 — 1단위당 N개 · 1개당 가격 */
 export function getCollectionPackDetailLabels(item: CollectionItem): string[] {
@@ -79,8 +95,11 @@ export function getCollectionPackDetailLabels(item: CollectionItem): string[] {
   return parts
 }
 
-export function formatCollectionFoodListSubline(item: CollectionItem): string {
-  return getCollectionFoodListLabels(item).join(' · ')
+export function formatCollectionFoodListSubline(
+  item: CollectionItem,
+  flags?: CollectionFoodListChipFlags,
+): string {
+  return getCollectionFoodListLabels(item, flags).join(' · ')
 }
 
 export function formatCollectionPackListSubline(item: CollectionItem): string {

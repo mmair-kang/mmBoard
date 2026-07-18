@@ -33,7 +33,13 @@ export async function GET(request: Request) {
     const rows = await db
       .select()
       .from(collectionItems)
-      .where(and(eq(collectionItems.mainCategory, 'food'), eq(collectionItems.foodScope, 'regular')))
+      .where(
+        and(
+          eq(collectionItems.mainCategory, 'food'),
+          eq(collectionItems.foodScope, 'regular'),
+          eq(collectionItems.isSelected, 1),
+        ),
+      )
       .orderBy(desc(collectionItems.purchaseDate), desc(collectionItems.createdAt))
     return NextResponse.json(rows.map(toCollectionItemDto))
   }
@@ -103,6 +109,8 @@ export async function POST(request: Request) {
         repurchaseActive: payload.repurchaseActive ? 1 : 0,
         foodScope: payload.foodScope,
         hidden: payload.hidden ? 1 : 0,
+        productId: null,
+        isSelected: 1,
         createdAt: new Date().toISOString(),
       })
       .returning()

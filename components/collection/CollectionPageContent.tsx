@@ -1,14 +1,31 @@
 'use client'
-// 수정: Auto — 2026-06-30 (패션 상세옵션 목록 2줄)
+// 수정: Auto — 2026-07-19 02:55 (수시 초록·항목명 톤)
+// 수정: Auto — 2026-07-19 02:50 (제품명·메타 글자 축소)
+// 수정: Auto — 2026-07-19 02:45 (목록 칩 표시 설정)
+// 수정: Auto — 2026-07-19 02:30 (제품명 글자 크기)
+// 수정: Auto — 2026-07-19 02:20 (심플 목록·썸네일 프레임)
+// 수정: Auto — 2026-07-19 02:15 (항목 수정·삭제)
+// 수정: Auto — 2026-07-19 02:10 (숨김 항목 반투명 표시)
+// 수정: Auto — 2026-07-19 01:55 (카드: 항목명 왼쪽·월비용 2행)
+// 수정: Auto — 2026-07-19 01:40 (항목명만 추가·이름 수정·제품 추가)
+// 수정: Auto — 2026-07-19 01:25 (항목수정 제거·브랜드추가 위치)
+// 수정: Auto — 2026-07-19 01:20 (변형 모달 선택·변경·넓은 폭)
+// 수정: Auto — 2026-07-19 00:20 (상시·수시 product·변형)
 
 import {
   sxCollectionAddButton,
+  sxCollectionAddButtonByColor,
   sxCollectionBrandChip,
   sxCollectionChipButton,
   sxCollectionFoodMetricChip,
+  sxCollectionListRow,
+  sxCollectionListStack,
   sxCollectionLivingSummaryPanel,
   sxCollectionMainTabs,
+  sxCollectionMonthlyInline,
   sxCollectionMonthlyUnderThumb,
+  sxCollectionNameUnderThumb,
+  sxCollectionProductNameChip,
   sxCollectionSearchResultPanel,
   sxCollectionSearchResultQuery,
   sxCollectionSearchResultText,
@@ -20,20 +37,26 @@ import {
   sxCollectionLivingSubRow,
   sxCollectionLivingTotalAmount,
   sxCollectionSubChip,
+  sxCollectionSubChipByColor,
   sxCollectionSubChipPanel,
+  sxCollectionSubChipPanelByColor,
+  sxCollectionThumbNameFrame,
 } from '@/components/collection/collectionStyles'
 import { ListSearchField } from '@/components/common/ListSearchField'
 import { CollectionFashionListMetrics } from '@/components/collection/CollectionFashionListMetrics'
 import { CollectionItemDetailDialog } from '@/components/collection/CollectionItemDetailDialog'
 import { CollectionItemFormDialog } from '@/components/collection/CollectionItemFormDialog'
+import { CollectionProductFormDialog } from '@/components/collection/CollectionProductFormDialog'
+import { CollectionProductNameDialog } from '@/components/collection/CollectionProductNameDialog'
+import { CollectionProductVariantsDialog } from '@/components/collection/CollectionProductVariantsDialog'
 import { CollectionSubcategoryEditDialog } from '@/components/collection/CollectionSubcategoryEditDialog'
 import { ShoppingItemThumbnail } from '@/components/shopping/ShoppingItemThumbnail'
-// 수정: Auto — 2026-06-11 (상시·수시·소장)
 
 import {
   COLLECTION_OWN_MAIN_CATEGORIES,
   COLLECTION_SECTIONS,
   getCollectionMainMeta,
+  getCollectionSectionMeta,
   getCollectionStoreLabel,
   getCollectionSubFilters,
   getDefaultMainForSection,
@@ -52,9 +75,13 @@ import {
 } from '@/config/collectionCategories'
 import {
   type CollectionItem,
+  type CollectionProduct,
   collectionItemsKey,
+  collectionProductsKey,
   useAllCollectionItems,
+  useAllCollectionProducts,
   useCollectionItems,
+  useCollectionProducts,
   useRegularFoodItems,
 } from '@/hooks/useCollectionItems'
 import { useCollectionSubcategories } from '@/hooks/useCollectionSubcategories'
@@ -68,9 +95,19 @@ import {
   isCollectionFoodPriceMetric,
 } from '@/lib/collectionDetail'
 import { upsertCollectionItemSorted } from '@/lib/collectionItem'
+import {
+  collectionProductToPayload,
+  getSelectedVariant,
+  productToDisplayItem,
+  upsertCollectionProductSorted,
+} from '@/lib/collectionProduct'
+import type { CollectionProductPayload } from '@/lib/collectionProductPayload'
+import {
+  defaultFoodListChipFlags,
+  type CollectionFoodListChipFlags,
+} from '@/lib/collectionFoodListChips'
 import type { CollectionItemPayload } from '@/lib/collectionPayload'
 import {
-  sxDesktopListGrid,
   sxPageScrollBody,
   sxPageStickyHeaderPad,
   sxPageTitle,
@@ -82,7 +119,6 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
-import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -127,8 +163,26 @@ function matchesCollectionItem(item: CollectionItem, query: string) {
   )
 }
 
-function filterByHiddenVisibility(items: CollectionItem[], showHiddenOnly: boolean) {
-  return items.filter((item) => (showHiddenOnly ? item.hidden : !item.hidden))
+function matchesCollectionProduct(product: CollectionProduct, query: string) {
+  if (matchesAnySearch([product.name], query)) return true
+  return product.variants.some((v) => matchesCollectionItem({ ...v, name: product.name }, query))
+}
+
+function filterByHiddenVisibility(items: CollectionItem[], showHidden: boolean) {
+  return items.filter((item) => (item.hidden ? showHidden : true))
+}
+
+function filterProductsByHidden(products: CollectionProduct[], showHidden: boolean) {
+  return products.filter((product) => {
+    const selected = getSelectedVariant(product)
+    if (!selected) return true
+    if (selected.hidden) return showHidden
+    return true
+  })
+}
+
+function isInCurrentProductList(product: CollectionProduct, sub: CollectionSubKey, foodScope: FoodScopeKey) {
+  return product.subCategory === sub && product.foodScope === foodScope
 }
 
 function LivingMonthlyPanel({
@@ -212,7 +266,6 @@ function CollectionItemCard({
   onDetail: (item: CollectionItem) => void
   showLivingCost?: boolean
 }) {
-  const mainMeta = getCollectionMainMeta(item.mainCategory)
   const storeLabel = getCollectionStoreLabel(item.storeKey, item.storeCustom)
   const purchaseLabel = formatLastPurchaseRelativeLabel(item.purchaseDate)
   const brand = item.brand.trim()
@@ -235,134 +288,256 @@ function CollectionItemCard({
   const showLeftColumn = hasThumb || showMonthly
 
   return (
-    <Paper
-      variant="outlined"
-      onClick={() => onEdit(item)}
-      sx={{
-        px: { xs: 1, md: 1.25 },
-        py: { xs: 0.75, md: 1 },
-        borderRadius: 1.5,
-        borderLeftWidth: 3,
-        borderLeftStyle: 'solid',
-        borderLeftColor: mainMeta.color,
-        cursor: 'pointer',
-      }}
-    >
-      <Stack direction="row" alignItems="flex-start" gap={1.25}>
-        {showLeftColumn ? (
-          <Stack
-            alignItems="center"
-            sx={{ width: { xs: 68, md: 80 }, flexShrink: 0, gap: 0.35 }}
-          >
-            {hasThumb ? (
-              <ShoppingItemThumbnail
-                src={item.imageData!}
-                responsiveSize={COLLECTION_LIST_THUMB_SIZE}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDetail(item)
-                }}
-              />
-            ) : null}
-            {showMonthly ? (
-              <Box sx={sxCollectionMonthlyUnderThumb(monthlyActive)}>
-                월 {formatCompactLivingAmount(monthlyCost)}
+    <Box onClick={() => onEdit(item)} sx={sxCollectionListRow(item.hidden)}>
+      {showLeftColumn ? (
+        <Stack alignItems="center" sx={{ width: { xs: 68, md: 80 }, flexShrink: 0, gap: 0.35 }}>
+          {hasThumb ? (
+            <ShoppingItemThumbnail
+              src={item.imageData!}
+              responsiveSize={COLLECTION_LIST_THUMB_SIZE}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDetail(item)
+              }}
+            />
+          ) : null}
+          {showMonthly ? (
+            <Box sx={sxCollectionMonthlyUnderThumb(monthlyActive)}>
+              월 {formatCompactLivingAmount(monthlyCost)}
+            </Box>
+          ) : null}
+        </Stack>
+      ) : null}
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        {(brand || name || nameSuffix) ? (
+          <Stack direction="row" alignItems="center" gap={0.6} sx={{ minWidth: 0 }}>
+            {brand ? (
+              <Box component="span" sx={{ ...sxCollectionBrandChip(), flexShrink: 0 }}>
+                {brand}
               </Box>
+            ) : null}
+            {(name || nameSuffix) ? (
+              <Typography
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  fontSize: { xs: 15, md: 16 },
+                  fontWeight: 700,
+                  lineHeight: 1.3,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {name ? <Box component="span">{name}</Box> : null}
+                {nameSuffix ? (
+                  <Box
+                    component="span"
+                    sx={{
+                      color: 'text.secondary',
+                      fontWeight: 500,
+                      ml: name ? 0.75 : 0,
+                    }}
+                  >
+                    {nameSuffix}
+                  </Box>
+                ) : null}
+              </Typography>
             ) : null}
           </Stack>
         ) : null}
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          {(brand || name || nameSuffix) ? (
-            <Stack direction="row" alignItems="center" gap={0.6} sx={{ minWidth: 0 }}>
-              {brand ? (
-                <Box component="span" sx={{ ...sxCollectionBrandChip(), flexShrink: 0 }}>
-                  {brand}
-                </Box>
-              ) : null}
-              {(name || nameSuffix) ? (
-                <Typography
-                  sx={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: { xs: 15, md: 16 },
-                    fontWeight: 700,
-                    lineHeight: 1.3,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {name ? <Box component="span">{name}</Box> : null}
-                  {nameSuffix ? (
-                    <Box
-                      component="span"
-                      sx={{
-                        color: 'text.secondary',
-                        fontWeight: 500,
-                        ml: name ? 0.75 : 0,
-                      }}
-                    >
-                      {nameSuffix}
-                    </Box>
-                  ) : null}
-                </Typography>
-              ) : null}
-            </Stack>
+        {foodLabels.length > 0 ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.35, mt: 0.45 }}>
+            {foodLabels.map((label) => (
+              <Box
+                key={label}
+                component="span"
+                sx={sxCollectionFoodMetricChip(isCollectionFoodPriceMetric(label))}
+              >
+                {label}
+              </Box>
+            ))}
+          </Box>
+        ) : null}
+        {showFashionDetail && item.optionType !== 'none' ? (
+          <CollectionFashionListMetrics
+            size={item.size}
+            model={item.model}
+            optionType={item.optionType}
+            metrics={fashionMetrics}
+          />
+        ) : null}
+        {detailLine && !showFashionDetail ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+            {detailLine}
+          </Typography>
+        ) : null}
+        <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+            {formatPrice(item.purchasePrice)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            ·
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {storeLabel}
+          </Typography>
+          {purchaseLabel ? (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                ·
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {purchaseLabel}
+              </Typography>
+            </>
           ) : null}
-          {foodLabels.length > 0 ? (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.35, mt: 0.45 }}>
-              {foodLabels.map((label) => (
-                <Box
-                  key={label}
-                  component="span"
-                  sx={sxCollectionFoodMetricChip(isCollectionFoodPriceMetric(label))}
-                >
-                  {label}
-                </Box>
-              ))}
+        </Stack>
+      </Box>
+    </Box>
+  )
+}
+
+function CollectionProductCard({
+  product,
+  onOpen,
+  onDetail,
+  showLivingCost,
+}: {
+  product: CollectionProduct
+  onOpen: (product: CollectionProduct) => void
+  onDetail: (item: CollectionItem) => void
+  showLivingCost?: boolean
+}) {
+  const item = productToDisplayItem(product)
+  const name = product.name.trim()
+  const foodScope = product.foodScope === 'occasional' ? 'occasional' : 'regular'
+
+  if (!item) {
+    return (
+      <Box onClick={() => onOpen(product)} sx={sxCollectionListRow(false)}>
+        <Stack direction="row" alignItems="center" gap={0.6} sx={{ minWidth: 0, flexWrap: 'wrap' }}>
+          {name ? (
+            <Box component="span" sx={sxCollectionProductNameChip(foodScope)}>
+              {name}
             </Box>
           ) : null}
-          {showFashionDetail && item.optionType !== 'none' ? (
-            <CollectionFashionListMetrics
-              size={item.size}
-              model={item.model}
-              optionType={item.optionType}
-              metrics={fashionMetrics}
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            제품 없음
+          </Typography>
+        </Stack>
+      </Box>
+    )
+  }
+
+  const storeLabel = getCollectionStoreLabel(item.storeKey, item.storeCustom)
+  const purchaseLabel = formatLastPurchaseRelativeLabel(item.purchaseDate)
+  const brand = item.brand.trim()
+  const nameSuffix = item.nameSuffix.trim()
+  const foodLabels = getCollectionFoodListLabels(item, product.listChipFlags)
+  const monthlyCost = showLivingCost ? calcLivingMonthlyCost(item.purchasePrice, item.repurchaseDays) : null
+  const monthlyActive = !item.hidden
+  const hasThumb = Boolean(item.imageData)
+  const showMonthly = showLivingCost && monthlyCost != null
+  const dimmed = item.hidden
+
+  return (
+    <Box onClick={() => onOpen(product)} sx={sxCollectionListRow(dimmed)}>
+      <Box sx={sxCollectionThumbNameFrame(foodScope)}>
+        <Box
+          onClick={(e) => {
+            if (!hasThumb) return
+            e.stopPropagation()
+            onDetail(item)
+          }}
+          role={hasThumb ? 'button' : undefined}
+          sx={{
+            width: '100%',
+            aspectRatio: '1',
+            bgcolor: 'action.hover',
+            cursor: hasThumb ? 'zoom-in' : 'default',
+            overflow: 'hidden',
+          }}
+        >
+          {hasThumb ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={item.imageData!}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             />
           ) : null}
-          {!isFood && !showFashionDetail && detailLine ? (
+        </Box>
+        {name ? (
+          <Typography component="div" sx={sxCollectionNameUnderThumb(foodScope)}>
+            {name}
+          </Typography>
+        ) : null}
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Stack direction="row" alignItems="center" gap={0.6} sx={{ minWidth: 0, flexWrap: 'wrap' }}>
+          {brand ? (
+            <Box component="span" sx={sxCollectionBrandChip()}>
+              {brand}
+            </Box>
+          ) : null}
+          {nameSuffix ? (
             <Typography
-              variant="body2"
               color="text.secondary"
-              sx={{ mt: 0.35, lineHeight: 1.35, wordBreak: 'break-word' }}
+              sx={{
+                fontSize: '0.8rem',
+                fontWeight: 500,
+                lineHeight: 1.3,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
             >
-              {detailLine}
+              {nameSuffix}
             </Typography>
           ) : null}
-          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
-              {formatPrice(item.purchasePrice)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              ·
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {storeLabel}
-            </Typography>
-            {purchaseLabel ? (
-              <>
-                <Typography variant="body2" color="text.secondary">
-                  ·
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {purchaseLabel}
-                </Typography>
-              </>
+        </Stack>
+        {showMonthly || foodLabels.length > 0 ? (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.35, mt: 0.45, alignItems: 'center' }}>
+            {showMonthly ? (
+              <Box component="span" sx={sxCollectionMonthlyInline(monthlyActive)}>
+                월 {formatCompactLivingAmount(monthlyCost)}
+              </Box>
             ) : null}
-          </Stack>
-        </Box>
-      </Stack>
-    </Paper>
+            {foodLabels.map((label) => (
+              <Box
+                key={label}
+                component="span"
+                sx={sxCollectionFoodMetricChip(isCollectionFoodPriceMetric(label))}
+              >
+                {label}
+              </Box>
+            ))}
+          </Box>
+        ) : null}
+        <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+          <Typography color="text.secondary" sx={{ fontSize: '0.8rem', fontWeight: 600, lineHeight: 1.3 }}>
+            {formatPrice(item.purchasePrice)}
+          </Typography>
+          <Typography color="text.secondary" sx={{ fontSize: '0.8rem', lineHeight: 1.3 }}>
+            ·
+          </Typography>
+          <Typography color="text.secondary" sx={{ fontSize: '0.8rem', lineHeight: 1.3 }}>
+            {storeLabel}
+          </Typography>
+          {purchaseLabel ? (
+            <>
+              <Typography color="text.secondary" sx={{ fontSize: '0.8rem', lineHeight: 1.3 }}>
+                ·
+              </Typography>
+              <Typography color="text.secondary" sx={{ fontSize: '0.8rem', lineHeight: 1.3 }}>
+                {purchaseLabel}
+              </Typography>
+            </>
+          ) : null}
+        </Stack>
+      </Box>
+    </Box>
   )
 }
 
@@ -371,12 +546,22 @@ export function CollectionPageContent() {
   const [mainCategory, setMainCategory] = useState<CollectionMainKey>(() => getDefaultMainForSection('regular'))
   const [subCategory, setSubCategory] = useState<CollectionSubKey>(() => getDefaultSubcategory('food'))
   const activeFoodScope: FoodScopeKey | undefined = isConsumableSection(section) ? section : undefined
+  const isFoodSection = Boolean(activeFoodScope)
   const [formOpen, setFormOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<CollectionItem | null>(null)
+  const [editingProduct, setEditingProduct] = useState<CollectionProduct | null>(null)
+  const [variantsProduct, setVariantsProduct] = useState<CollectionProduct | null>(null)
+  const [variantsOpen, setVariantsOpen] = useState(false)
+  const [selectingVariant, setSelectingVariant] = useState(false)
+  const [formFocusVariantId, setFormFocusVariantId] = useState<number | null>(null)
+  const [formStartWithNewVariant, setFormStartWithNewVariant] = useState(false)
+  const [formVariantOnly, setFormVariantOnly] = useState(false)
+  const [nameDialogOpen, setNameDialogOpen] = useState(false)
+  const [nameDialogMode, setNameDialogMode] = useState<'create' | 'rename'>('create')
   const [detailItem, setDetailItem] = useState<CollectionItem | null>(null)
   const [subEditOpen, setSubEditOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [showHiddenOnly, setShowHiddenOnly] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
   const trimmedQuery = searchQuery.trim()
   const isSearching = Boolean(trimmedQuery)
   const { mutate: globalMutate } = useSWRConfig()
@@ -384,11 +569,34 @@ export function CollectionPageContent() {
   const { pointerHandlers: subChipLongPress, wrapClick: wrapSubChipClick } = useLongPress({
     onLongPress: () => setSubEditOpen(true),
   })
-  const { items, isLoading, mutate } = useCollectionItems(mainCategory, subCategory, activeFoodScope)
+
+  const foodScopeForQuery: FoodScopeKey = activeFoodScope ?? 'regular'
+  const {
+    products,
+    isLoading: productsLoading,
+    mutate: mutateProducts,
+  } = useCollectionProducts(subCategory, foodScopeForQuery, isFoodSection && !isSearching)
+
+  // food 섹션에서는 foodScope 없는 /api/collection-items?main=food 가 400이므로 더미 own 키 사용
+  const {
+    items,
+    isLoading: itemsLoading,
+    mutate,
+  } = useCollectionItems(
+    isFoodSection ? 'personal' : mainCategory,
+    isFoodSection ? 'appliance' : subCategory,
+  )
+
   const { items: allItems, isLoading: allLoading, mutate: mutateAll } = useAllCollectionItems(isSearching)
+  const {
+    products: allProducts,
+    isLoading: allProductsLoading,
+    mutate: mutateAllProducts,
+  } = useAllCollectionProducts(isSearching)
   const { items: regularFoodItems, mutate: mutateRegularFood } = useRegularFoodItems(
     section === 'regular' && !isSearching,
   )
+
   const livingMonthlyBreakdown = useMemo(
     () => buildLivingMonthlyBreakdown(regularFoodItems, subs),
     [regularFoodItems, subs],
@@ -400,19 +608,62 @@ export function CollectionPageContent() {
     }
     return map
   }, [livingMonthlyBreakdown.rows])
-  const displayItems = useMemo(() => {
-    const base = trimmedQuery
-      ? allItems.filter((item) => matchesCollectionItem(item, trimmedQuery))
+
+  const displayProducts = useMemo(() => {
+    if (!isSearching && !isFoodSection) return []
+    const base = isSearching
+      ? allProducts.filter((product) => matchesCollectionProduct(product, trimmedQuery))
+      : products
+    return filterProductsByHidden(base, showHidden)
+  }, [isSearching, isFoodSection, allProducts, products, trimmedQuery, showHidden])
+
+  const displayOwnItems = useMemo(() => {
+    if (!isSearching && isFoodSection) return []
+    const base = isSearching
+      ? allItems.filter(
+          (item) => !isFoodMainCategory(item.mainCategory) && matchesCollectionItem(item, trimmedQuery),
+        )
       : items
-    return filterByHiddenVisibility(base, showHiddenOnly)
-  }, [items, allItems, trimmedQuery, showHiddenOnly])
+    return filterByHiddenVisibility(base, showHidden)
+  }, [isSearching, isFoodSection, allItems, items, trimmedQuery, showHidden])
+
+  const displayCount = displayProducts.length + displayOwnItems.length
 
   const visibleItemCount = useMemo(() => {
-    const base = trimmedQuery ? allItems : items
-    return filterByHiddenVisibility(base, showHiddenOnly).length
-  }, [items, allItems, trimmedQuery, showHiddenOnly])
+    if (isSearching) {
+      return (
+        filterProductsByHidden(
+          allProducts.filter((product) => matchesCollectionProduct(product, trimmedQuery)),
+          showHidden,
+        ).length +
+        filterByHiddenVisibility(
+          allItems.filter(
+            (item) => !isFoodMainCategory(item.mainCategory) && matchesCollectionItem(item, trimmedQuery),
+          ),
+          showHidden,
+        ).length
+      )
+    }
+    if (isFoodSection) {
+      return filterProductsByHidden(products, showHidden).length
+    }
+    return filterByHiddenVisibility(items, showHidden).length
+  }, [
+    isSearching,
+    isFoodSection,
+    allProducts,
+    allItems,
+    products,
+    items,
+    trimmedQuery,
+    showHidden,
+  ])
 
-  const listLoading = isSearching ? allLoading && allItems.length === 0 : isLoading
+  const listLoading = isSearching
+    ? (allLoading || allProductsLoading) && allItems.length === 0 && allProducts.length === 0
+    : isFoodSection
+      ? productsLoading
+      : itemsLoading
 
   useEffect(() => {
     if (subs.some((s) => s.key === subCategory)) return
@@ -420,20 +671,219 @@ export function CollectionPageContent() {
   }, [subs, mainCategory, subCategory])
 
   const formSubCategory = editingItem?.subCategory ?? subCategory
+  const useProductForm = editingProduct != null
+
+  const syncRegularFoodFromProduct = async (product: CollectionProduct) => {
+    await mutateRegularFood((prev) => {
+      const list = (prev ?? []).filter((row) => row.productId !== product.id)
+      if (product.foodScope !== 'regular') return list
+      const display = productToDisplayItem(product)
+      if (!display) return list
+      return upsertCollectionItemSorted(list, display)
+    }, { revalidate: false })
+  }
+
+  const applyProductCaches = async (updated: CollectionProduct) => {
+    if (activeFoodScope && isInCurrentProductList(updated, subCategory, activeFoodScope)) {
+      await mutateProducts((prev) => upsertCollectionProductSorted(prev, updated), { revalidate: false })
+    } else {
+      await mutateProducts(
+        (prev) => (prev ?? []).filter((product) => product.id !== updated.id),
+        { revalidate: false },
+      )
+    }
+    await mutateAllProducts(
+      (prev) => upsertCollectionProductSorted(prev, updated),
+      { revalidate: false },
+    )
+    await syncRegularFoodFromProduct(updated)
+    setVariantsProduct((prev) => (prev?.id === updated.id ? updated : prev))
+    setEditingProduct((prev) => (prev?.id === updated.id ? updated : prev))
+  }
 
   const openAddDialog = () => {
+    if (isFoodSection && activeFoodScope) {
+      setNameDialogMode('create')
+      setNameDialogOpen(true)
+      return
+    }
     setEditingItem(null)
+    setEditingProduct(null)
+    setFormFocusVariantId(null)
+    setFormStartWithNewVariant(false)
+    setFormVariantOnly(false)
     setFormOpen(true)
   }
 
   const openEditDialog = (item: CollectionItem) => {
     setEditingItem(item)
+    setEditingProduct(null)
+    setFormOpen(true)
+  }
+
+  const openProductVariants = (product: CollectionProduct) => {
+    setVariantsProduct(product)
+    setVariantsOpen(true)
+  }
+
+  const openProductForm = (
+    product: CollectionProduct | null,
+    options?: {
+      focusVariantId?: number | null
+      startWithNewVariant?: boolean
+      variantOnly?: boolean
+    },
+  ) => {
+    setEditingProduct(product)
+    setEditingItem(null)
+    setFormFocusVariantId(options?.focusVariantId ?? null)
+    setFormStartWithNewVariant(Boolean(options?.startWithNewVariant))
+    setFormVariantOnly(Boolean(options?.variantOnly))
+    setVariantsOpen(false)
     setFormOpen(true)
   }
 
   const closeFormDialog = () => {
+    const shouldReopenVariants = Boolean(editingProduct) || formStartWithNewVariant || formVariantOnly
+    const reopenId = editingProduct?.id ?? variantsProduct?.id ?? null
     setFormOpen(false)
     setEditingItem(null)
+    setEditingProduct(null)
+    setFormFocusVariantId(null)
+    setFormStartWithNewVariant(false)
+    setFormVariantOnly(false)
+    if (shouldReopenVariants && reopenId != null) {
+      const fromList =
+        products.find((p) => p.id === reopenId) ??
+        allProducts.find((p) => p.id === reopenId) ??
+        (variantsProduct?.id === reopenId ? variantsProduct : null)
+      if (fromList) {
+        setVariantsProduct(fromList)
+        setVariantsOpen(true)
+      }
+    }
+  }
+
+  const handleSelectVariant = async (variantId: number) => {
+    if (!variantsProduct || variantsProduct.selectedVariantId === variantId) return
+    setSelectingVariant(true)
+    try {
+      const payload = collectionProductToPayload(variantsProduct, variantId)
+      const res = await fetch(`/api/collection-products/${variantsProduct.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string }
+        throw new Error(body.message ?? '선택 저장 실패')
+      }
+      const updated = (await res.json()) as CollectionProduct
+      await applyProductCaches(updated)
+    } finally {
+      setSelectingVariant(false)
+    }
+  }
+
+  const handleAddProduct = async (payload: CollectionProductPayload) => {
+    const res = await fetch('/api/collection-products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string }
+      throw new Error(body.message ?? '추가 실패')
+    }
+    const newProduct = (await res.json()) as CollectionProduct
+    await applyProductCaches(newProduct)
+    return newProduct
+  }
+
+  const handleCreateProductName = async (name: string, listChipFlags: CollectionFoodListChipFlags) => {
+    if (!activeFoodScope) return
+    await handleAddProduct({
+      name,
+      mainCategory: 'food',
+      subCategory,
+      foodScope: activeFoodScope,
+      listChipFlags,
+      variants: [],
+      selectedVariantIndex: 0,
+    })
+  }
+
+  const handleRenameProduct = async (name: string, listChipFlags: CollectionFoodListChipFlags) => {
+    if (!variantsProduct) return
+    const payload = collectionProductToPayload({ ...variantsProduct, name, listChipFlags })
+    const res = await fetch(`/api/collection-products/${variantsProduct.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string }
+      throw new Error(body.message ?? '수정 실패')
+    }
+    const updated = (await res.json()) as CollectionProduct
+    await applyProductCaches(updated)
+  }
+
+  const handleUpdateProduct = async (payload: CollectionProductPayload) => {
+    if (!editingProduct) return
+    const res = await fetch(`/api/collection-products/${editingProduct.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { message?: string }
+      throw new Error(body.message ?? '수정 실패')
+    }
+    const updated = (await res.json()) as CollectionProduct
+    const prevSub = editingProduct.subCategory
+    const prevScope = editingProduct.foodScope
+    await applyProductCaches(updated)
+
+    if (updated.subCategory !== prevSub || updated.foodScope !== prevScope) {
+      await globalMutate(
+        collectionProductsKey(prevSub, prevScope),
+        (prev: CollectionProduct[] | undefined) =>
+          (prev ?? []).filter((product) => product.id !== updated.id),
+        { revalidate: false },
+      )
+      await globalMutate(
+        collectionProductsKey(updated.subCategory, updated.foodScope),
+        (prev: CollectionProduct[] | undefined) => upsertCollectionProductSorted(prev, updated),
+        { revalidate: false },
+      )
+    }
+  }
+
+  const handleDeleteProduct = async (id: number) => {
+    await mutateProducts(
+      (prev) => (prev ?? []).filter((product) => product.id !== id),
+      { revalidate: false },
+    )
+    await mutateAllProducts(
+      (prev) => (prev ?? []).filter((product) => product.id !== id),
+      { revalidate: false },
+    )
+    await mutateRegularFood(
+      (prev) => (prev ?? []).filter((item) => item.productId !== id),
+      { revalidate: false },
+    )
+    setVariantsOpen(false)
+    setVariantsProduct(null)
+    await fetch(`/api/collection-products/${id}`, { method: 'DELETE' })
+  }
+
+  const handleProductFormSubmit = async (payload: CollectionProductPayload) => {
+    if (editingProduct) {
+      await handleUpdateProduct(payload)
+    } else {
+      await handleAddProduct(payload)
+    }
   }
 
   const handleAdd = async (payload: CollectionItemPayload) => {
@@ -447,19 +897,13 @@ export function CollectionPageContent() {
       throw new Error(body.message ?? '추가 실패')
     }
     const newItem = (await res.json()) as CollectionItem
-    if (isInCurrentList(newItem, mainCategory, subCategory, activeFoodScope)) {
+    if (isInCurrentList(newItem, mainCategory, subCategory)) {
       await mutate((prev) => upsertCollectionItemSorted(prev, newItem), { revalidate: false })
     }
     await mutateAll(
       (prev) => upsertCollectionItemSorted(prev, newItem),
       { revalidate: false },
     )
-    if (newItem.mainCategory === 'food' && newItem.foodScope === 'regular') {
-      await mutateRegularFood(
-        (prev) => upsertCollectionItemSorted(prev, newItem),
-        { revalidate: false },
-      )
-    }
   }
 
   const handleUpdate = async (payload: CollectionItemPayload) => {
@@ -475,7 +919,7 @@ export function CollectionPageContent() {
     }
     const updated = (await res.json()) as CollectionItem
 
-    if (isInCurrentList(updated, mainCategory, subCategory, activeFoodScope)) {
+    if (isInCurrentList(updated, mainCategory, subCategory)) {
       await mutate((prev) => upsertCollectionItemSorted(prev, updated), { revalidate: false })
     } else {
       await mutate((prev) => (prev ?? []).filter((item) => item.id !== updated.id), { revalidate: false })
@@ -486,47 +930,20 @@ export function CollectionPageContent() {
       { revalidate: false },
     )
 
-    if (updated.mainCategory === 'food' || editingItem.mainCategory === 'food') {
-      await mutateRegularFood((prev) => {
-        const list = (prev ?? []).filter((row) => row.id !== updated.id)
-        if (updated.mainCategory === 'food' && updated.foodScope === 'regular') {
-          return upsertCollectionItemSorted(list, updated)
-        }
-        return list
-      }, { revalidate: false })
-    }
-
     if (updated.mainCategory === mainCategory && updated.subCategory !== editingItem.subCategory) {
-      const listKey = (sub: CollectionSubKey) =>
-        mainCategory === 'food' && activeFoodScope
-          ? collectionItemsKey(mainCategory, sub, activeFoodScope)
-          : collectionItemsKey(mainCategory, sub)
       await globalMutate(
-        listKey(updated.subCategory),
+        collectionItemsKey(mainCategory, updated.subCategory),
         (prev: CollectionItem[] | undefined) => upsertCollectionItemSorted(prev, updated),
         { revalidate: false },
       )
       await globalMutate(
-        listKey(editingItem.subCategory),
+        collectionItemsKey(mainCategory, editingItem.subCategory),
         (prev: CollectionItem[] | undefined) => (prev ?? []).filter((item) => item.id !== updated.id),
-        { revalidate: false },
-      )
-    } else if (updated.mainCategory === 'food' && editingItem.foodScope !== updated.foodScope) {
-      await globalMutate(
-        collectionItemsKey('food', updated.subCategory, editingItem.foodScope),
-        (prev: CollectionItem[] | undefined) => (prev ?? []).filter((item) => item.id !== updated.id),
-        { revalidate: false },
-      )
-      await globalMutate(
-        collectionItemsKey('food', updated.subCategory, updated.foodScope),
-        (prev: CollectionItem[] | undefined) => upsertCollectionItemSorted(prev, updated),
         { revalidate: false },
       )
     } else if (updated.mainCategory !== mainCategory || updated.subCategory !== subCategory) {
       await globalMutate(
-        updated.mainCategory === 'food'
-          ? collectionItemsKey(updated.mainCategory, updated.subCategory, updated.foodScope)
-          : collectionItemsKey(updated.mainCategory, updated.subCategory),
+        collectionItemsKey(updated.mainCategory, updated.subCategory),
         (prev: CollectionItem[] | undefined) => upsertCollectionItemSorted(prev, updated),
         { revalidate: false },
       )
@@ -534,12 +951,8 @@ export function CollectionPageContent() {
   }
 
   const handleDelete = async (id: number) => {
-    const target = editingItem ?? items.find((row) => row.id === id)
     await mutate((prev) => (prev ?? []).filter((item) => item.id !== id), { revalidate: false })
     await mutateAll((prev) => (prev ?? []).filter((item) => item.id !== id), { revalidate: false })
-    if (target?.mainCategory === 'food' && target.foodScope === 'regular') {
-      await mutateRegularFood((prev) => (prev ?? []).filter((item) => item.id !== id), { revalidate: false })
-    }
     await fetch(`/api/collection-items/${id}`, { method: 'DELETE' })
   }
 
@@ -563,7 +976,7 @@ export function CollectionPageContent() {
 
   const handleSectionChange = (next: CollectionSectionKey) => {
     setSection(next)
-    setShowHiddenOnly(false)
+    setShowHidden(false)
     const nextMain = getDefaultMainForSection(next)
     setMainCategory(nextMain)
     setSubCategory(getFirstSubcategory(nextMain))
@@ -589,15 +1002,15 @@ export function CollectionPageContent() {
               쇼핑
             </Typography>
             <Stack direction="row" alignItems="center" gap={0.25}>
-              <Tooltip title={showHiddenOnly ? '일반 목록' : '숨김만 보기'}>
+              <Tooltip title={showHidden ? '숨김 항목 가리기' : '숨김 항목 보기'}>
                 <IconButton
-                  onClick={() => setShowHiddenOnly((prev) => !prev)}
-                  aria-label={showHiddenOnly ? '일반 목록' : '숨김만 보기'}
-                  aria-pressed={showHiddenOnly}
+                  onClick={() => setShowHidden((prev) => !prev)}
+                  aria-label={showHidden ? '숨김 항목 가리기' : '숨김 항목 보기'}
+                  aria-pressed={showHidden}
                   size="small"
                   sx={{
-                    color: showHiddenOnly ? 'primary.main' : 'text.secondary',
-                    bgcolor: showHiddenOnly ? 'action.selected' : 'transparent',
+                    color: showHidden ? 'primary.main' : 'text.secondary',
+                    bgcolor: showHidden ? 'action.selected' : 'transparent',
                   }}
                 >
                   <VisibilityOffRoundedIcon fontSize="small" />
@@ -607,7 +1020,11 @@ export function CollectionPageContent() {
                 <IconButton
                   onClick={openAddDialog}
                   aria-label="항목 추가"
-                  sx={sxCollectionAddButton(isConsumableSection(section) ? 'food' : mainCategory)}
+                  sx={
+                    isConsumableSection(section)
+                      ? sxCollectionAddButtonByColor(getCollectionSectionMeta(section).color)
+                      : sxCollectionAddButton(mainCategory)
+                  }
                 >
                   <AddRoundedIcon />
                 </IconButton>
@@ -659,7 +1076,7 @@ export function CollectionPageContent() {
                   {trimmedQuery}
                 </Box>
                 {' '}검색 결과
-                {!listLoading ? ` · ${displayItems.length}건` : null}
+                {!listLoading ? ` · ${displayCount}건` : null}
               </Typography>
             </Box>
           ) : section === 'regular' ? (
@@ -673,6 +1090,28 @@ export function CollectionPageContent() {
               wrapSubChipClick={wrapSubChipClick}
               subChipButtonSx={subChipButtonSx}
             />
+          ) : section === 'occasional' ? (
+            <Box sx={sxCollectionSubChipPanelByColor(getCollectionSectionMeta('occasional').color)}>
+              {getCollectionSubFilters(mainCategory, subs).map((c) => (
+                <Box
+                  key={c.key}
+                  component="button"
+                  type="button"
+                  {...subChipLongPress}
+                  onClick={wrapSubChipClick(() => setSubCategory(c.key as CollectionSubKey))}
+                  sx={{
+                    ...sxCollectionSubChipByColor(
+                      getCollectionSectionMeta('occasional').color,
+                      subCategory === c.key,
+                    ),
+                    ...subChipButtonSx,
+                    touchAction: 'manipulation',
+                  }}
+                >
+                  {c.label}
+                </Box>
+              ))}
+            </Box>
           ) : (
             <Box sx={sxCollectionSubChipPanel(mainCategory)}>
               {getCollectionSubFilters(mainCategory, subs).map((c) => (
@@ -696,7 +1135,7 @@ export function CollectionPageContent() {
         </Stack>
       </Box>
 
-      <Box sx={{ ...sxPageScrollBody, flex: 1, py: { xs: 1.25, md: 1.5 } }}>
+      <Box sx={{ ...sxPageScrollBody, flex: 1, px: 0, py: 0, pb: 0 }}>
         {listLoading ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
             <CircularProgress />
@@ -704,19 +1143,15 @@ export function CollectionPageContent() {
         ) : !isSearching && visibleItemCount === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6, color: 'text.secondary' }}>
             <Typography sx={{ fontWeight: 600 }}>
-              {showHiddenOnly
-                ? '숨김 항목이 없습니다'
-                : isConsumableSection(section)
-                  ? `${section === 'regular' ? '상시' : '수시'} · ${subLabel} 목록이 비어 있습니다`
-                  : `${mainMeta.label} · ${subLabel} 목록이 비어 있습니다`}
+              {isConsumableSection(section)
+                ? `${section === 'regular' ? '상시' : '수시'} · ${subLabel} 목록이 비어 있습니다`
+                : `${mainMeta.label} · ${subLabel} 목록이 비어 있습니다`}
             </Typography>
-            {!showHiddenOnly ? (
-              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                + 버튼으로 {isConsumableSection(section) ? '소모품' : '소장품'}을 추가해 보세요
-              </Typography>
-            ) : null}
+            <Typography variant="body2" sx={{ mt: 0.5 }}>
+              + 버튼으로 {isConsumableSection(section) ? '소모품' : '소장품'}을 추가해 보세요
+            </Typography>
           </Stack>
-        ) : displayItems.length === 0 ? (
+        ) : displayCount === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6, color: 'text.secondary' }}>
             <Typography sx={{ fontWeight: 600 }}>검색 결과가 없습니다</Typography>
             <Typography variant="body2" sx={{ mt: 0.5 }}>
@@ -724,40 +1159,134 @@ export function CollectionPageContent() {
             </Typography>
           </Stack>
         ) : (
-          <Box sx={sxDesktopListGrid}>
-            {displayItems.map((item) => (
+          <Box sx={sxCollectionListStack()}>
+            {displayProducts.map((product) => (
+              <CollectionProductCard
+                key={`product-${product.id}`}
+                product={product}
+                onOpen={openProductVariants}
+                onDetail={setDetailItem}
+                showLivingCost={
+                  product.foodScope === 'regular' && (isSearching || section === 'regular')
+                }
+              />
+            ))}
+            {displayOwnItems.map((item) => (
               <CollectionItemCard
                 key={item.id}
                 item={item}
                 onEdit={openEditDialog}
                 onDetail={setDetailItem}
-                showLivingCost={
-                  isFoodMainCategory(item.mainCategory) &&
-                  item.foodScope === 'regular' &&
-                  (isSearching || section === 'regular')
-                }
+                showLivingCost={false}
               />
             ))}
           </Box>
         )}
       </Box>
 
-      <CollectionItemFormDialog
-        open={formOpen}
-        section={section}
-        mainCategory={editingItem?.mainCategory ?? mainCategory}
-        subCategory={formSubCategory}
-        item={editingItem}
-        onClose={closeFormDialog}
-        onSubmit={handleFormSubmit}
-        onDelete={
-          editingItem
-            ? async () => {
-                await handleDelete(editingItem.id)
-              }
-            : undefined
-        }
+      <CollectionProductVariantsDialog
+        open={variantsOpen}
+        product={variantsProduct}
+        selecting={selectingVariant}
+        onClose={() => {
+          setVariantsOpen(false)
+          setVariantsProduct(null)
+        }}
+        onChange={handleSelectVariant}
+        onEditName={() => {
+          setNameDialogMode('rename')
+          setNameDialogOpen(true)
+        }}
+        onEditVariant={(variant) => {
+          if (!variantsProduct) return
+          openProductForm(variantsProduct, { focusVariantId: variant.id, variantOnly: true })
+        }}
+        onAddVariant={() => {
+          if (!variantsProduct) return
+          openProductForm(variantsProduct, { startWithNewVariant: true, variantOnly: true })
+        }}
       />
+
+      {activeFoodScope ? (
+        <CollectionProductNameDialog
+          open={nameDialogOpen}
+          mode={nameDialogMode}
+          foodScope={activeFoodScope}
+          subLabel={subLabel}
+          initialName={nameDialogMode === 'rename' ? (variantsProduct?.name ?? '') : ''}
+          initialListChipFlags={
+            nameDialogMode === 'rename'
+              ? (variantsProduct?.listChipFlags ?? defaultFoodListChipFlags())
+              : defaultFoodListChipFlags()
+          }
+          onClose={() => setNameDialogOpen(false)}
+          onSubmit={nameDialogMode === 'create' ? handleCreateProductName : handleRenameProduct}
+          onDelete={
+            nameDialogMode === 'rename' && variantsProduct
+              ? async () => {
+                  await handleDeleteProduct(variantsProduct.id)
+                }
+              : undefined
+          }
+        />
+      ) : null}
+
+      {useProductForm ? (
+        <CollectionProductFormDialog
+          open={formOpen}
+          section={section}
+          subCategory={editingProduct?.subCategory ?? subCategory}
+          product={editingProduct}
+          initialActiveVariantId={formFocusVariantId}
+          startWithNewVariant={formStartWithNewVariant}
+          variantOnly={formVariantOnly}
+          onClose={closeFormDialog}
+          onSubmit={handleProductFormSubmit}
+          onDelete={
+            editingProduct
+              ? async () => {
+                  if (formVariantOnly && formFocusVariantId != null) {
+                    const keep = editingProduct.variants.filter((v) => v.id !== formFocusVariantId)
+                    const selectedVariantId =
+                      keep.length === 0
+                        ? null
+                        : editingProduct.selectedVariantId === formFocusVariantId
+                          ? keep[0]!.id
+                          : editingProduct.selectedVariantId
+                    const payload = collectionProductToPayload(
+                      {
+                        ...editingProduct,
+                        variants: keep,
+                        selectedVariantId,
+                      },
+                      selectedVariantId,
+                    )
+                    await handleUpdateProduct(payload)
+                    return
+                  }
+                  await handleDeleteProduct(editingProduct.id)
+                }
+              : undefined
+          }
+        />
+      ) : (
+        <CollectionItemFormDialog
+          open={formOpen}
+          section={section}
+          mainCategory={editingItem?.mainCategory ?? mainCategory}
+          subCategory={formSubCategory}
+          item={editingItem}
+          onClose={closeFormDialog}
+          onSubmit={handleFormSubmit}
+          onDelete={
+            editingItem
+              ? async () => {
+                  await handleDelete(editingItem.id)
+                }
+              : undefined
+          }
+        />
+      )}
 
       <CollectionItemDetailDialog
         open={detailItem != null}
