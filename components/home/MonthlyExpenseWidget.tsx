@@ -1,14 +1,43 @@
 'use client'
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
+// 수정: Auto — 2026-07-19 03:30 (국민연금 고지서 정보·수정)
+// 수정: Auto — 2026-07-19 03:15 (건보 고지서 정보·수정)
+// 수정: Auto — 2026-07-19 03:25 (국민연금·건보 상세)
+// 수정: Auto — 2026-07-19 03:15 (통신비 정보·수정)
 
 import { MonthlyExpenseFormDialog } from '@/components/home/MonthlyExpenseFormDialog'
 import { MonthlyExpenseItemRow } from '@/components/home/MonthlyExpenseItemRow'
 import { MonthlyExpenseOrderDialog } from '@/components/home/MonthlyExpenseOrderDialog'
+import { MonthlyHealthInsuranceEditorDialog } from '@/components/home/MonthlyHealthInsuranceEditorDialog'
+import { MonthlyHealthInsuranceViewDialog } from '@/components/home/MonthlyHealthInsuranceViewDialog'
+import { MonthlyInsuranceEditorDialog } from '@/components/home/MonthlyInsuranceEditorDialog'
+import { MonthlyInsuranceViewDialog } from '@/components/home/MonthlyInsuranceViewDialog'
+import { MonthlyNationalPensionEditorDialog } from '@/components/home/MonthlyNationalPensionEditorDialog'
+import { MonthlyNationalPensionViewDialog } from '@/components/home/MonthlyNationalPensionViewDialog'
+import { MonthlyTelecomDetailEditorDialog } from '@/components/home/MonthlyTelecomDetailEditorDialog'
+import { MonthlyTelecomDetailViewDialog } from '@/components/home/MonthlyTelecomDetailViewDialog'
 import { type MonthlyExpense, useMonthlyExpenses } from '@/hooks/useMonthlyExpenses'
 import { useLongPress } from '@/hooks/useLongPress'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import { formatWon } from '@/lib/annualPaymentCalc'
+import {
+  healthInsuranceGrandTotal,
+  type HealthInsuranceDetail,
+} from '@/lib/healthInsuranceDetail'
+import {
+  insuranceGrandTotal,
+  type InsuranceDetail,
+} from '@/lib/insuranceExpenseDetail'
 import type { MonthlyExpensePayload } from '@/lib/monthlyExpensePayload'
+import {
+  nationalPensionGrandTotal,
+  type NationalPensionDetail,
+} from '@/lib/nationalPensionDetail'
+import {
+  hasSectionExpenseDetailType,
+  telecomGrandTotal,
+  type TelecomDetail,
+} from '@/lib/telecomExpenseDetail'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -30,6 +59,8 @@ export function MonthlyExpenseWidget() {
   const [formOpen, setFormOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<MonthlyExpense | null>(null)
+  const [infoItem, setInfoItem] = useState<MonthlyExpense | null>(null)
+  const [infoEditOpen, setInfoEditOpen] = useState(false)
 
   const monthLabel = dayjs().format('M월')
   const totalAmount = useMemo(() => items.reduce((sum, row) => sum + row.amount, 0), [items])
@@ -95,6 +126,115 @@ export function MonthlyExpenseWidget() {
     const updated = (await res.json()) as MonthlyExpense[]
     await mutate(updated, { revalidate: false })
   }
+
+  const handleSaveTelecomFromInfo = async (detail: TelecomDetail) => {
+    if (!infoItem || !hasSectionExpenseDetailType(infoItem.expenseType)) return
+    const amount = telecomGrandTotal(detail)
+    const payload: MonthlyExpensePayload = {
+      title: infoItem.title,
+      dayOfMonth: infoItem.dayOfMonth,
+      amount,
+      payType: infoItem.payType,
+      expenseType: infoItem.expenseType,
+      telecomDetail: detail,
+      healthInsuranceDetail: null,
+      nationalPensionDetail: null,
+      insuranceDetail: null,
+    }
+    const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as MonthlyExpense
+    await mutate((prev) => replaceItem(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const handleSaveHealthFromInfo = async (detail: HealthInsuranceDetail) => {
+    if (!infoItem || infoItem.expenseType !== 'healthInsurance') return
+    const amount = healthInsuranceGrandTotal(detail)
+    const payload: MonthlyExpensePayload = {
+      title: infoItem.title,
+      dayOfMonth: infoItem.dayOfMonth,
+      amount,
+      payType: infoItem.payType,
+      expenseType: 'healthInsurance',
+      telecomDetail: null,
+      healthInsuranceDetail: detail,
+      nationalPensionDetail: null,
+      insuranceDetail: null,
+    }
+    const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as MonthlyExpense
+    await mutate((prev) => replaceItem(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const handleSavePensionFromInfo = async (detail: NationalPensionDetail) => {
+    if (!infoItem || infoItem.expenseType !== 'nationalPension') return
+    const amount = nationalPensionGrandTotal(detail)
+    const payload: MonthlyExpensePayload = {
+      title: infoItem.title,
+      dayOfMonth: infoItem.dayOfMonth,
+      amount,
+      payType: infoItem.payType,
+      expenseType: 'nationalPension',
+      telecomDetail: null,
+      healthInsuranceDetail: null,
+      nationalPensionDetail: detail,
+      insuranceDetail: null,
+    }
+    const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as MonthlyExpense
+    await mutate((prev) => replaceItem(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const handleSaveInsuranceFromInfo = async (detail: InsuranceDetail) => {
+    if (!infoItem || infoItem.expenseType !== 'insurance') return
+    const amount = insuranceGrandTotal(detail)
+    const payload: MonthlyExpensePayload = {
+      title: infoItem.title,
+      dayOfMonth: infoItem.dayOfMonth,
+      amount,
+      payType: infoItem.payType,
+      expenseType: 'insurance',
+      telecomDetail: null,
+      healthInsuranceDetail: null,
+      nationalPensionDetail: null,
+      insuranceDetail: detail,
+    }
+    const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as MonthlyExpense
+    await mutate((prev) => replaceItem(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const isTelecomInfo = infoItem != null && hasSectionExpenseDetailType(infoItem.expenseType)
+  const isHealthInfo = infoItem?.expenseType === 'healthInsurance'
+  const isPensionInfo = infoItem?.expenseType === 'nationalPension'
+  const isInsuranceInfo = infoItem?.expenseType === 'insurance'
 
   return (
     <>
@@ -169,6 +309,7 @@ export function MonthlyExpenseWidget() {
                   key={item.id}
                   item={item}
                   onEdit={wrapItemClick(() => openEdit(item))}
+                  onOpenDetailInfo={() => setInfoItem(item)}
                 />
               ))}
             </Stack>
@@ -189,6 +330,80 @@ export function MonthlyExpenseWidget() {
         items={items}
         onClose={() => setOrderOpen(false)}
         onSave={handleSaveOrder}
+      />
+
+      <MonthlyTelecomDetailViewDialog
+        open={isTelecomInfo && !infoEditOpen}
+        title={infoItem?.title ?? ''}
+        expenseType="telecom"
+        detail={infoItem?.telecomDetail ?? null}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <MonthlyTelecomDetailEditorDialog
+        open={infoEditOpen && isTelecomInfo}
+        expenseType="telecom"
+        initial={infoItem?.telecomDetail ?? null}
+        expenseTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSaveTelecomFromInfo(detail)
+        }}
+      />
+
+      <MonthlyHealthInsuranceViewDialog
+        open={Boolean(isHealthInfo && !infoEditOpen)}
+        title={infoItem?.title ?? ''}
+        detail={infoItem?.healthInsuranceDetail ?? null}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <MonthlyHealthInsuranceEditorDialog
+        open={Boolean(infoEditOpen && isHealthInfo)}
+        initial={infoItem?.healthInsuranceDetail ?? null}
+        expenseTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSaveHealthFromInfo(detail)
+        }}
+      />
+
+      <MonthlyNationalPensionViewDialog
+        open={Boolean(isPensionInfo && !infoEditOpen)}
+        title={infoItem?.title ?? ''}
+        detail={infoItem?.nationalPensionDetail ?? null}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <MonthlyNationalPensionEditorDialog
+        open={Boolean(infoEditOpen && isPensionInfo)}
+        initial={infoItem?.nationalPensionDetail ?? null}
+        expenseTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSavePensionFromInfo(detail)
+        }}
+      />
+
+      <MonthlyInsuranceViewDialog
+        open={Boolean(isInsuranceInfo && !infoEditOpen)}
+        title={infoItem?.title ?? ''}
+        detail={infoItem?.insuranceDetail ?? null}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <MonthlyInsuranceEditorDialog
+        open={Boolean(infoEditOpen && isInsuranceInfo)}
+        initial={infoItem?.insuranceDetail ?? null}
+        expenseTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSaveInsuranceFromInfo(detail)
+        }}
       />
     </>
   )

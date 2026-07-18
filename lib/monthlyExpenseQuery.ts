@@ -1,24 +1,38 @@
+// 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
+// 수정: Auto — 2026-07-19 03:30 (국민연금 고지서형)
+// 수정: Auto — 2026-07-19 03:15 (건보 고지서형 상세)
+// 수정: Auto — 2026-07-19 03:15 (통신비 타입·상세)
 // 수정: Auto — 2026-06-08
 import { asc, eq } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
 import {
+  parseHealthInsuranceDetail,
+  type HealthInsuranceDetail,
+} from '@/lib/healthInsuranceDetail'
+import {
+  parseInsuranceDetail,
+  type InsuranceDetail,
+} from '@/lib/insuranceExpenseDetail'
+import {
+  expenseDetailJsonForDb,
   normalizeMonthlyExpenseDayFromDb,
   type MonthlyExpensePayload,
   monthlyExpenseDayForDb,
 } from '@/lib/monthlyExpensePayload'
 import { ensureMonthlyExpenseSchema } from '@/lib/monthlyExpenseSchema'
+import {
+  parseNationalPensionDetail,
+  type NationalPensionDetail,
+} from '@/lib/nationalPensionDetail'
 import { monthlyFixedExpenses } from '@/lib/schema'
-
-export type MonthlyExpenseRow = {
-  id: number
-  title: string
-  dayOfMonth: number
-  amount: number
-  payType: string
-  sortOrder: number
-  createdAt: string
-}
+import {
+  hasSectionExpenseDetailType,
+  isValidMonthlyExpenseType,
+  parseTelecomDetail,
+  type MonthlyExpenseType,
+  type TelecomDetail,
+} from '@/lib/telecomExpenseDetail'
 
 export type NormalizedMonthlyExpense = {
   id: number
@@ -26,17 +40,45 @@ export type NormalizedMonthlyExpense = {
   dayOfMonth: number | null
   amount: number
   payType: 'card' | 'cash'
+  expenseType: MonthlyExpenseType
+  telecomDetail: TelecomDetail | null
+  healthInsuranceDetail: HealthInsuranceDetail | null
+  nationalPensionDetail: NationalPensionDetail | null
+  insuranceDetail: InsuranceDetail | null
   sortOrder: number
   createdAt: string
 }
 
-function normalizeRow(row: MonthlyExpenseRow): NormalizedMonthlyExpense {
+function normalizeRow(row: typeof monthlyFixedExpenses.$inferSelect): NormalizedMonthlyExpense {
+  const expenseType: MonthlyExpenseType = isValidMonthlyExpenseType(row.expenseType)
+    ? row.expenseType
+    : 'none'
+
+  let telecomDetail: TelecomDetail | null = null
+  let healthInsuranceDetail: HealthInsuranceDetail | null = null
+  let nationalPensionDetail: NationalPensionDetail | null = null
+  let insuranceDetail: InsuranceDetail | null = null
+  if (expenseType === 'healthInsurance') {
+    healthInsuranceDetail = parseHealthInsuranceDetail(row.telecomDetail)
+  } else if (expenseType === 'nationalPension') {
+    nationalPensionDetail = parseNationalPensionDetail(row.telecomDetail)
+  } else if (expenseType === 'insurance') {
+    insuranceDetail = parseInsuranceDetail(row.telecomDetail)
+  } else if (hasSectionExpenseDetailType(expenseType)) {
+    telecomDetail = parseTelecomDetail(row.telecomDetail)
+  }
+
   return {
     id: row.id,
     title: row.title,
     dayOfMonth: normalizeMonthlyExpenseDayFromDb(row.dayOfMonth),
     amount: row.amount,
     payType: row.payType === 'cash' ? 'cash' : 'card',
+    expenseType,
+    telecomDetail,
+    healthInsuranceDetail,
+    nationalPensionDetail,
+    insuranceDetail,
     sortOrder: row.sortOrder,
     createdAt: row.createdAt,
   }
@@ -88,6 +130,8 @@ export async function createMonthlyExpense(payload: MonthlyExpensePayload) {
       dayOfMonth: monthlyExpenseDayForDb(payload.dayOfMonth),
       amount: payload.amount,
       payType: payload.payType,
+      expenseType: payload.expenseType,
+      telecomDetail: expenseDetailJsonForDb(payload),
       sortOrder: existing.length,
       createdAt: now,
     })
@@ -105,6 +149,8 @@ export async function updateMonthlyExpense(id: number, payload: MonthlyExpensePa
       dayOfMonth: monthlyExpenseDayForDb(payload.dayOfMonth),
       amount: payload.amount,
       payType: payload.payType,
+      expenseType: payload.expenseType,
+      telecomDetail: expenseDetailJsonForDb(payload),
     })
     .where(eq(monthlyFixedExpenses.id, id))
     .returning()

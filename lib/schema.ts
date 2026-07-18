@@ -190,6 +190,10 @@ export const monthlyFixedExpenses = sqliteTable('monthly_fixed_expenses', {
   amount: integer('amount').notNull(),
   /** card | cash */
   payType: text('pay_type').notNull(),
+  /** none | telecom | nationalPension | healthInsurance | insurance */
+  expenseType: text('expense_type').notNull().default('none'),
+  /** JSON — 타입별 상세 내역 (통신비·국민연금·건강보험) */
+  telecomDetail: text('telecom_detail'),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: text('created_at').notNull(),
 })
