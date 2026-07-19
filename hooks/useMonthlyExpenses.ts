@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드)
 // 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
 // 수정: Auto — 2026-07-19 13:00 (렌탈 타입)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
@@ -25,6 +26,7 @@ export interface MonthlyExpense {
   dayOfMonth: number | null
   amount: number
   payType: MonthlyExpensePayType
+  monthlyTaskId: number | null
   expenseType: MonthlyExpenseType
   telecomDetail: TelecomDetail | null
   healthInsuranceDetail: HealthInsuranceDetail | null

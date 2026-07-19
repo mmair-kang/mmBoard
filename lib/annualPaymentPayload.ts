@@ -1,3 +1,5 @@
+// 수정: Auto — 2026-07-19 16:05 (결제방식·카드)
+// 수정: Auto — 2026-07-19 16:00 (네이버플러스 멤버십)
 // 수정: Auto — 2026-07-19 15:10 (Cursor PRO)
 // 수정: Auto — 2026-07-19 14:40 (연납 타입·자동차보험)
 // 수정: Auto — 2026-06-08
@@ -5,7 +7,9 @@
 import { annualDayToDb } from '@/lib/annualPaymentLabel'
 import {
   hasAnnualPaymentDetailType,
+  isValidAnnualPaymentPayType,
   isValidAnnualPaymentType,
+  type AnnualPaymentPayType,
   type AnnualPaymentType,
 } from '@/lib/annualPaymentTypes'
 import { parseOutflowDayValue } from '@/lib/accountPayload'
@@ -21,6 +25,12 @@ import {
   parseCursorProAnnualDetail,
   type CursorProAnnualDetail,
 } from '@/lib/cursorProAnnualDetail'
+import {
+  naverPlusAnnualDetailForDb,
+  naverPlusAnnualGrandTotal,
+  parseNaverPlusAnnualDetail,
+  type NaverPlusAnnualDetail,
+} from '@/lib/naverPlusAnnualDetail'
 
 export type AnnualPaymentPayload = {
   id?: number
@@ -29,8 +39,11 @@ export type AnnualPaymentPayload = {
   dayOfMonth: number | null
   amount: number
   paymentType: AnnualPaymentType
+  payType: AnnualPaymentPayType
+  monthlyTaskId: number | null
   carInsuranceDetail: CarInsuranceAnnualDetail | null
   cursorProDetail: CursorProAnnualDetail | null
+  naverPlusDetail: NaverPlusAnnualDetail | null
 }
 
 export type AnnualPaymentProgressPayload = {
@@ -50,7 +63,17 @@ export function annualDetailJsonForDb(payload: AnnualPaymentPayload): string | n
   if (payload.paymentType === 'cursorPro') {
     return cursorProAnnualDetailForDb(payload.cursorProDetail)
   }
+  if (payload.paymentType === 'naverPlus') {
+    return naverPlusAnnualDetailForDb(payload.naverPlusDetail)
+  }
   return null
+}
+
+function parseMonthlyTaskId(value: unknown): number | null | undefined {
+  if (value == null || value === '') return null
+  const id = Math.round(Number(value))
+  if (!Number.isFinite(id) || id < 1) return undefined
+  return id
 }
 
 export function parseAnnualPaymentPayload(value: unknown): AnnualPaymentPayload | null {
@@ -74,8 +97,17 @@ export function parseAnnualPaymentPayload(value: unknown): AnnualPaymentPayload 
   if (!isValidAnnualPaymentType(paymentTypeRaw)) return null
   const paymentType = paymentTypeRaw
 
+  const payTypeRaw = body.payType ?? 'card'
+  if (!isValidAnnualPaymentPayType(payTypeRaw)) return null
+  const payType = payTypeRaw
+
+  const monthlyTaskIdParsed = parseMonthlyTaskId(body.monthlyTaskId)
+  if (monthlyTaskIdParsed === undefined) return null
+  const monthlyTaskId = payType === 'card' ? monthlyTaskIdParsed : null
+
   let carInsuranceDetail: CarInsuranceAnnualDetail | null = null
   let cursorProDetail: CursorProAnnualDetail | null = null
+  let naverPlusDetail: NaverPlusAnnualDetail | null = null
 
   if (paymentType === 'carInsurance') {
     carInsuranceDetail = parseCarInsuranceAnnualDetail(
@@ -85,6 +117,9 @@ export function parseAnnualPaymentPayload(value: unknown): AnnualPaymentPayload 
   } else if (paymentType === 'cursorPro') {
     cursorProDetail = parseCursorProAnnualDetail(body.cursorProDetail ?? body.detailJson)
     if (!cursorProDetail) return null
+  } else if (paymentType === 'naverPlus') {
+    naverPlusDetail = parseNaverPlusAnnualDetail(body.naverPlusDetail ?? body.detailJson)
+    if (!naverPlusDetail) return null
   }
 
   let amount = Math.round(Number(body.amount))
@@ -92,6 +127,8 @@ export function parseAnnualPaymentPayload(value: unknown): AnnualPaymentPayload 
     amount = carInsuranceAnnualGrandTotal(carInsuranceDetail)
   } else if (paymentType === 'cursorPro' && cursorProDetail) {
     amount = cursorProAnnualGrandTotal(cursorProDetail)
+  } else if (paymentType === 'naverPlus' && naverPlusDetail) {
+    amount = naverPlusAnnualGrandTotal(naverPlusDetail)
   }
   if (!Number.isFinite(amount) || amount < 1) return null
 
@@ -106,8 +143,11 @@ export function parseAnnualPaymentPayload(value: unknown): AnnualPaymentPayload 
     dayOfMonth,
     amount,
     paymentType,
+    payType,
+    monthlyTaskId,
     carInsuranceDetail: paymentType === 'carInsurance' ? carInsuranceDetail : null,
     cursorProDetail: paymentType === 'cursorPro' ? cursorProDetail : null,
+    naverPlusDetail: paymentType === 'naverPlus' ? naverPlusDetail : null,
   }
 }
 

@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:05 (결제방식·카드 선택)
+// 수정: Auto — 2026-07-19 16:00 (네이버플러스 멤버십)
 // 수정: Auto — 2026-07-19 15:10 (Cursor PRO 타입)
 // 수정: Auto — 2026-07-19 14:50 (개별 수정·삭제)
 // 수정: Auto — 2026-07-19 14:40 (연납 타입·자동차보험)
@@ -6,6 +8,7 @@
 
 import { AnnualCarInsuranceEditorDialog } from '@/components/home/AnnualCarInsuranceEditorDialog'
 import { AnnualCursorProEditorDialog } from '@/components/home/AnnualCursorProEditorDialog'
+import { AnnualNaverPlusEditorDialog } from '@/components/home/AnnualNaverPlusEditorDialog'
 import { AnnualDayModeSelect, AnnualMonthSelect } from '@/components/home/AnnualScheduleSelect'
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogFooter } from '@/components/common/FormDialogFooter'
@@ -21,11 +24,13 @@ import {
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
 import type { AnnualPayment } from '@/hooks/useAnnualPayments'
+import { useMonthlyTasks } from '@/hooks/useMonthlyTasks'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import type { AnnualPaymentPayload } from '@/lib/annualPaymentPayload'
 import {
   ANNUAL_PAYMENT_TYPES,
   getAnnualPaymentTypeLabel,
+  type AnnualPaymentPayType,
   type AnnualPaymentType,
 } from '@/lib/annualPaymentTypes'
 import {
@@ -39,12 +44,20 @@ import {
   formatCursorProUsd,
   type CursorProAnnualDetail,
 } from '@/lib/cursorProAnnualDetail'
+import {
+  defaultNaverPlusAnnualDetail,
+  naverPlusAnnualGrandTotal,
+  type NaverPlusAnnualDetail,
+} from '@/lib/naverPlusAnnualDetail'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import DialogContent from '@mui/material/DialogContent'
 import FormControl from '@mui/material/FormControl'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import InputLabel from '@mui/material/InputLabel'
 import MenuItem from '@mui/material/MenuItem'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
 import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
@@ -70,18 +83,31 @@ function scheduleFromLastPaid(lastPaidOn: string): { month: number; dayOfMonth: 
 
 export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelete }: Props) {
   const isEdit = item != null
+  const { items: monthlyTasks } = useMonthlyTasks()
   const [title, setTitle] = useState('')
   const [month, setMonth] = useState(1)
   const [dayOfMonth, setDayOfMonth] = useState<number | null>(null)
   const [amount, setAmount] = useState('')
   const [paymentType, setPaymentType] = useState<AnnualPaymentType>('none')
+  const [payType, setPayType] = useState<AnnualPaymentPayType>('card')
+  const [monthlyTaskId, setMonthlyTaskId] = useState<number | null>(null)
   const [carDetail, setCarDetail] = useState<CarInsuranceAnnualDetail | null>(null)
   const [cursorDetail, setCursorDetail] = useState<CursorProAnnualDetail | null>(null)
+  const [naverDetail, setNaverDetail] = useState<NaverPlusAnnualDetail | null>(null)
   const [carOpen, setCarOpen] = useState(false)
   const [cursorOpen, setCursorOpen] = useState(false)
+  const [naverOpen, setNaverOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+
+  const cardOptions = useMemo(
+    () =>
+      monthlyTasks.filter(
+        (task) => task.optionType === 'card_target' || task.optionType === 'card_benefit',
+      ),
+    [monthlyTasks],
+  )
 
   useEffect(() => {
     if (!open) {
@@ -90,10 +116,14 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
       setDayOfMonth(null)
       setAmount('')
       setPaymentType('none')
+      setPayType('card')
+      setMonthlyTaskId(null)
       setCarDetail(null)
       setCursorDetail(null)
+      setNaverDetail(null)
       setCarOpen(false)
       setCursorOpen(false)
+      setNaverOpen(false)
       setSubmitting(false)
       setDeleting(false)
       setFormError(null)
@@ -105,22 +135,37 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
       setDayOfMonth(item.dayOfMonth)
       setAmount(String(item.amount))
       setPaymentType(item.paymentType ?? 'none')
+      setPayType(item.payType ?? 'card')
+      setMonthlyTaskId(item.monthlyTaskId)
       setCarDetail(item.carInsuranceDetail)
       setCursorDetail(item.cursorProDetail)
+      setNaverDetail(item.naverPlusDetail)
     } else {
       setTitle('')
       setMonth(1)
       setDayOfMonth(null)
       setAmount('')
       setPaymentType('none')
+      setPayType('card')
+      setMonthlyTaskId(null)
       setCarDetail(null)
       setCursorDetail(null)
+      setNaverDetail(null)
     }
   }, [open, item])
 
+  // 카드 목록이 로드되면 미선택 시 첫 카드 자동 선택
+  useEffect(() => {
+    if (!open || payType !== 'card') return
+    if (monthlyTaskId != null) return
+    if (cardOptions.length === 0) return
+    setMonthlyTaskId(cardOptions[0].id)
+  }, [open, payType, monthlyTaskId, cardOptions])
+
   const usesCar = paymentType === 'carInsurance'
   const usesCursor = paymentType === 'cursorPro'
-  const usesDetail = usesCar || usesCursor
+  const usesNaver = paymentType === 'naverPlus'
+  const usesDetail = usesCar || usesCursor || usesNaver
 
   const carTotal = useMemo(
     () => (carDetail ? carInsuranceAnnualGrandTotal(carDetail) : 0),
@@ -130,7 +175,11 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
     () => (cursorDetail ? cursorProAnnualGrandTotal(cursorDetail) : 0),
     [cursorDetail],
   )
-  const detailTotal = usesCar ? carTotal : usesCursor ? cursorTotal : 0
+  const naverTotal = useMemo(
+    () => (naverDetail ? naverPlusAnnualGrandTotal(naverDetail) : 0),
+    [naverDetail],
+  )
+  const detailTotal = usesCar ? carTotal : usesCursor ? cursorTotal : usesNaver ? naverTotal : 0
   const parsedAmount = usesDetail
     ? detailTotal
     : Math.round(Number(amount.replace(/[^\d]/g, ''))) || 0
@@ -139,17 +188,30 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
     Boolean(title.trim()) &&
     parsedAmount >= 1 &&
     (!usesCar || carDetail != null) &&
-    (!usesCursor || cursorDetail != null)
+    (!usesCursor || cursorDetail != null) &&
+    (!usesNaver || naverDetail != null) &&
+    (payType !== 'card' || monthlyTaskId != null)
 
   const clearDetails = () => {
     setCarDetail(null)
     setCursorDetail(null)
+    setNaverDetail(null)
+  }
+
+  const handlePayTypeChange = (next: AnnualPaymentPayType) => {
+    setPayType(next)
+    if (next === 'cash') {
+      setMonthlyTaskId(null)
+    } else if (monthlyTaskId == null && cardOptions[0]) {
+      setMonthlyTaskId(cardOptions[0].id)
+    }
   }
 
   const handleTypeChange = (next: AnnualPaymentType) => {
     setPaymentType(next)
     setCarOpen(false)
     setCursorOpen(false)
+    setNaverOpen(false)
     if (next === 'carInsurance') {
       clearDetails()
       const detail = item?.carInsuranceDetail
@@ -165,6 +227,14 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
       setCursorDetail(detail)
       if (!title.trim()) setTitle('Cursor PRO')
       setCursorOpen(true)
+    } else if (next === 'naverPlus') {
+      clearDetails()
+      const detail = item?.naverPlusDetail
+        ? structuredClone(item.naverPlusDetail)
+        : defaultNaverPlusAnnualDetail()
+      setNaverDetail(detail)
+      if (!title.trim()) setTitle('네이버플러스 멤버십')
+      setNaverOpen(true)
     } else {
       clearDetails()
     }
@@ -178,8 +248,13 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
     try {
       let submitMonth = month
       let submitDay = dayOfMonth
-      if (usesCursor && cursorDetail?.lastPaidOn) {
-        const schedule = scheduleFromLastPaid(cursorDetail.lastPaidOn)
+      const lastPaidOn = usesCursor
+        ? cursorDetail?.lastPaidOn
+        : usesNaver
+          ? naverDetail?.lastPaidOn
+          : null
+      if (lastPaidOn) {
+        const schedule = scheduleFromLastPaid(lastPaidOn)
         if (schedule) {
           submitMonth = schedule.month
           submitDay = schedule.dayOfMonth
@@ -191,8 +266,11 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
         dayOfMonth: submitDay,
         amount: parsedAmount,
         paymentType,
+        payType,
+        monthlyTaskId: payType === 'card' ? monthlyTaskId : null,
         carInsuranceDetail: usesCar ? carDetail : null,
         cursorProDetail: usesCursor ? cursorDetail : null,
+        naverPlusDetail: usesNaver ? naverDetail : null,
       })
       onClose()
     } catch (err) {
@@ -300,6 +378,25 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
                       금액은 Cursor 연납 원화로 자동 반영됩니다
                     </Typography>
                   </Box>
+                ) : usesNaver ? (
+                  <Box>
+                    <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+                        연간 {formatWon(naverTotal)}
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setNaverOpen(true)}
+                        sx={{ fontWeight: 700 }}
+                      >
+                        상세 내역
+                      </Button>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.35, display: 'block' }}>
+                      금액은 연간 결제금액으로 자동 반영됩니다
+                    </Typography>
+                  </Box>
                 ) : (
                   <TextField
                     label="금액"
@@ -313,6 +410,57 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
                     {...formDialogCompactTextFieldProps}
                   />
                 )}
+
+                <Box>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}
+                  >
+                    결제
+                  </Typography>
+                  <RadioGroup
+                    row
+                    value={payType}
+                    onChange={(e) => handlePayTypeChange(e.target.value as AnnualPaymentPayType)}
+                  >
+                    <FormControlLabel value="card" control={<Radio size="small" />} label="카드" />
+                    <FormControlLabel value="cash" control={<Radio size="small" />} label="현금" />
+                  </RadioGroup>
+                </Box>
+
+                {payType === 'card' ? (
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="annual-pay-card-label">결제 카드</InputLabel>
+                    <Select
+                      labelId="annual-pay-card-label"
+                      label="결제 카드"
+                      value={monthlyTaskId != null ? String(monthlyTaskId) : ''}
+                      onChange={(e) => {
+                        const v = String(e.target.value)
+                        setMonthlyTaskId(v ? Number(v) : null)
+                      }}
+                      disabled={cardOptions.length === 0}
+                    >
+                      {cardOptions.length === 0 ? (
+                        <MenuItem value="" disabled>
+                          카드 실적에 등록된 카드가 없습니다
+                        </MenuItem>
+                      ) : (
+                        cardOptions.map((card) => (
+                          <MenuItem key={card.id} value={String(card.id)}>
+                            {card.title}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                    {cardOptions.length === 0 ? (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.4, display: 'block' }}>
+                        카드 탭에서 카드를 먼저 등록해 주세요
+                      </Typography>
+                    ) : null}
+                  </FormControl>
+                ) : null}
 
                 {formError ? (
                   <Typography variant="body2" color="error" sx={{ fontWeight: 600 }}>
@@ -351,6 +499,22 @@ export function AnnualPaymentFormDialog({ open, item, onClose, onSubmit, onDelet
         onSave={(next) => {
           setCursorDetail(next)
           setAmount(String(cursorProAnnualGrandTotal(next)))
+          const schedule = scheduleFromLastPaid(next.lastPaidOn)
+          if (schedule) {
+            setMonth(schedule.month)
+            setDayOfMonth(schedule.dayOfMonth)
+          }
+        }}
+      />
+
+      <AnnualNaverPlusEditorDialog
+        open={naverOpen}
+        initial={naverDetail}
+        paymentTitle={title.trim() || undefined}
+        onClose={() => setNaverOpen(false)}
+        onSave={(next) => {
+          setNaverDetail(next)
+          setAmount(String(naverPlusAnnualGrandTotal(next)))
           const schedule = scheduleFromLastPaid(next.lastPaidOn)
           if (schedule) {
             setMonth(schedule.month)

@@ -1,9 +1,11 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드 표시)
 // 수정: Auto — 2026-07-19 03:45 (납입내역·방법 제거, 횟수·최종월 자동)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약내역 조회)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
+import { MonthlyExpensePayInfoRows } from '@/components/home/MonthlyExpensePayInfoRows'
 import {
   formDialogActionsSx,
   formDialogContentScrollSx,
@@ -11,6 +13,7 @@ import {
   formDialogPaperSlotSx,
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
+import type { MonthlyExpensePayType } from '@/hooks/useMonthlyExpenses'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
   formatInsurancePeriod,
@@ -32,6 +35,8 @@ type Props = {
   open: boolean
   title: string
   detail: InsuranceDetail | null
+  payType?: MonthlyExpensePayType
+  cardTitle?: string | null
   onClose: () => void
   onEdit: () => void
 }
@@ -85,7 +90,15 @@ function TableCard({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function MonthlyInsuranceViewDialog({ open, title, detail, onClose, onEdit }: Props) {
+export function MonthlyInsuranceViewDialog({
+  open,
+  title,
+  detail,
+  payType = 'card',
+  cardTitle,
+  onClose,
+  onEdit,
+}: Props) {
   const [tab, setTab] = useState(0)
 
   useEffect(() => {
@@ -149,6 +162,9 @@ export function MonthlyInsuranceViewDialog({ open, title, detail, onClose, onEdi
                   계약정보
                 </Typography>
                 <TableCard>
+                  <Box sx={{ px: 1.1 }}>
+                    <MonthlyExpensePayInfoRows payType={payType} cardTitle={cardTitle} labelWidth={108} />
+                  </Box>
                   <InfoRow label="보험기간" value={formatInsurancePeriod(detail)} />
                   <InfoRow label="보험료" value={`${detail.premium.toLocaleString('ko-KR')}원`} />
                   <InfoRow label="납입기간" value={detail.paymentTerm} />

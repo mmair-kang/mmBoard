@@ -1,4 +1,7 @@
+// 수정: Auto — 2026-07-19 15:55 (만료일 잔여 일수)
 // 수정: Auto — 2026-07-19 14:40 (연납 자동차보험 상세)
+
+import dayjs, { type Dayjs } from 'dayjs'
 
 function newId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -134,4 +137,27 @@ export function formatCarInsuranceExpiry(iso: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
   if (!match) return iso
   return `${match[1]}.${match[2]}.${match[3]}`
+}
+
+/** 만료일까지 남은 일수 */
+export function getCarInsuranceDaysRemaining(
+  expiresOn: string,
+  today: Dayjs = dayjs(),
+): number | null {
+  if (!expiresOn.trim()) return null
+  const end = dayjs(expiresOn).startOf('day')
+  if (!end.isValid()) return null
+  return end.diff(today.startOf('day'), 'day')
+}
+
+/** 예: "123일 남음" / "오늘 만료" / "만료됨" */
+export function formatCarInsuranceExpiryRemaining(
+  expiresOn: string,
+  today: Dayjs = dayjs(),
+): string | null {
+  const days = getCarInsuranceDaysRemaining(expiresOn, today)
+  if (days == null) return null
+  if (days > 0) return `${days}일 남음`
+  if (days === 0) return '오늘 만료'
+  return '만료됨'
 }

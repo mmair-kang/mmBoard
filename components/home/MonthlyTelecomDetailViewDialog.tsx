@@ -1,10 +1,12 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드 표시)
 // 수정: Auto — 2026-07-19 12:15 (할인 약정 남은 일수)
 // 수정: Auto — 2026-07-19 03:25 (국민연금·건보 상세 조회)
 // 수정: Auto — 2026-07-19 03:15 (통신비 상세 조회)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
+import { MonthlyExpensePayInfoRows } from '@/components/home/MonthlyExpensePayInfoRows'
 import {
   formDialogActionsSx,
   formDialogContentScrollSx,
@@ -12,6 +14,7 @@ import {
   formDialogPaperSlotSx,
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
+import type { MonthlyExpensePayType } from '@/hooks/useMonthlyExpenses'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
   formatTelecomDiscountEndsOn,
@@ -37,6 +40,8 @@ type Props = {
   title: string
   expenseType: MonthlySectionDetailType
   detail: TelecomDetail | null
+  payType?: MonthlyExpensePayType
+  cardTitle?: string | null
   onClose: () => void
   onEdit: () => void
 }
@@ -57,6 +62,8 @@ export function MonthlyTelecomDetailViewDialog({
   title,
   expenseType,
   detail,
+  payType = 'card',
+  cardTitle,
   onClose,
   onEdit,
 }: Props) {
@@ -85,6 +92,9 @@ export function MonthlyTelecomDetailViewDialog({
             </Typography>
           ) : (
             <Stack spacing={1.25}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 0.25 }}>
+                <MonthlyExpensePayInfoRows payType={payType} cardTitle={cardTitle} />
+              </Box>
               {detail.sections.map((section) => (
                 <Box
                   key={section.id}

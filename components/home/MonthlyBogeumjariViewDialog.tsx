@@ -1,8 +1,10 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드 표시)
 // 수정: Auto — 2026-07-19 13:15 (대출잔액 자산연동)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
+import { MonthlyExpensePayInfoRows } from '@/components/home/MonthlyExpensePayInfoRows'
 import {
   formDialogActionsSx,
   formDialogContentScrollSx,
@@ -10,6 +12,7 @@ import {
   formDialogPaperSlotSx,
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
+import type { MonthlyExpensePayType } from '@/hooks/useMonthlyExpenses'
 import { useAssetSettings } from '@/hooks/useAssetSettings'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import { formatLoanRate } from '@/lib/assetPayload'
@@ -33,6 +36,8 @@ type Props = {
   open: boolean
   title: string
   detail: BogeumjariDetail | null
+  payType?: MonthlyExpensePayType
+  cardTitle?: string | null
   onClose: () => void
   onEdit: () => void
 }
@@ -79,7 +84,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-export function MonthlyBogeumjariViewDialog({ open, title, detail, onClose, onEdit }: Props) {
+export function MonthlyBogeumjariViewDialog({
+  open,
+  title,
+  detail,
+  payType = 'card',
+  cardTitle,
+  onClose,
+  onEdit,
+}: Props) {
   const { bogeumjariLoan } = useAssetSettings()
   const breakdown = useMemo(
     () => (detail ? getBogeumjariBreakdown(detail, bogeumjariLoan) : null),
@@ -131,6 +144,7 @@ export function MonthlyBogeumjariViewDialog({ open, title, detail, onClose, onEd
 
               <Box>
                 <Box sx={{ borderBottom: 2, borderColor: 'text.primary', mb: 0.25 }} />
+                <MonthlyExpensePayInfoRows payType={payType} cardTitle={cardTitle} labelWidth={100} />
                 <InfoRow label="대출일자" value={formatLoanDateKo(detail.loanStart)} />
                 <InfoRow label="대출만기" value={formatLoanDateKo(detail.loanMaturity)} />
                 <InfoRow label="금리" value={`고정금리 ${formatLoanRate(detail.annualRatePercent)}`} />

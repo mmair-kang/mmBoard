@@ -1,8 +1,10 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드 표시)
 // 수정: Auto — 2026-07-19 03:30 (국민연금 결정내역 조회)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
+import { MonthlyExpensePayInfoRows } from '@/components/home/MonthlyExpensePayInfoRows'
 import {
   formDialogActionsSx,
   formDialogContentScrollSx,
@@ -10,6 +12,7 @@ import {
   formDialogPaperSlotSx,
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
+import type { MonthlyExpensePayType } from '@/hooks/useMonthlyExpenses'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
   buildNationalPensionBillRows,
@@ -29,6 +32,8 @@ type Props = {
   open: boolean
   title: string
   detail: NationalPensionDetail | null
+  payType?: MonthlyExpensePayType
+  cardTitle?: string | null
   onClose: () => void
   onEdit: () => void
 }
@@ -44,7 +49,15 @@ const wideSlotProps = {
   },
 } as const
 
-export function MonthlyNationalPensionViewDialog({ open, title, detail, onClose, onEdit }: Props) {
+export function MonthlyNationalPensionViewDialog({
+  open,
+  title,
+  detail,
+  payType = 'card',
+  cardTitle,
+  onClose,
+  onEdit,
+}: Props) {
   const rows = useMemo(() => (detail ? buildNationalPensionBillRows(detail) : []), [detail])
   const total = detail ? computeNationalPension(detail).finalAmount : 0
 
@@ -68,6 +81,10 @@ export function MonthlyNationalPensionViewDialog({ open, title, detail, onClose,
               등록된 상세 내역이 없습니다
             </Typography>
           ) : (
+            <Stack spacing={1.1}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 0.25 }}>
+                <MonthlyExpensePayInfoRows payType={payType} cardTitle={cardTitle} />
+              </Box>
             <Box
               sx={{
                 border: 1,
@@ -139,6 +156,7 @@ export function MonthlyNationalPensionViewDialog({ open, title, detail, onClose,
                 )
               })}
             </Box>
+            </Stack>
           )}
         </Box>
       </DialogContent>

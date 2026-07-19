@@ -1,8 +1,10 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드 표시)
 // 수정: Auto — 2026-07-19 13:00 (렌탈 계약정보 조회)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
+import { MonthlyExpensePayInfoRows } from '@/components/home/MonthlyExpensePayInfoRows'
 import {
   formDialogActionsSx,
   formDialogContentScrollSx,
@@ -10,6 +12,7 @@ import {
   formDialogPaperSlotSx,
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
+import type { MonthlyExpensePayType } from '@/hooks/useMonthlyExpenses'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
   formatRentalDate,
@@ -29,6 +32,8 @@ type Props = {
   open: boolean
   title: string
   detail: RentalDetail | null
+  payType?: MonthlyExpensePayType
+  cardTitle?: string | null
   onClose: () => void
   onEdit: () => void
 }
@@ -98,7 +103,15 @@ function InfoRow({
   )
 }
 
-export function MonthlyRentalViewDialog({ open, title, detail, onClose, onEdit }: Props) {
+export function MonthlyRentalViewDialog({
+  open,
+  title,
+  detail,
+  payType = 'card',
+  cardTitle,
+  onClose,
+  onEdit,
+}: Props) {
   const remaining = useMemo(
     () => (detail ? formatRentalPeriodRemaining(detail.periodEnd) : null),
     [detail],
@@ -131,6 +144,7 @@ export function MonthlyRentalViewDialog({ open, title, detail, onClose, onEdit }
           ) : (
             <Box>
               <Box sx={{ borderBottom: 2, borderColor: 'text.primary', mb: 0.25 }} />
+              <MonthlyExpensePayInfoRows payType={payType} cardTitle={cardTitle} labelWidth={100} />
               <InfoRow label="약정기간" value={formatRentalPeriod(detail)} accent={remaining} />
               <InfoRow label="소유권 도래일" value={formatRentalDate(detail.ownershipDate)} />
               <InfoRow label="관리 유형" value={detail.managementType || '-'} />

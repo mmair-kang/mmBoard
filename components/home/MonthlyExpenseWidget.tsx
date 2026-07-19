@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드)
 // 수정: Auto — 2026-07-19 13:10 (보금자리론 상세)
 // 수정: Auto — 2026-07-19 13:00 (렌탈 계약정보)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
@@ -24,6 +25,7 @@ import { MonthlyTelecomDetailEditorDialog } from '@/components/home/MonthlyTelec
 import { MonthlyTelecomDetailViewDialog } from '@/components/home/MonthlyTelecomDetailViewDialog'
 import { type MonthlyExpense, useMonthlyExpenses } from '@/hooks/useMonthlyExpenses'
 import { useLongPress } from '@/hooks/useLongPress'
+import { useMonthlyTasks } from '@/hooks/useMonthlyTasks'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
@@ -67,6 +69,7 @@ function replaceItem(prev: MonthlyExpense[] | undefined, updated: MonthlyExpense
 
 export function MonthlyExpenseWidget() {
   const { items, isLoading, mutate } = useMonthlyExpenses()
+  const { items: monthlyTasks } = useMonthlyTasks()
   const [formOpen, setFormOpen] = useState(false)
   const [orderOpen, setOrderOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<MonthlyExpense | null>(null)
@@ -75,6 +78,15 @@ export function MonthlyExpenseWidget() {
 
   const monthLabel = dayjs().format('M월')
   const totalAmount = useMemo(() => items.reduce((sum, row) => sum + row.amount, 0), [items])
+  const cardTitleById = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const task of monthlyTasks) {
+      if (task.optionType === 'card_target' || task.optionType === 'card_benefit') {
+        map.set(task.id, task.title)
+      }
+    }
+    return map
+  }, [monthlyTasks])
 
   const { pointerHandlers: listLongPress, wrapClick: wrapItemClick } = useLongPress({
     onLongPress: () => {
@@ -146,6 +158,7 @@ export function MonthlyExpenseWidget() {
       dayOfMonth: infoItem.dayOfMonth,
       amount,
       payType: infoItem.payType,
+      monthlyTaskId: infoItem.payType === 'card' ? infoItem.monthlyTaskId : null,
       expenseType: infoItem.expenseType,
       telecomDetail: detail,
       healthInsuranceDetail: null,
@@ -174,6 +187,7 @@ export function MonthlyExpenseWidget() {
       dayOfMonth: infoItem.dayOfMonth,
       amount,
       payType: infoItem.payType,
+      monthlyTaskId: infoItem.payType === 'card' ? infoItem.monthlyTaskId : null,
       expenseType: 'healthInsurance',
       telecomDetail: null,
       healthInsuranceDetail: detail,
@@ -202,6 +216,7 @@ export function MonthlyExpenseWidget() {
       dayOfMonth: infoItem.dayOfMonth,
       amount,
       payType: infoItem.payType,
+      monthlyTaskId: infoItem.payType === 'card' ? infoItem.monthlyTaskId : null,
       expenseType: 'nationalPension',
       telecomDetail: null,
       healthInsuranceDetail: null,
@@ -230,6 +245,7 @@ export function MonthlyExpenseWidget() {
       dayOfMonth: infoItem.dayOfMonth,
       amount,
       payType: infoItem.payType,
+      monthlyTaskId: infoItem.payType === 'card' ? infoItem.monthlyTaskId : null,
       expenseType: 'insurance',
       telecomDetail: null,
       healthInsuranceDetail: null,
@@ -258,6 +274,7 @@ export function MonthlyExpenseWidget() {
       dayOfMonth: infoItem.dayOfMonth,
       amount,
       payType: infoItem.payType,
+      monthlyTaskId: infoItem.payType === 'card' ? infoItem.monthlyTaskId : null,
       expenseType: 'rental',
       telecomDetail: null,
       healthInsuranceDetail: null,
@@ -286,6 +303,7 @@ export function MonthlyExpenseWidget() {
       dayOfMonth: detail.paymentDay,
       amount,
       payType: infoItem.payType,
+      monthlyTaskId: infoItem.payType === 'card' ? infoItem.monthlyTaskId : null,
       expenseType: 'bogeumjari',
       telecomDetail: null,
       healthInsuranceDetail: null,
@@ -312,6 +330,11 @@ export function MonthlyExpenseWidget() {
   const isInsuranceInfo = infoItem?.expenseType === 'insurance'
   const isRentalInfo = infoItem?.expenseType === 'rental'
   const isBogeumjariInfo = infoItem?.expenseType === 'bogeumjari'
+  const infoCardTitle =
+    infoItem?.payType === 'card' && infoItem.monthlyTaskId != null
+      ? (cardTitleById.get(infoItem.monthlyTaskId) ?? null)
+      : null
+  const infoPayType = infoItem?.payType ?? 'card'
 
   return (
     <>
@@ -414,6 +437,8 @@ export function MonthlyExpenseWidget() {
         title={infoItem?.title ?? ''}
         expenseType="telecom"
         detail={infoItem?.telecomDetail ?? null}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
         onClose={() => setInfoItem(null)}
         onEdit={() => setInfoEditOpen(true)}
       />
@@ -433,6 +458,8 @@ export function MonthlyExpenseWidget() {
         open={Boolean(isHealthInfo && !infoEditOpen)}
         title={infoItem?.title ?? ''}
         detail={infoItem?.healthInsuranceDetail ?? null}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
         onClose={() => setInfoItem(null)}
         onEdit={() => setInfoEditOpen(true)}
       />
@@ -451,6 +478,8 @@ export function MonthlyExpenseWidget() {
         open={Boolean(isPensionInfo && !infoEditOpen)}
         title={infoItem?.title ?? ''}
         detail={infoItem?.nationalPensionDetail ?? null}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
         onClose={() => setInfoItem(null)}
         onEdit={() => setInfoEditOpen(true)}
       />
@@ -469,6 +498,8 @@ export function MonthlyExpenseWidget() {
         open={Boolean(isInsuranceInfo && !infoEditOpen)}
         title={infoItem?.title ?? ''}
         detail={infoItem?.insuranceDetail ?? null}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
         onClose={() => setInfoItem(null)}
         onEdit={() => setInfoEditOpen(true)}
       />
@@ -487,6 +518,8 @@ export function MonthlyExpenseWidget() {
         open={Boolean(isRentalInfo && !infoEditOpen)}
         title={infoItem?.title ?? ''}
         detail={infoItem?.rentalDetail ?? null}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
         onClose={() => setInfoItem(null)}
         onEdit={() => setInfoEditOpen(true)}
       />
@@ -505,6 +538,8 @@ export function MonthlyExpenseWidget() {
         open={Boolean(isBogeumjariInfo && !infoEditOpen)}
         title={infoItem?.title ?? ''}
         detail={infoItem?.bogeumjariDetail ?? null}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
         onClose={() => setInfoItem(null)}
         onEdit={() => setInfoEditOpen(true)}
       />

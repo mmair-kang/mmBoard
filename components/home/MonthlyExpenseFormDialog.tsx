@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드 선택)
 // 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
 // 수정: Auto — 2026-07-19 13:00 (렌탈 타입)
 // 수정: Auto — 2026-07-19 03:40 (보험 타입)
@@ -27,6 +28,7 @@ import {
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
 import type { MonthlyExpense } from '@/hooks/useMonthlyExpenses'
+import { useMonthlyTasks } from '@/hooks/useMonthlyTasks'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
   bogeumjariGrandTotal,
@@ -88,10 +90,12 @@ type Props = {
 
 export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDelete }: Props) {
   const isEdit = item != null
+  const { items: monthlyTasks } = useMonthlyTasks()
   const [title, setTitle] = useState('')
   const [dayOfMonth, setDayOfMonth] = useState<number | null>(null)
   const [amount, setAmount] = useState('')
   const [payType, setPayType] = useState<MonthlyExpensePayType>('card')
+  const [monthlyTaskId, setMonthlyTaskId] = useState<number | null>(null)
   const [expenseType, setExpenseType] = useState<MonthlyExpenseType>('none')
   const [telecomDetail, setTelecomDetail] = useState<TelecomDetail | null>(null)
   const [healthDetail, setHealthDetail] = useState<HealthInsuranceDetail | null>(null)
@@ -115,6 +119,7 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       setDayOfMonth(null)
       setAmount('')
       setPayType('card')
+      setMonthlyTaskId(null)
       setExpenseType('none')
       setTelecomDetail(null)
       setHealthDetail(null)
@@ -138,6 +143,7 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       setDayOfMonth(item.dayOfMonth)
       setAmount(String(item.amount))
       setPayType(item.payType)
+      setMonthlyTaskId(item.monthlyTaskId)
       setExpenseType(item.expenseType ?? 'none')
       setTelecomDetail(item.telecomDetail)
       setHealthDetail(item.healthInsuranceDetail)
@@ -150,6 +156,7 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       setDayOfMonth(null)
       setAmount('')
       setPayType('card')
+      setMonthlyTaskId(null)
       setExpenseType('none')
       setTelecomDetail(null)
       setHealthDetail(null)
@@ -159,6 +166,21 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       setBogeumjariDetail(null)
     }
   }, [open, item])
+
+  const cardOptions = useMemo(
+    () =>
+      monthlyTasks.filter(
+        (task) => task.optionType === 'card_target' || task.optionType === 'card_benefit',
+      ),
+    [monthlyTasks],
+  )
+
+  useEffect(() => {
+    if (!open || payType !== 'card') return
+    if (monthlyTaskId != null) return
+    if (cardOptions.length === 0) return
+    setMonthlyTaskId(cardOptions[0].id)
+  }, [open, payType, monthlyTaskId, cardOptions])
 
   const telecomTotal = useMemo(
     () => (telecomDetail ? telecomGrandTotal(telecomDetail) : 0),
@@ -217,7 +239,8 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
     (!usesPension || pensionDetail != null) &&
     (!usesInsurance || insuranceDetail != null) &&
     (!usesRental || rentalDetail != null) &&
-    (!usesBogeumjari || bogeumjariDetail != null)
+    (!usesBogeumjari || bogeumjariDetail != null) &&
+    (payType !== 'card' || monthlyTaskId != null)
 
   const clearDetails = () => {
     setTelecomDetail(null)
@@ -226,6 +249,15 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
     setInsuranceDetail(null)
     setRentalDetail(null)
     setBogeumjariDetail(null)
+  }
+
+  const handlePayTypeChange = (next: MonthlyExpensePayType) => {
+    setPayType(next)
+    if (next === 'cash') {
+      setMonthlyTaskId(null)
+    } else if (monthlyTaskId == null && cardOptions[0]) {
+      setMonthlyTaskId(cardOptions[0].id)
+    }
   }
 
   const handleExpenseTypeChange = (next: MonthlyExpenseType) => {
@@ -287,6 +319,7 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
         dayOfMonth,
         amount: parsedAmount,
         payType,
+        monthlyTaskId: payType === 'card' ? monthlyTaskId : null,
         expenseType,
         telecomDetail: usesTelecom ? telecomDetail : null,
         healthInsuranceDetail: usesHealth ? healthDetail : null,
@@ -417,12 +450,46 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
                   <RadioGroup
                     row
                     value={payType}
-                    onChange={(e) => setPayType(e.target.value as MonthlyExpensePayType)}
+                    onChange={(e) => handlePayTypeChange(e.target.value as MonthlyExpensePayType)}
                   >
                     <FormControlLabel value="card" control={<Radio size="small" />} label="카드" />
                     <FormControlLabel value="cash" control={<Radio size="small" />} label="현금" />
                   </RadioGroup>
                 </Box>
+
+                {payType === 'card' ? (
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="monthly-pay-card-label">결제 카드</InputLabel>
+                    <Select
+                      labelId="monthly-pay-card-label"
+                      label="결제 카드"
+                      value={monthlyTaskId != null ? String(monthlyTaskId) : ''}
+                      onChange={(e) => {
+                        const v = String(e.target.value)
+                        setMonthlyTaskId(v ? Number(v) : null)
+                      }}
+                      disabled={cardOptions.length === 0}
+                    >
+                      {cardOptions.length === 0 ? (
+                        <MenuItem value="" disabled>
+                          카드 실적에 등록된 카드가 없습니다
+                        </MenuItem>
+                      ) : (
+                        cardOptions.map((card) => (
+                          <MenuItem key={card.id} value={String(card.id)}>
+                            {card.title}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                    {cardOptions.length === 0 ? (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.4, display: 'block' }}>
+                        카드 탭에서 카드를 먼저 등록해 주세요
+                      </Typography>
+                    ) : null}
+                  </FormControl>
+                ) : null}
+
                 {formError ? (
                   <Typography variant="body2" color="error" sx={{ fontWeight: 600 }}>
                     {formError}

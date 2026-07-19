@@ -1,9 +1,11 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:15 (결제 카드 표시)
 // 수정: Auto — 2026-07-19 10:25 (② 점수 파란 글씨·⑧ 파란 배경)
 // 수정: Auto — 2026-07-19 03:15 (지역가입자 고지서 조회)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
+import { MonthlyExpensePayInfoRows } from '@/components/home/MonthlyExpensePayInfoRows'
 import {
   formDialogActionsSx,
   formDialogContentScrollSx,
@@ -11,6 +13,7 @@ import {
   formDialogPaperSlotSx,
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
+import type { MonthlyExpensePayType } from '@/hooks/useMonthlyExpenses'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
   buildHealthInsuranceBillRows,
@@ -30,6 +33,8 @@ type Props = {
   open: boolean
   title: string
   detail: HealthInsuranceDetail | null
+  payType?: MonthlyExpensePayType
+  cardTitle?: string | null
   onClose: () => void
   onEdit: () => void
 }
@@ -45,7 +50,15 @@ const wideSlotProps = {
   },
 } as const
 
-export function MonthlyHealthInsuranceViewDialog({ open, title, detail, onClose, onEdit }: Props) {
+export function MonthlyHealthInsuranceViewDialog({
+  open,
+  title,
+  detail,
+  payType = 'card',
+  cardTitle,
+  onClose,
+  onEdit,
+}: Props) {
   const rows = useMemo(() => (detail ? buildHealthInsuranceBillRows(detail) : []), [detail])
   const total = detail ? computeHealthInsurance(detail).totalPayable : 0
 
@@ -69,6 +82,10 @@ export function MonthlyHealthInsuranceViewDialog({ open, title, detail, onClose,
               등록된 상세 내역이 없습니다
             </Typography>
           ) : (
+            <Stack spacing={1.1}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', pb: 0.25 }}>
+                <MonthlyExpensePayInfoRows payType={payType} cardTitle={cardTitle} />
+              </Box>
             <Box
               sx={{
                 border: 1,
@@ -162,6 +179,7 @@ export function MonthlyHealthInsuranceViewDialog({ open, title, detail, onClose,
                 )
               })}
             </Box>
+            </Stack>
           )}
         </Box>
       </DialogContent>

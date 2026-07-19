@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-19 16:15 (결제 카드)
 // 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
 // 수정: Auto — 2026-07-19 13:00 (렌탈 타입)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
@@ -58,6 +59,7 @@ export type MonthlyExpensePayload = {
   dayOfMonth: number | null
   amount: number
   payType: MonthlyExpensePayType
+  monthlyTaskId: number | null
   expenseType: MonthlyExpenseType
   telecomDetail: TelecomDetail | null
   healthInsuranceDetail: HealthInsuranceDetail | null
@@ -106,6 +108,15 @@ export function parseMonthlyExpensePayload(body: Record<string, unknown>): Month
 
   const payType = String(body.payType ?? '')
   if (!payTypeSet.has(payType)) return null
+
+  let monthlyTaskId: number | null = null
+  if (payType === 'card') {
+    if (body.monthlyTaskId != null && body.monthlyTaskId !== '') {
+      const id = Math.round(Number(body.monthlyTaskId))
+      if (!Number.isFinite(id) || id < 1) return null
+      monthlyTaskId = id
+    }
+  }
 
   const expenseTypeRaw = body.expenseType ?? 'none'
   if (!isValidMonthlyExpenseType(expenseTypeRaw)) return null
@@ -164,6 +175,7 @@ export function parseMonthlyExpensePayload(body: Record<string, unknown>): Month
     dayOfMonth,
     amount,
     payType: payType as MonthlyExpensePayType,
+    monthlyTaskId,
     expenseType,
     telecomDetail: hasSectionExpenseDetailType(expenseType) ? telecomDetail : null,
     healthInsuranceDetail: expenseType === 'healthInsurance' ? healthInsuranceDetail : null,

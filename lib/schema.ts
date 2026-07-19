@@ -137,10 +137,14 @@ export const annualPayments = sqliteTable('annual_payments', {
   /** null = 해당 월만, 1–30·31(말일) */
   dayOfMonth: integer('day_of_month'),
   amount: integer('amount').notNull(),
-  /** none | carInsurance | cursorPro */
+  /** none | carInsurance | cursorPro | naverPlus */
   paymentType: text('payment_type').notNull().default('none'),
   /** 타입별 상세 JSON */
   detailJson: text('detail_json'),
+  /** card | cash */
+  payType: text('pay_type').notNull().default('card'),
+  /** 카드 실적(monthly_task_items.id) — 카드 결제 시 */
+  monthlyTaskId: integer('monthly_task_id'),
   switchOn: integer('switch_on').notNull().default(0),
   /** YYYY */
   progressYear: text('progress_year').notNull(),
@@ -194,6 +198,8 @@ export const monthlyFixedExpenses = sqliteTable('monthly_fixed_expenses', {
   amount: integer('amount').notNull(),
   /** card | cash */
   payType: text('pay_type').notNull(),
+  /** 카드 실적(monthly_task_items.id) — 카드 결제 시 */
+  monthlyTaskId: integer('monthly_task_id'),
   /** none | telecom | nationalPension | healthInsurance | insurance | rental | bogeumjari */
   expenseType: text('expense_type').notNull().default('none'),
   /** JSON — 타입별 상세 내역 (통신비·국민연금·건강보험) */

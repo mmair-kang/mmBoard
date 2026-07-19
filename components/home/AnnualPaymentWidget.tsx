@@ -1,4 +1,7 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:10 (목록 칩 단순화)
+// 수정: Auto — 2026-07-19 16:05 (결제방식·카드 표시)
+// 수정: Auto — 2026-07-19 16:00 (네이버플러스 멤버십)
 // 수정: Auto — 2026-07-19 15:10 (Cursor PRO)
 // 수정: Auto — 2026-07-19 14:50 (목록 클릭 개별 관리)
 // 수정: Auto — 2026-07-19 14:40 (연납 자동차보험 ⓘ)
@@ -8,11 +11,15 @@ import { AnnualCarInsuranceEditorDialog } from '@/components/home/AnnualCarInsur
 import { AnnualCarInsuranceViewDialog } from '@/components/home/AnnualCarInsuranceViewDialog'
 import { AnnualCursorProEditorDialog } from '@/components/home/AnnualCursorProEditorDialog'
 import { AnnualCursorProViewDialog } from '@/components/home/AnnualCursorProViewDialog'
+import { AnnualNaverPlusEditorDialog } from '@/components/home/AnnualNaverPlusEditorDialog'
+import { AnnualNaverPlusViewDialog } from '@/components/home/AnnualNaverPlusViewDialog'
 import { AnnualPaymentFormDialog } from '@/components/home/AnnualPaymentFormDialog'
 import { type AnnualPayment, useAnnualPayments } from '@/hooks/useAnnualPayments'
+import { useMonthlyTasks } from '@/hooks/useMonthlyTasks'
 import { calcAnnualPaymentSummary, formatWon } from '@/lib/annualPaymentCalc'
 import { formatAnnualDueLabel } from '@/lib/annualPaymentLabel'
 import type { AnnualPaymentPayload } from '@/lib/annualPaymentPayload'
+import { getAnnualPaymentPayTypeLabel } from '@/lib/annualPaymentTypes'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import {
   carInsuranceAnnualGrandTotal,
@@ -22,6 +29,10 @@ import {
   cursorProAnnualGrandTotal,
   type CursorProAnnualDetail,
 } from '@/lib/cursorProAnnualDetail'
+import {
+  naverPlusAnnualGrandTotal,
+  type NaverPlusAnnualDetail,
+} from '@/lib/naverPlusAnnualDetail'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import Box from '@mui/material/Box'
@@ -41,9 +52,19 @@ function replacePayment(prev: AnnualPayment[] | undefined, updated: AnnualPaymen
   return (prev ?? []).map((row) => (row.id === updated.id ? updated : row))
 }
 
+function scheduleFromLastPaid(lastPaidOn: string): { month: number; dayOfMonth: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(lastPaidOn)
+  if (!match) return null
+  const month = Number(match[2])
+  const day = Number(match[3])
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null
+  return { month, dayOfMonth: day }
+}
+
 function hasDetailInfo(payment: AnnualPayment): boolean {
   if (payment.paymentType === 'carInsurance') return payment.carInsuranceDetail != null
   if (payment.paymentType === 'cursorPro') return payment.cursorProDetail != null
+  if (payment.paymentType === 'naverPlus') return payment.naverPlusDetail != null
   return false
 }
 
@@ -61,6 +82,7 @@ function PaymentRow({
   onOpenDetailInfo?: () => void
 }) {
   const showInfo = hasDetailInfo(payment)
+  const payLabel = getAnnualPaymentPayTypeLabel(payment.payType ?? 'card')
 
   return (
     <Stack
@@ -92,7 +114,7 @@ function PaymentRow({
     >
       <Chip
         size="small"
-        label={formatAnnualDueLabel(payment.month, payment.dayOfMonth)}
+        label={`${payment.month}월`}
         sx={{ height: 22, fontWeight: 800, fontSize: '0.68rem', flexShrink: 0 }}
         variant="outlined"
         color="primary"
@@ -124,6 +146,17 @@ function PaymentRow({
           </IconButton>
         ) : null}
       </Stack>
+      <Chip
+        size="small"
+        label={payLabel}
+        color={payment.payType === 'cash' ? 'secondary' : 'primary'}
+        sx={{
+          height: 22,
+          fontWeight: 800,
+          fontSize: '0.62rem',
+          flexShrink: 0,
+        }}
+      />
       <Typography
         sx={{ fontWeight: 800, fontSize: '0.8rem', color: 'text.secondary', flexShrink: 0, whiteSpace: 'nowrap' }}
       >
@@ -144,6 +177,7 @@ function PaymentRow({
 
 export function AnnualPaymentWidget() {
   const { payments, isLoading, mutate } = useAnnualPayments()
+  const { items: monthlyTasks } = useMonthlyTasks()
   const [saving, setSaving] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<AnnualPayment | null>(null)
@@ -151,6 +185,16 @@ export function AnnualPaymentWidget() {
   const [infoEditOpen, setInfoEditOpen] = useState(false)
 
   const yearLabel = dayjs().format('YYYY년')
+
+  const cardTitleById = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const task of monthlyTasks) {
+      if (task.optionType === 'card_target' || task.optionType === 'card_benefit') {
+        map.set(task.id, task.title)
+      }
+    }
+    return map
+  }, [monthlyTasks])
 
   const summary = useMemo(() => calcAnnualPaymentSummary(payments), [payments])
   const allPaid = summary.totalAmount > 0 && summary.remainingAmount === 0
@@ -216,6 +260,11 @@ export function AnnualPaymentWidget() {
     }
   }
 
+  const payFieldsFromInfo = () => ({
+    payType: infoItem?.payType ?? ('card' as const),
+    monthlyTaskId: infoItem?.payType === 'cash' ? null : (infoItem?.monthlyTaskId ?? null),
+  })
+
   const handleSaveCarFromInfo = async (detail: CarInsuranceAnnualDetail) => {
     if (!infoItem || infoItem.paymentType !== 'carInsurance') return
     const amount = carInsuranceAnnualGrandTotal(detail)
@@ -225,8 +274,10 @@ export function AnnualPaymentWidget() {
       dayOfMonth: infoItem.dayOfMonth,
       amount,
       paymentType: 'carInsurance',
+      ...payFieldsFromInfo(),
       carInsuranceDetail: detail,
       cursorProDetail: null,
+      naverPlusDetail: null,
     }
     const res = await fetch(`/api/annual-payments/${infoItem.id}`, {
       method: 'PATCH',
@@ -245,10 +296,10 @@ export function AnnualPaymentWidget() {
     const amount = cursorProAnnualGrandTotal(detail)
     let month = infoItem.month
     let dayOfMonth = infoItem.dayOfMonth
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(detail.lastPaidOn)
-    if (match) {
-      month = Number(match[2])
-      dayOfMonth = Number(match[3])
+    const schedule = scheduleFromLastPaid(detail.lastPaidOn)
+    if (schedule) {
+      month = schedule.month
+      dayOfMonth = schedule.dayOfMonth
     }
     const payload: AnnualPaymentPayload = {
       title: infoItem.title,
@@ -256,8 +307,43 @@ export function AnnualPaymentWidget() {
       dayOfMonth,
       amount,
       paymentType: 'cursorPro',
+      ...payFieldsFromInfo(),
       carInsuranceDetail: null,
       cursorProDetail: detail,
+      naverPlusDetail: null,
+    }
+    const res = await fetch(`/api/annual-payments/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as AnnualPayment
+    await mutate((prev) => replacePayment(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const handleSaveNaverFromInfo = async (detail: NaverPlusAnnualDetail) => {
+    if (!infoItem || infoItem.paymentType !== 'naverPlus') return
+    const amount = naverPlusAnnualGrandTotal(detail)
+    let month = infoItem.month
+    let dayOfMonth = infoItem.dayOfMonth
+    const schedule = scheduleFromLastPaid(detail.lastPaidOn)
+    if (schedule) {
+      month = schedule.month
+      dayOfMonth = schedule.dayOfMonth
+    }
+    const payload: AnnualPaymentPayload = {
+      title: infoItem.title,
+      month,
+      dayOfMonth,
+      amount,
+      paymentType: 'naverPlus',
+      ...payFieldsFromInfo(),
+      carInsuranceDetail: null,
+      cursorProDetail: null,
+      naverPlusDetail: detail,
     }
     const res = await fetch(`/api/annual-payments/${infoItem.id}`, {
       method: 'PATCH',
@@ -273,6 +359,15 @@ export function AnnualPaymentWidget() {
 
   const isCarInfo = infoItem?.paymentType === 'carInsurance'
   const isCursorInfo = infoItem?.paymentType === 'cursorPro'
+  const isNaverInfo = infoItem?.paymentType === 'naverPlus'
+  const infoCardTitle =
+    infoItem?.payType === 'card' && infoItem.monthlyTaskId != null
+      ? (cardTitleById.get(infoItem.monthlyTaskId) ?? null)
+      : null
+  const infoDueLabel = infoItem
+    ? formatAnnualDueLabel(infoItem.month, infoItem.dayOfMonth)
+    : ''
+  const infoPayType = infoItem?.payType ?? 'card'
 
   if (isLoading) {
     return (
@@ -399,6 +494,9 @@ export function AnnualPaymentWidget() {
         open={Boolean(isCarInfo && !infoEditOpen)}
         title={infoItem?.title ?? ''}
         detail={infoItem?.carInsuranceDetail ?? null}
+        dueLabel={infoDueLabel}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
         onClose={() => setInfoItem(null)}
         onEdit={() => setInfoEditOpen(true)}
       />
@@ -417,6 +515,9 @@ export function AnnualPaymentWidget() {
         open={Boolean(isCursorInfo && !infoEditOpen)}
         title={infoItem?.title ?? ''}
         detail={infoItem?.cursorProDetail ?? null}
+        dueLabel={infoDueLabel}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
         onClose={() => setInfoItem(null)}
         onEdit={() => setInfoEditOpen(true)}
       />
@@ -428,6 +529,27 @@ export function AnnualPaymentWidget() {
         onClose={() => setInfoEditOpen(false)}
         onSave={(detail) => {
           void handleSaveCursorFromInfo(detail)
+        }}
+      />
+
+      <AnnualNaverPlusViewDialog
+        open={Boolean(isNaverInfo && !infoEditOpen)}
+        title={infoItem?.title ?? ''}
+        detail={infoItem?.naverPlusDetail ?? null}
+        dueLabel={infoDueLabel}
+        payType={infoPayType}
+        cardTitle={infoCardTitle}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <AnnualNaverPlusEditorDialog
+        open={Boolean(infoEditOpen && isNaverInfo)}
+        initial={infoItem?.naverPlusDetail ?? null}
+        paymentTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSaveNaverFromInfo(detail)
         }}
       />
     </>

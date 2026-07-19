@@ -1,6 +1,6 @@
 'use client'
 // 수정: Auto — 2026-07-19 16:10 (납부시기·결제카드 표시)
-// 수정: Auto — 2026-07-19 15:10 (연납 Cursor PRO 조회)
+// 수정: Auto — 2026-07-19 16:00 (연납 네이버플러스 멤버십 조회)
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
@@ -17,12 +17,11 @@ import {
   type AnnualPaymentPayType,
 } from '@/lib/annualPaymentTypes'
 import {
-  cursorProAnnualGrandTotal,
-  formatCursorProDateKo,
-  formatCursorProUsd,
-  getCursorProScheduleInfo,
-  type CursorProAnnualDetail,
-} from '@/lib/cursorProAnnualDetail'
+  formatNaverPlusDateShort,
+  getNaverPlusScheduleInfo,
+  naverPlusAnnualGrandTotal,
+  type NaverPlusAnnualDetail,
+} from '@/lib/naverPlusAnnualDetail'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import DialogActions from '@mui/material/DialogActions'
@@ -35,7 +34,7 @@ import { useMemo } from 'react'
 type Props = {
   open: boolean
   title: string
-  detail: CursorProAnnualDetail | null
+  detail: NaverPlusAnnualDetail | null
   dueLabel?: string
   payType?: AnnualPaymentPayType
   cardTitle?: string | null
@@ -71,7 +70,7 @@ function InfoRow({
     >
       <Typography
         sx={{
-          width: 100,
+          width: 110,
           flexShrink: 0,
           fontWeight: 700,
           fontSize: '0.8rem',
@@ -92,7 +91,7 @@ function InfoRow({
   )
 }
 
-export function AnnualCursorProViewDialog({
+export function AnnualNaverPlusViewDialog({
   open,
   title,
   detail,
@@ -102,8 +101,8 @@ export function AnnualCursorProViewDialog({
   onClose,
   onEdit,
 }: Props) {
-  const schedule = useMemo(() => (detail ? getCursorProScheduleInfo(detail) : null), [detail])
-  const fee = detail ? cursorProAnnualGrandTotal(detail) : 0
+  const schedule = useMemo(() => (detail ? getNaverPlusScheduleInfo(detail) : null), [detail])
+  const fee = detail ? naverPlusAnnualGrandTotal(detail) : 0
   const planLabel = detail?.planName?.trim() || title
 
   return (
@@ -116,7 +115,7 @@ export function AnnualCursorProViewDialog({
     >
       <FormDialogHeader onClose={onClose}>
         <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ minWidth: 0, pr: 1 }}>
-          <Typography sx={{ fontSize: '1.02rem', fontWeight: 800 }}>Cursor PRO</Typography>
+          <Typography sx={{ fontSize: '1.02rem', fontWeight: 800 }}>네이버플러스</Typography>
           <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: 'primary.light' }}>
             {planLabel}
           </Typography>
@@ -141,12 +140,12 @@ export function AnnualCursorProViewDialog({
                 }}
               >
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>
-                  요금제
+                  멤버십
                 </Typography>
                 <Stack direction="row" justifyContent="space-between" alignItems="baseline">
                   <Typography sx={{ fontWeight: 900, fontSize: '1rem' }}>{detail.planName}</Typography>
                   <Typography sx={{ fontWeight: 900, fontSize: '1rem', color: 'primary.main' }}>
-                    {formatCursorProUsd(detail.annualUsd)}
+                    {formatWon(fee)}
                     <Box component="span" sx={{ fontSize: '0.72rem', fontWeight: 700, ml: 0.25, opacity: 0.8 }}>
                       /년
                     </Box>
@@ -161,22 +160,17 @@ export function AnnualCursorProViewDialog({
                 {payType === 'card' ? (
                   <InfoRow label="결제 카드" value={cardTitle?.trim() || '-'} />
                 ) : null}
+                <InfoRow label="마지막 결제" value={formatNaverPlusDateShort(detail.lastPaidOn)} />
                 <InfoRow
-                  label="리셋일"
-                  value={`매월 ${detail.resetDay}일`}
-                  accent={`리셋 ${schedule.resetLabel}`}
-                />
-                <InfoRow label="마지막 결제" value={formatCursorProDateKo(detail.lastPaidOn)} />
-                <InfoRow
-                  label="다음 결제"
+                  label="다음 결제예정"
                   value={
                     schedule.nextPayment
-                      ? formatCursorProDateKo(schedule.nextPayment.format('YYYY-MM-DD'))
+                      ? formatNaverPlusDateShort(schedule.nextPayment.format('YYYY-MM-DD'))
                       : '-'
                   }
-                  accent={schedule.paymentLabel ? `${schedule.paymentLabel}` : null}
+                  accent={schedule.paymentLabel}
                 />
-                <InfoRow label="연납 원화" value={formatWon(fee)} />
+                <InfoRow label="연간 결제금액" value={formatWon(fee)} />
               </Box>
             </Stack>
           )}
@@ -189,9 +183,7 @@ export function AnnualCursorProViewDialog({
           justifyContent: 'space-between',
         }}
       >
-        <Typography sx={{ fontWeight: 900, color: 'primary.main' }}>
-          {detail ? formatCursorProUsd(detail.annualUsd) : formatWon(fee)}
-        </Typography>
+        <Typography sx={{ fontWeight: 900, color: 'primary.main' }}>{formatWon(fee)}</Typography>
         <Stack direction="row" spacing={1}>
           <Button onClick={onClose} size="small">
             닫기

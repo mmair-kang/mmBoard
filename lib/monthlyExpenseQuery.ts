@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-19 16:15 (결제 카드)
 // 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
 // 수정: Auto — 2026-07-19 13:00 (렌탈 타입)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
@@ -44,6 +45,7 @@ export type NormalizedMonthlyExpense = {
   dayOfMonth: number | null
   amount: number
   payType: 'card' | 'cash'
+  monthlyTaskId: number | null
   expenseType: MonthlyExpenseType
   telecomDetail: TelecomDetail | null
   healthInsuranceDetail: HealthInsuranceDetail | null
@@ -59,6 +61,11 @@ function normalizeRow(row: typeof monthlyFixedExpenses.$inferSelect): Normalized
   const expenseType: MonthlyExpenseType = isValidMonthlyExpenseType(row.expenseType)
     ? row.expenseType
     : 'none'
+  const payType = row.payType === 'cash' ? 'cash' : 'card'
+  const monthlyTaskId =
+    payType === 'card' && row.monthlyTaskId != null && Number.isFinite(row.monthlyTaskId)
+      ? Math.round(row.monthlyTaskId)
+      : null
 
   let telecomDetail: TelecomDetail | null = null
   let healthInsuranceDetail: HealthInsuranceDetail | null = null
@@ -85,7 +92,8 @@ function normalizeRow(row: typeof monthlyFixedExpenses.$inferSelect): Normalized
     title: row.title,
     dayOfMonth: normalizeMonthlyExpenseDayFromDb(row.dayOfMonth),
     amount: row.amount,
-    payType: row.payType === 'cash' ? 'cash' : 'card',
+    payType,
+    monthlyTaskId,
     expenseType,
     telecomDetail,
     healthInsuranceDetail,
@@ -144,6 +152,7 @@ export async function createMonthlyExpense(payload: MonthlyExpensePayload) {
       dayOfMonth: monthlyExpenseDayForDb(payload.dayOfMonth),
       amount: payload.amount,
       payType: payload.payType,
+      monthlyTaskId: payload.payType === 'card' ? payload.monthlyTaskId : null,
       expenseType: payload.expenseType,
       telecomDetail: expenseDetailJsonForDb(payload),
       sortOrder: existing.length,
@@ -163,6 +172,7 @@ export async function updateMonthlyExpense(id: number, payload: MonthlyExpensePa
       dayOfMonth: monthlyExpenseDayForDb(payload.dayOfMonth),
       amount: payload.amount,
       payType: payload.payType,
+      monthlyTaskId: payload.payType === 'card' ? payload.monthlyTaskId : null,
       expenseType: payload.expenseType,
       telecomDetail: expenseDetailJsonForDb(payload),
     })

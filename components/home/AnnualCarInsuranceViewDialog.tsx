@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-07-19 16:10 (납부시기·결제카드 표시)
+// 수정: Auto — 2026-07-19 15:55 (만료일 잔여 일수 표시)
 // 수정: Auto — 2026-07-19 15:05 (보장내용 1행·보험료 우측)
 // 수정: Auto — 2026-07-19 14:40 (연납 자동차보험 조회)
 
@@ -13,8 +15,13 @@ import {
 } from '@/config/formDialogLayout'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
+  getAnnualPaymentPayTypeLabel,
+  type AnnualPaymentPayType,
+} from '@/lib/annualPaymentTypes'
+import {
   carInsuranceAnnualGrandTotal,
   formatCarInsuranceExpiry,
+  formatCarInsuranceExpiryRemaining,
   type CarInsuranceAnnualDetail,
 } from '@/lib/carInsuranceAnnualDetail'
 import Box from '@mui/material/Box'
@@ -24,11 +31,15 @@ import DialogContent from '@mui/material/DialogContent'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
+import { useMemo } from 'react'
 
 type Props = {
   open: boolean
   title: string
   detail: CarInsuranceAnnualDetail | null
+  dueLabel?: string
+  payType?: AnnualPaymentPayType
+  cardTitle?: string | null
   onClose: () => void
   onEdit: () => void
 }
@@ -44,24 +55,66 @@ const wideSlotProps = {
   },
 } as const
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+function MetaRow({
+  label,
+  value,
+  accent,
+}: {
+  label: string
+  value: string
+  accent?: string | null
+}) {
   return (
-    <Stack direction="row" spacing={1} sx={{ py: 0.55, borderBottom: 1, borderColor: 'divider' }}>
+    <Stack
+      direction="row"
+      alignItems="flex-start"
+      spacing={1}
+      sx={{ py: 0.55, borderBottom: 1, borderColor: 'divider' }}
+    >
       <Typography
         sx={{ width: 88, flexShrink: 0, fontWeight: 700, fontSize: '0.78rem', color: 'text.secondary' }}
       >
         {label}
       </Typography>
-      <Typography sx={{ flex: 1, fontWeight: 700, fontSize: '0.84rem', textAlign: 'right' }}>
-        {value || '-'}
-      </Typography>
+      <Box sx={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+        <Typography sx={{ fontWeight: 700, fontSize: '0.84rem' }}>{value || '-'}</Typography>
+        {accent ? (
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 800,
+              color:
+                accent === '만료됨'
+                  ? 'error.main'
+                  : accent === '오늘 만료'
+                    ? 'warning.main'
+                    : 'primary.main',
+            }}
+          >
+            {accent}
+          </Typography>
+        ) : null}
+      </Box>
     </Stack>
   )
 }
 
-export function AnnualCarInsuranceViewDialog({ open, title, detail, onClose, onEdit }: Props) {
+export function AnnualCarInsuranceViewDialog({
+  open,
+  title,
+  detail,
+  dueLabel,
+  payType = 'card',
+  cardTitle,
+  onClose,
+  onEdit,
+}: Props) {
   const total = detail ? carInsuranceAnnualGrandTotal(detail) : 0
   const productLabel = detail?.productName?.trim() || title
+  const expiryRemaining = useMemo(
+    () => (detail ? formatCarInsuranceExpiryRemaining(detail.expiresOn) : null),
+    [detail],
+  )
 
   return (
     <AppDialog
@@ -89,8 +142,17 @@ export function AnnualCarInsuranceViewDialog({ open, title, detail, onClose, onE
             <Stack spacing={1.15}>
               <Box>
                 <Box sx={{ borderBottom: 2, borderColor: 'text.primary', mb: 0.25 }} />
+                {dueLabel ? <MetaRow label="납부시기" value={dueLabel} /> : null}
+                <MetaRow label="결제" value={getAnnualPaymentPayTypeLabel(payType)} />
+                {payType === 'card' ? (
+                  <MetaRow label="결제 카드" value={cardTitle?.trim() || '-'} />
+                ) : null}
                 <MetaRow label="보험상품명" value={detail.productName || '-'} />
-                <MetaRow label="만료일" value={formatCarInsuranceExpiry(detail.expiresOn)} />
+                <MetaRow
+                  label="만료일"
+                  value={formatCarInsuranceExpiry(detail.expiresOn)}
+                  accent={expiryRemaining}
+                />
                 <MetaRow
                   label="할인할증"
                   value={detail.discountGrade ? `(${detail.discountGrade})` : '-'}

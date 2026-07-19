@@ -1,3 +1,5 @@
+// 수정: Auto — 2026-07-19 16:05 (결제방식·카드)
+// 수정: Auto — 2026-07-19 16:00 (네이버플러스 멤버십)
 // 수정: Auto — 2026-07-19 14:40 (연납 타입·자동차보험)
 // 수정: Auto — 2026-06-08
 import { asc, eq } from 'drizzle-orm'
@@ -7,7 +9,9 @@ import { annualDetailJsonForDb, annualPaymentDayForDb } from '@/lib/annualPaymen
 import { annualDayFromDb, annualDueSortKey, currentYear } from '@/lib/annualPaymentLabel'
 import { ensureAnnualPaymentSchema } from '@/lib/annualPaymentSchema'
 import {
+  isValidAnnualPaymentPayType,
   isValidAnnualPaymentType,
+  type AnnualPaymentPayType,
   type AnnualPaymentType,
 } from '@/lib/annualPaymentTypes'
 import {
@@ -18,6 +22,10 @@ import {
   parseCursorProAnnualDetail,
   type CursorProAnnualDetail,
 } from '@/lib/cursorProAnnualDetail'
+import {
+  parseNaverPlusAnnualDetail,
+  type NaverPlusAnnualDetail,
+} from '@/lib/naverPlusAnnualDetail'
 import { db } from '@/lib/db'
 import { annualPayments } from '@/lib/schema'
 
@@ -29,6 +37,8 @@ export type AnnualPaymentRow = {
   amount: number
   paymentType: string
   detailJson: string | null
+  payType: string
+  monthlyTaskId: number | null
   switchOn: number
   progressYear: string
   sortOrder: number
@@ -42,8 +52,11 @@ export type NormalizedAnnualPayment = {
   dayOfMonth: number | null
   amount: number
   paymentType: AnnualPaymentType
+  payType: AnnualPaymentPayType
+  monthlyTaskId: number | null
   carInsuranceDetail: CarInsuranceAnnualDetail | null
   cursorProDetail: CursorProAnnualDetail | null
+  naverPlusDetail: NaverPlusAnnualDetail | null
   switchOn: boolean
   progressYear: string
   sortOrder: number
@@ -55,13 +68,23 @@ function normalizeRow(row: AnnualPaymentRow, year = currentYear()): NormalizedAn
   const paymentType: AnnualPaymentType = isValidAnnualPaymentType(row.paymentType)
     ? row.paymentType
     : 'none'
+  const payType: AnnualPaymentPayType = isValidAnnualPaymentPayType(row.payType)
+    ? row.payType
+    : 'card'
+  const monthlyTaskId =
+    payType === 'card' && row.monthlyTaskId != null && Number.isFinite(row.monthlyTaskId)
+      ? Math.round(row.monthlyTaskId)
+      : null
 
   let carInsuranceDetail: CarInsuranceAnnualDetail | null = null
   let cursorProDetail: CursorProAnnualDetail | null = null
+  let naverPlusDetail: NaverPlusAnnualDetail | null = null
   if (paymentType === 'carInsurance') {
     carInsuranceDetail = parseCarInsuranceAnnualDetail(row.detailJson)
   } else if (paymentType === 'cursorPro') {
     cursorProDetail = parseCursorProAnnualDetail(row.detailJson)
+  } else if (paymentType === 'naverPlus') {
+    naverPlusDetail = parseNaverPlusAnnualDetail(row.detailJson)
   }
 
   return {
@@ -71,8 +94,11 @@ function normalizeRow(row: AnnualPaymentRow, year = currentYear()): NormalizedAn
     dayOfMonth: annualDayFromDb(row.dayOfMonth),
     amount: row.amount,
     paymentType,
+    payType,
+    monthlyTaskId,
     carInsuranceDetail,
     cursorProDetail,
+    naverPlusDetail,
     switchOn: isCurrentYear ? row.switchOn === 1 : false,
     progressYear: row.progressYear,
     sortOrder: row.sortOrder,
@@ -124,6 +150,8 @@ export async function syncAnnualPayments(payments: AnnualPaymentPayload[]) {
           amount: payment.amount,
           paymentType: payment.paymentType,
           detailJson,
+          payType: payment.payType,
+          monthlyTaskId: payment.monthlyTaskId,
           sortOrder: i,
         })
         .where(eq(annualPayments.id, payment.id))
@@ -137,6 +165,8 @@ export async function syncAnnualPayments(payments: AnnualPaymentPayload[]) {
       amount: payment.amount,
       paymentType: payment.paymentType,
       detailJson,
+      payType: payment.payType,
+      monthlyTaskId: payment.monthlyTaskId,
       switchOn: 0,
       progressYear: year,
       sortOrder: i,
@@ -162,6 +192,8 @@ export async function updateAnnualPayment(id: number, payload: AnnualPaymentPayl
       amount: payload.amount,
       paymentType: payload.paymentType,
       detailJson: annualDetailJsonForDb(payload),
+      payType: payload.payType,
+      monthlyTaskId: payload.monthlyTaskId,
     })
     .where(eq(annualPayments.id, id))
     .returning()
@@ -190,6 +222,8 @@ export async function createAnnualPayment(payload: AnnualPaymentPayload) {
       amount: payload.amount,
       paymentType: payload.paymentType,
       detailJson: annualDetailJsonForDb(payload),
+      payType: payload.payType,
+      monthlyTaskId: payload.monthlyTaskId,
       switchOn: 0,
       progressYear: year,
       sortOrder: existing.length,
