@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-07-19 17:56 (연납 초록 테마)
+// 수정: Auto — 2026-07-19 17:40 (연 총 고정비 초록·남은금액 회색)
 // 수정: Auto — 2026-07-19 16:10 (목록 칩 단순화)
 // 수정: Auto — 2026-07-19 16:05 (결제방식·카드 표시)
 // 수정: Auto — 2026-07-19 16:00 (네이버플러스 멤버십)
@@ -44,9 +46,17 @@ import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { alpha } from '@mui/material/styles'
+import { alpha, type Theme } from '@mui/material/styles'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
+
+/** 연납 초록 테마 (파랑 primary 대신) */
+const ANNUAL_GREEN = '#0f766e'
+const ANNUAL_GREEN_LIGHT = '#14b8a6'
+
+function annualGreen(theme: Theme) {
+  return theme.palette.mode === 'dark' ? ANNUAL_GREEN_LIGHT : ANNUAL_GREEN
+}
 
 function replacePayment(prev: AnnualPayment[] | undefined, updated: AnnualPayment) {
   return (prev ?? []).map((row) => (row.id === updated.id ? updated : row))
@@ -115,9 +125,16 @@ function PaymentRow({
       <Chip
         size="small"
         label={`${payment.month}월`}
-        sx={{ height: 22, fontWeight: 800, fontSize: '0.68rem', flexShrink: 0 }}
+        sx={{
+          height: 22,
+          fontWeight: 800,
+          fontSize: '0.68rem',
+          flexShrink: 0,
+          borderColor: (theme) => annualGreen(theme),
+          color: (theme) => annualGreen(theme),
+          bgcolor: (theme) => alpha(annualGreen(theme), 0.1),
+        }}
         variant="outlined"
-        color="primary"
       />
       <Stack direction="row" alignItems="center" spacing={0.15} sx={{ flex: 1, minWidth: 0 }}>
         <Typography
@@ -401,7 +418,12 @@ export function AnnualPaymentWidget() {
             {yearLabel}
           </Typography>
           <Tooltip title="연납 추가">
-            <IconButton size="small" color="primary" onClick={openAdd} aria-label="연납 추가">
+            <IconButton
+              size="small"
+              onClick={openAdd}
+              aria-label="연납 추가"
+              sx={{ color: (theme) => annualGreen(theme) }}
+            >
               <AddRoundedIcon />
             </IconButton>
           </Tooltip>
@@ -414,18 +436,20 @@ export function AnnualPaymentWidget() {
             justifyContent="space-between"
             sx={{
               px: 1.1,
-              py: 0.65,
+              py: 0.75,
               borderRadius: 1.75,
-              bgcolor: (theme) => alpha(theme.palette.action.hover, 0.04),
+              bgcolor: (theme) => alpha(annualGreen(theme), 0.1),
               border: 1,
-              borderColor: 'divider',
+              borderColor: (theme) => alpha(annualGreen(theme), 0.35),
               mb: 0.75,
             }}
           >
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-              총 납부 금액
+              연 총 고정비
             </Typography>
-            <Typography sx={{ fontWeight: 900, fontSize: '0.95rem' }}>
+            <Typography
+              sx={{ fontWeight: 900, fontSize: '1rem', color: (theme) => annualGreen(theme) }}
+            >
               {formatWon(summary.totalAmount)}
             </Typography>
           </Stack>
@@ -438,24 +462,15 @@ export function AnnualPaymentWidget() {
               px: 1.1,
               py: 0.65,
               borderRadius: 1.75,
-              bgcolor: (theme) =>
-                allPaid
-                  ? alpha(theme.palette.success.main, 0.1)
-                  : alpha(theme.palette.primary.main, 0.06),
+              bgcolor: (theme) => alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.12 : 0.06),
               border: 1,
-              borderColor: allPaid ? 'success.light' : 'primary.light',
+              borderColor: 'divider',
             }}
           >
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
               남은 금액
             </Typography>
-            <Typography
-              sx={{
-                fontWeight: 900,
-                fontSize: '0.95rem',
-                color: allPaid ? 'success.dark' : 'primary.dark',
-              }}
-            >
+            <Typography sx={{ fontWeight: 900, fontSize: '0.95rem', color: 'text.secondary' }}>
               {allPaid ? '완납' : formatWon(summary.remainingAmount)}
             </Typography>
           </Stack>
