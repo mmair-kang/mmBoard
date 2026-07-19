@@ -1,3 +1,5 @@
+// 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
+// 수정: Auto — 2026-07-19 13:00 (렌탈 타입)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
 // 수정: Auto — 2026-07-19 03:30 (국민연금 고지서형)
 // 수정: Auto — 2026-07-19 03:15 (건보 고지서형 상세)
@@ -25,6 +27,8 @@ import {
   parseNationalPensionDetail,
   type NationalPensionDetail,
 } from '@/lib/nationalPensionDetail'
+import { parseBogeumjariDetail, type BogeumjariDetail } from '@/lib/bogeumjariExpenseDetail'
+import { parseRentalDetail, type RentalDetail } from '@/lib/rentalExpenseDetail'
 import { monthlyFixedExpenses } from '@/lib/schema'
 import {
   hasSectionExpenseDetailType,
@@ -45,6 +49,8 @@ export type NormalizedMonthlyExpense = {
   healthInsuranceDetail: HealthInsuranceDetail | null
   nationalPensionDetail: NationalPensionDetail | null
   insuranceDetail: InsuranceDetail | null
+  rentalDetail: RentalDetail | null
+  bogeumjariDetail: BogeumjariDetail | null
   sortOrder: number
   createdAt: string
 }
@@ -58,12 +64,18 @@ function normalizeRow(row: typeof monthlyFixedExpenses.$inferSelect): Normalized
   let healthInsuranceDetail: HealthInsuranceDetail | null = null
   let nationalPensionDetail: NationalPensionDetail | null = null
   let insuranceDetail: InsuranceDetail | null = null
+  let rentalDetail: RentalDetail | null = null
+  let bogeumjariDetail: BogeumjariDetail | null = null
   if (expenseType === 'healthInsurance') {
     healthInsuranceDetail = parseHealthInsuranceDetail(row.telecomDetail)
   } else if (expenseType === 'nationalPension') {
     nationalPensionDetail = parseNationalPensionDetail(row.telecomDetail)
   } else if (expenseType === 'insurance') {
     insuranceDetail = parseInsuranceDetail(row.telecomDetail)
+  } else if (expenseType === 'rental') {
+    rentalDetail = parseRentalDetail(row.telecomDetail)
+  } else if (expenseType === 'bogeumjari') {
+    bogeumjariDetail = parseBogeumjariDetail(row.telecomDetail)
   } else if (hasSectionExpenseDetailType(expenseType)) {
     telecomDetail = parseTelecomDetail(row.telecomDetail)
   }
@@ -79,6 +91,8 @@ function normalizeRow(row: typeof monthlyFixedExpenses.$inferSelect): Normalized
     healthInsuranceDetail,
     nationalPensionDetail,
     insuranceDetail,
+    rentalDetail,
+    bogeumjariDetail,
     sortOrder: row.sortOrder,
     createdAt: row.createdAt,
   }

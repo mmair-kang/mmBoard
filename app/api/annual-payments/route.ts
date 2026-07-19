@@ -1,17 +1,9 @@
+// 수정: Auto — 2026-07-19 14:50 (연납 개별 생성 응답)
 // 수정: Auto — 2026-06-08
 import { NextResponse } from 'next/server'
 
-import {
-  annualPaymentDayForDb,
-  parseAnnualPaymentPayload,
-  parseAnnualPaymentsPayload,
-} from '@/lib/annualPaymentPayload'
-import { currentYear } from '@/lib/annualPaymentLabel'
-import { loadAnnualPayments, syncAnnualPayments } from '@/lib/annualPaymentQuery'
-import { ensureAnnualPaymentSchema } from '@/lib/annualPaymentSchema'
-import { db } from '@/lib/db'
-import { annualPayments } from '@/lib/schema'
-import { asc, eq } from 'drizzle-orm'
+import { parseAnnualPaymentPayload, parseAnnualPaymentsPayload } from '@/lib/annualPaymentPayload'
+import { createAnnualPayment, loadAnnualPayments, syncAnnualPayments } from '@/lib/annualPaymentQuery'
 
 export async function GET() {
   const payments = await loadAnnualPayments()
@@ -26,22 +18,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'invalid request' }, { status: 400 })
     }
 
-    await ensureAnnualPaymentSchema()
-    const existing = await db.select().from(annualPayments).orderBy(asc(annualPayments.sortOrder))
-    const sortOrder = existing.length
-
-    await db.insert(annualPayments).values({
-      title: payload.title,
-      month: payload.month,
-      dayOfMonth: annualPaymentDayForDb(payload.dayOfMonth),
-      amount: payload.amount,
-      switchOn: 0,
-      progressYear: currentYear(),
-      sortOrder,
-      createdAt: new Date().toISOString(),
-    })
-
-    return NextResponse.json(await loadAnnualPayments())
+    const created = await createAnnualPayment(payload)
+    return NextResponse.json(created)
   } catch (error) {
     console.error('[annual-payments POST]', error)
     return NextResponse.json({ message: 'server error' }, { status: 500 })

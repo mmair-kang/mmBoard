@@ -1,6 +1,10 @@
 'use client'
+// 수정: Auto — 2026-07-19 14:40 (연납 타입·자동차보험)
 // 수정: Auto — 2026-06-08
 
+import type { AnnualPaymentType } from '@/lib/annualPaymentTypes'
+import type { CarInsuranceAnnualDetail } from '@/lib/carInsuranceAnnualDetail'
+import type { CursorProAnnualDetail } from '@/lib/cursorProAnnualDetail'
 import { swrJsonFetch } from '@/lib/swrFetch'
 import useSWR from 'swr'
 
@@ -12,6 +16,9 @@ export interface AnnualPayment {
   month: number
   dayOfMonth: number | null
   amount: number
+  paymentType: AnnualPaymentType
+  carInsuranceDetail: CarInsuranceAnnualDetail | null
+  cursorProDetail: CursorProAnnualDetail | null
   switchOn: boolean
   progressYear: string
   sortOrder: number

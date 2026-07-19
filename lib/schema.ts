@@ -137,6 +137,10 @@ export const annualPayments = sqliteTable('annual_payments', {
   /** null = 해당 월만, 1–30·31(말일) */
   dayOfMonth: integer('day_of_month'),
   amount: integer('amount').notNull(),
+  /** none | carInsurance | cursorPro */
+  paymentType: text('payment_type').notNull().default('none'),
+  /** 타입별 상세 JSON */
+  detailJson: text('detail_json'),
   switchOn: integer('switch_on').notNull().default(0),
   /** YYYY */
   progressYear: text('progress_year').notNull(),
@@ -190,7 +194,7 @@ export const monthlyFixedExpenses = sqliteTable('monthly_fixed_expenses', {
   amount: integer('amount').notNull(),
   /** card | cash */
   payType: text('pay_type').notNull(),
-  /** none | telecom | nationalPension | healthInsurance | insurance */
+  /** none | telecom | nationalPension | healthInsurance | insurance | rental | bogeumjari */
   expenseType: text('expense_type').notNull().default('none'),
   /** JSON — 타입별 상세 내역 (통신비·국민연금·건강보험) */
   telecomDetail: text('telecom_detail'),

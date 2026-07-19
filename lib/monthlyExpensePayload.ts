@@ -1,9 +1,17 @@
+// 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
+// 수정: Auto — 2026-07-19 13:00 (렌탈 타입)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
 // 수정: Auto — 2026-07-19 03:30 (국민연금 고지서형)
 // 수정: Auto — 2026-07-19 03:15 (건보 고지서형 상세)
 // 수정: Auto — 2026-07-19 03:15 (통신비 타입·상세)
 // 수정: Auto — 2026-06-08
 
+import {
+  bogeumjariDetailForDb,
+  bogeumjariGrandTotal,
+  parseBogeumjariDetail,
+  type BogeumjariDetail,
+} from '@/lib/bogeumjariExpenseDetail'
 import {
   healthInsuranceDetailForDb,
   healthInsuranceGrandTotal,
@@ -23,6 +31,12 @@ import {
   parseNationalPensionDetail,
   type NationalPensionDetail,
 } from '@/lib/nationalPensionDetail'
+import {
+  parseRentalDetail,
+  rentalDetailForDb,
+  rentalGrandTotal,
+  type RentalDetail,
+} from '@/lib/rentalExpenseDetail'
 import {
   hasExpenseDetailType,
   hasSectionExpenseDetailType,
@@ -49,6 +63,8 @@ export type MonthlyExpensePayload = {
   healthInsuranceDetail: HealthInsuranceDetail | null
   nationalPensionDetail: NationalPensionDetail | null
   insuranceDetail: InsuranceDetail | null
+  rentalDetail: RentalDetail | null
+  bogeumjariDetail: BogeumjariDetail | null
 }
 
 export function monthlyExpenseDayForDb(dayOfMonth: number | null): number {
@@ -64,6 +80,12 @@ export function expenseDetailJsonForDb(payload: MonthlyExpensePayload): string |
   }
   if (payload.expenseType === 'insurance') {
     return insuranceDetailForDb(payload.insuranceDetail)
+  }
+  if (payload.expenseType === 'rental') {
+    return rentalDetailForDb(payload.rentalDetail)
+  }
+  if (payload.expenseType === 'bogeumjari') {
+    return bogeumjariDetailForDb(payload.bogeumjariDetail)
   }
   if (hasSectionExpenseDetailType(payload.expenseType)) {
     return telecomDetailForDb(payload.telecomDetail)
@@ -93,6 +115,8 @@ export function parseMonthlyExpensePayload(body: Record<string, unknown>): Month
   let healthInsuranceDetail: HealthInsuranceDetail | null = null
   let nationalPensionDetail: NationalPensionDetail | null = null
   let insuranceDetail: InsuranceDetail | null = null
+  let rentalDetail: RentalDetail | null = null
+  let bogeumjariDetail: BogeumjariDetail | null = null
 
   if (expenseType === 'healthInsurance') {
     healthInsuranceDetail = parseHealthInsuranceDetail(body.healthInsuranceDetail ?? body.telecomDetail)
@@ -103,6 +127,12 @@ export function parseMonthlyExpensePayload(body: Record<string, unknown>): Month
   } else if (expenseType === 'insurance') {
     insuranceDetail = parseInsuranceDetail(body.insuranceDetail ?? body.telecomDetail)
     if (!insuranceDetail) return null
+  } else if (expenseType === 'rental') {
+    rentalDetail = parseRentalDetail(body.rentalDetail ?? body.telecomDetail)
+    if (!rentalDetail) return null
+  } else if (expenseType === 'bogeumjari') {
+    bogeumjariDetail = parseBogeumjariDetail(body.bogeumjariDetail ?? body.telecomDetail)
+    if (!bogeumjariDetail) return null
   } else if (hasSectionExpenseDetailType(expenseType)) {
     telecomDetail = parseTelecomDetail(body.telecomDetail)
     if (!telecomDetail) return null
@@ -115,10 +145,19 @@ export function parseMonthlyExpensePayload(body: Record<string, unknown>): Month
     amount = nationalPensionGrandTotal(nationalPensionDetail)
   } else if (expenseType === 'insurance' && insuranceDetail) {
     amount = insuranceGrandTotal(insuranceDetail)
+  } else if (expenseType === 'rental' && rentalDetail) {
+    amount = rentalGrandTotal(rentalDetail)
+  } else if (expenseType === 'bogeumjari' && bogeumjariDetail) {
+    amount = bogeumjariGrandTotal(bogeumjariDetail)
   } else if (hasSectionExpenseDetailType(expenseType) && telecomDetail) {
     amount = telecomGrandTotal(telecomDetail)
   }
   if (!Number.isFinite(amount) || amount < 1) return null
+
+  // 보금자리론: 납부일을 고정비 일정으로 맞춤
+  if (expenseType === 'bogeumjari' && bogeumjariDetail) {
+    dayOfMonth = bogeumjariDetail.paymentDay
+  }
 
   return {
     title,
@@ -130,6 +169,8 @@ export function parseMonthlyExpensePayload(body: Record<string, unknown>): Month
     healthInsuranceDetail: expenseType === 'healthInsurance' ? healthInsuranceDetail : null,
     nationalPensionDetail: expenseType === 'nationalPension' ? nationalPensionDetail : null,
     insuranceDetail: expenseType === 'insurance' ? insuranceDetail : null,
+    rentalDetail: expenseType === 'rental' ? rentalDetail : null,
+    bogeumjariDetail: expenseType === 'bogeumjari' ? bogeumjariDetail : null,
   }
 }
 

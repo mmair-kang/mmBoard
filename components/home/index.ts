@@ -1,8 +1,6 @@
 export { HomePageContent } from './HomePageContent'
 export { AnnualPaymentWidget } from './AnnualPaymentWidget'
 export { AnnualPaymentFormDialog } from './AnnualPaymentFormDialog'
-export { AnnualPaymentSettingsDialog } from './AnnualPaymentSettingsDialog'
-export { AnnualPaymentsEditor } from './AnnualPaymentsEditor'
 export { AnnualMonthSelect, AnnualDayModeSelect } from './AnnualScheduleSelect'
 export { AccountWidget } from './AccountWidget'
 export { AccountFormDialog } from './AccountFormDialog'

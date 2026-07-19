@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-19 12:15 (할인 약정 종료일)
 // 수정: Auto — 2026-07-19 03:25 (국민연금·건보 상세 편집)
 // 수정: Auto — 2026-07-19 03:15 (통신비 상세 편집)
 
@@ -19,6 +20,7 @@ import {
   emptyTelecomDiscount,
   emptyTelecomRow,
   emptyTelecomSection,
+  formatTelecomDiscountRemaining,
   getExpenseDetailDialogTitle,
   getExpenseDetailFieldLabels,
   rowSettlement,
@@ -27,6 +29,7 @@ import {
   type MonthlySectionDetailType,
   type TelecomDetail,
   type TelecomDetailSection,
+  type TelecomDiscount,
 } from '@/lib/telecomExpenseDetail'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
@@ -39,6 +42,8 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import dayjs, { type Dayjs } from 'dayjs'
 import { useEffect, useMemo, useState } from 'react'
 
 type Props = {
@@ -60,6 +65,34 @@ const wideSlotProps = {
     },
   },
 } as const
+
+const discountDateSlotProps = {
+  textField: {
+    ...formDialogCompactTextFieldProps,
+    fullWidth: true,
+    placeholder: '기간 없음',
+  },
+  field: { clearable: true },
+} as const
+
+function patchDiscount(
+  section: TelecomDetailSection,
+  rowId: string,
+  discountId: string,
+  patch: Partial<TelecomDiscount>,
+): TelecomDetailSection {
+  return {
+    ...section,
+    rows: section.rows.map((r) =>
+      r.id === rowId
+        ? {
+            ...r,
+            discounts: r.discounts.map((x) => (x.id === discountId ? { ...x, ...patch } : x)),
+          }
+        : r,
+    ),
+  }
+}
 
 export function MonthlyTelecomDetailEditorDialog({
   open,
@@ -207,6 +240,58 @@ export function MonthlyTelecomDetailEditorDialog({
                             {...formDialogCompactTextFieldProps}
                           />
 
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <DatePicker
+                                label="요금제 약정 종료일"
+                                value={row.endsOn ? dayjs(row.endsOn) : null}
+                                onChange={(value: Dayjs | null) => {
+                                  const endsOn =
+                                    value && value.isValid() ? value.format('YYYY-MM-DD') : null
+                                  updateSection(section.id, {
+                                    rows: section.rows.map((r) =>
+                                      r.id === row.id ? { ...r, endsOn } : r,
+                                    ),
+                                  })
+                                }}
+                                format="YYYY.MM.DD"
+                                slotProps={discountDateSlotProps}
+                              />
+                            </Box>
+                            {(() => {
+                              const remaining = formatTelecomDiscountRemaining(row.endsOn)
+                              if (!remaining) {
+                                return (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}
+                                  >
+                                    기간 없음
+                                  </Typography>
+                                )
+                              }
+                              return (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    fontWeight: 800,
+                                    color:
+                                      remaining === '종료됨'
+                                        ? 'error.main'
+                                        : remaining === '오늘 종료'
+                                          ? 'warning.main'
+                                          : 'primary.main',
+                                    flexShrink: 0,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {remaining}
+                                </Typography>
+                              )
+                            })()}
+                          </Stack>
+
                           <Box>
                             <Typography
                               variant="caption"
@@ -216,77 +301,129 @@ export function MonthlyTelecomDetailEditorDialog({
                               {labels.discount}
                             </Typography>
                             <Stack spacing={0.65}>
-                              {row.discounts.map((d) => (
-                                <Stack key={d.id} direction="row" spacing={0.5} alignItems="center">
-                                  <TextField
-                                    label={`${labels.discount}명`}
-                                    value={d.name}
-                                    onChange={(e) =>
-                                      updateSection(section.id, {
-                                        rows: section.rows.map((r) =>
-                                          r.id === row.id
-                                            ? {
-                                                ...r,
-                                                discounts: r.discounts.map((x) =>
-                                                  x.id === d.id ? { ...x, name: e.target.value } : x,
-                                                ),
-                                              }
-                                            : r,
-                                        ),
-                                      })
-                                    }
-                                    fullWidth
-                                    {...formDialogCompactTextFieldProps}
-                                  />
-                                  <TextField
-                                    label={labels.discountAmount}
-                                    value={d.amount ? String(d.amount) : ''}
-                                    onChange={(e) => {
-                                      const n =
-                                        Math.round(Number(e.target.value.replace(/[^\d]/g, ''))) || 0
-                                      updateSection(section.id, {
-                                        rows: section.rows.map((r) =>
-                                          r.id === row.id
-                                            ? {
-                                                ...r,
-                                                discounts: r.discounts.map((x) =>
-                                                  x.id === d.id ? { ...x, amount: n } : x,
-                                                ),
-                                              }
-                                            : r,
-                                        ),
-                                      })
-                                    }}
-                                    inputProps={{ inputMode: 'numeric' }}
-                                    {...formDialogCompactTextFieldProps}
+                              {row.discounts.map((d) => {
+                                const remaining = formatTelecomDiscountRemaining(d.endsOn)
+                                return (
+                                  <Box
+                                    key={d.id}
                                     sx={{
-                                      ...(typeof formDialogCompactTextFieldProps.sx === 'object'
-                                        ? formDialogCompactTextFieldProps.sx
-                                        : {}),
-                                      width: 110,
-                                      flexShrink: 0,
+                                      border: 1,
+                                      borderColor: 'divider',
+                                      borderRadius: 1.25,
+                                      p: 0.85,
+                                      bgcolor: (theme) => alpha(theme.palette.action.hover, 0.02),
                                     }}
-                                  />
-                                  <IconButton
-                                    size="small"
-                                    aria-label={`${labels.discount} 삭제`}
-                                    onClick={() =>
-                                      updateSection(section.id, {
-                                        rows: section.rows.map((r) =>
-                                          r.id === row.id
-                                            ? {
-                                                ...r,
-                                                discounts: r.discounts.filter((x) => x.id !== d.id),
-                                              }
-                                            : r,
-                                        ),
-                                      })
-                                    }
                                   >
-                                    <DeleteOutlineRoundedIcon fontSize="small" />
-                                  </IconButton>
-                                </Stack>
-                              ))}
+                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                      <TextField
+                                        label={`${labels.discount}명`}
+                                        value={d.name}
+                                        onChange={(e) =>
+                                          updateSection(
+                                            section.id,
+                                            patchDiscount(section, row.id, d.id, {
+                                              name: e.target.value,
+                                            }),
+                                          )
+                                        }
+                                        fullWidth
+                                        {...formDialogCompactTextFieldProps}
+                                      />
+                                      <TextField
+                                        label={labels.discountAmount}
+                                        value={d.amount ? String(d.amount) : ''}
+                                        onChange={(e) => {
+                                          const n =
+                                            Math.round(Number(e.target.value.replace(/[^\d]/g, ''))) ||
+                                            0
+                                          updateSection(
+                                            section.id,
+                                            patchDiscount(section, row.id, d.id, { amount: n }),
+                                          )
+                                        }}
+                                        inputProps={{ inputMode: 'numeric' }}
+                                        {...formDialogCompactTextFieldProps}
+                                        sx={{
+                                          ...(typeof formDialogCompactTextFieldProps.sx === 'object'
+                                            ? formDialogCompactTextFieldProps.sx
+                                            : {}),
+                                          width: 110,
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                      <IconButton
+                                        size="small"
+                                        aria-label={`${labels.discount} 삭제`}
+                                        onClick={() =>
+                                          updateSection(section.id, {
+                                            rows: section.rows.map((r) =>
+                                              r.id === row.id
+                                                ? {
+                                                    ...r,
+                                                    discounts: r.discounts.filter((x) => x.id !== d.id),
+                                                  }
+                                                : r,
+                                            ),
+                                          })
+                                        }
+                                      >
+                                        <DeleteOutlineRoundedIcon fontSize="small" />
+                                      </IconButton>
+                                    </Stack>
+                                    <Stack
+                                      direction="row"
+                                      spacing={0.75}
+                                      alignItems="center"
+                                      sx={{ mt: 0.65 }}
+                                    >
+                                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <DatePicker
+                                          label="약정 종료일"
+                                          value={d.endsOn ? dayjs(d.endsOn) : null}
+                                          onChange={(value: Dayjs | null) => {
+                                            const endsOn =
+                                              value && value.isValid()
+                                                ? value.format('YYYY-MM-DD')
+                                                : null
+                                            updateSection(
+                                              section.id,
+                                              patchDiscount(section, row.id, d.id, { endsOn }),
+                                            )
+                                          }}
+                                          format="YYYY.MM.DD"
+                                          slotProps={discountDateSlotProps}
+                                        />
+                                      </Box>
+                                      {remaining ? (
+                                        <Typography
+                                          variant="caption"
+                                          sx={{
+                                            fontWeight: 800,
+                                            color:
+                                              remaining === '종료됨'
+                                                ? 'error.main'
+                                                : remaining === '오늘 종료'
+                                                  ? 'warning.main'
+                                                  : 'primary.main',
+                                            flexShrink: 0,
+                                            whiteSpace: 'nowrap',
+                                          }}
+                                        >
+                                          {remaining}
+                                        </Typography>
+                                      ) : (
+                                        <Typography
+                                          variant="caption"
+                                          color="text.secondary"
+                                          sx={{ fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}
+                                        >
+                                          기간 없음
+                                        </Typography>
+                                      )}
+                                    </Stack>
+                                  </Box>
+                                )
+                              })}
                               <Button
                                 size="small"
                                 startIcon={<AddRoundedIcon />}
@@ -317,9 +454,7 @@ export function MonthlyTelecomDetailEditorDialog({
                               })
                             }
                             fullWidth
-                            placeholder={
-                              expenseType === 'telecom' ? '약정기간 등' : '산정 근거·고지서 메모'
-                            }
+                            placeholder="메모"
                             {...formDialogCompactTextFieldProps}
                           />
 

@@ -1,15 +1,29 @@
 'use client'
+// 수정: Auto — 2026-07-19 15:10 (Cursor PRO)
+// 수정: Auto — 2026-07-19 14:50 (목록 클릭 개별 관리)
+// 수정: Auto — 2026-07-19 14:40 (연납 자동차보험 ⓘ)
 // 수정: Auto — 2026-06-08
 
+import { AnnualCarInsuranceEditorDialog } from '@/components/home/AnnualCarInsuranceEditorDialog'
+import { AnnualCarInsuranceViewDialog } from '@/components/home/AnnualCarInsuranceViewDialog'
+import { AnnualCursorProEditorDialog } from '@/components/home/AnnualCursorProEditorDialog'
+import { AnnualCursorProViewDialog } from '@/components/home/AnnualCursorProViewDialog'
 import { AnnualPaymentFormDialog } from '@/components/home/AnnualPaymentFormDialog'
-import { AnnualPaymentSettingsDialog } from '@/components/home/AnnualPaymentSettingsDialog'
 import { type AnnualPayment, useAnnualPayments } from '@/hooks/useAnnualPayments'
 import { calcAnnualPaymentSummary, formatWon } from '@/lib/annualPaymentCalc'
 import { formatAnnualDueLabel } from '@/lib/annualPaymentLabel'
-import { readApiErrorMessage } from '@/lib/apiResponse'
 import type { AnnualPaymentPayload } from '@/lib/annualPaymentPayload'
+import { readApiErrorMessage } from '@/lib/apiResponse'
+import {
+  carInsuranceAnnualGrandTotal,
+  type CarInsuranceAnnualDetail,
+} from '@/lib/carInsuranceAnnualDetail'
+import {
+  cursorProAnnualGrandTotal,
+  type CursorProAnnualDetail,
+} from '@/lib/cursorProAnnualDetail'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -23,30 +37,57 @@ import { alpha } from '@mui/material/styles'
 import dayjs from 'dayjs'
 import { useMemo, useState } from 'react'
 
+function replacePayment(prev: AnnualPayment[] | undefined, updated: AnnualPayment) {
+  return (prev ?? []).map((row) => (row.id === updated.id ? updated : row))
+}
+
+function hasDetailInfo(payment: AnnualPayment): boolean {
+  if (payment.paymentType === 'carInsurance') return payment.carInsuranceDetail != null
+  if (payment.paymentType === 'cursorPro') return payment.cursorProDetail != null
+  return false
+}
+
 function PaymentRow({
   payment,
   saving,
+  onEdit,
   onSwitchChange,
+  onOpenDetailInfo,
 }: {
   payment: AnnualPayment
   saving: boolean
+  onEdit: () => void
   onSwitchChange: (switchOn: boolean) => Promise<void>
+  onOpenDetailInfo?: () => void
 }) {
+  const showInfo = hasDetailInfo(payment)
+
   return (
     <Stack
       direction="row"
       alignItems="center"
       spacing={0.75}
+      onClick={onEdit}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onEdit()
+        }
+      }}
       sx={{
         px: 1,
         py: 0.55,
         borderRadius: 1.5,
+        cursor: 'pointer',
         bgcolor: (theme) =>
           payment.switchOn
             ? alpha(theme.palette.success.main, 0.08)
             : alpha(theme.palette.action.hover, 0.04),
         border: 1,
         borderColor: payment.switchOn ? 'success.light' : 'divider',
+        '&:active': { opacity: 0.85 },
       }}
     >
       <Chip
@@ -56,19 +97,33 @@ function PaymentRow({
         variant="outlined"
         color="primary"
       />
-      <Typography
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          fontWeight: 700,
-          fontSize: '0.84rem',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {payment.title}
-      </Typography>
+      <Stack direction="row" alignItems="center" spacing={0.15} sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          sx={{
+            minWidth: 0,
+            fontWeight: 700,
+            fontSize: '0.84rem',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {payment.title}
+        </Typography>
+        {showInfo ? (
+          <IconButton
+            size="small"
+            aria-label="상세 보기"
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenDetailInfo?.()
+            }}
+            sx={{ color: 'text.secondary', p: 0.25, flexShrink: 0 }}
+          >
+            <InfoOutlinedIcon sx={{ fontSize: 17 }} />
+          </IconButton>
+        ) : null}
+      </Stack>
       <Typography
         sx={{ fontWeight: 800, fontSize: '0.8rem', color: 'text.secondary', flexShrink: 0, whiteSpace: 'nowrap' }}
       >
@@ -77,6 +132,7 @@ function PaymentRow({
       <Switch
         size="small"
         checked={payment.switchOn}
+        onClick={(e) => e.stopPropagation()}
         onChange={(_, checked) => void onSwitchChange(checked)}
         disabled={saving}
         color={payment.switchOn ? 'success' : 'default'}
@@ -89,13 +145,30 @@ function PaymentRow({
 export function AnnualPaymentWidget() {
   const { payments, isLoading, mutate } = useAnnualPayments()
   const [saving, setSaving] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<AnnualPayment | null>(null)
+  const [infoItem, setInfoItem] = useState<AnnualPayment | null>(null)
+  const [infoEditOpen, setInfoEditOpen] = useState(false)
 
   const yearLabel = dayjs().format('YYYY년')
 
   const summary = useMemo(() => calcAnnualPaymentSummary(payments), [payments])
   const allPaid = summary.totalAmount > 0 && summary.remainingAmount === 0
+
+  const openAdd = () => {
+    setEditingItem(null)
+    setFormOpen(true)
+  }
+
+  const openEdit = (payment: AnnualPayment) => {
+    setEditingItem(payment)
+    setFormOpen(true)
+  }
+
+  const closeForm = () => {
+    setFormOpen(false)
+    setEditingItem(null)
+  }
 
   const handleAdd = async (payload: AnnualPaymentPayload) => {
     const res = await fetch('/api/annual-payments', {
@@ -104,19 +177,27 @@ export function AnnualPaymentWidget() {
       body: JSON.stringify(payload),
     })
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '추가에 실패했습니다'))
-    const updated = (await res.json()) as AnnualPayment[]
-    await mutate(updated, { revalidate: false })
+    const created = (await res.json()) as AnnualPayment
+    await mutate((prev) => [...(prev ?? []), created], { revalidate: false })
   }
 
-  const handleSettingsSave = async (payload: AnnualPaymentPayload[]) => {
-    const res = await fetch('/api/annual-payments', {
+  const handleUpdate = async (payload: AnnualPaymentPayload) => {
+    if (!editingItem) return
+    const res = await fetch(`/api/annual-payments/${editingItem.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ payments: payload }),
+      body: JSON.stringify(payload),
     })
-    if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
-    const updated = (await res.json()) as AnnualPayment[]
-    await mutate(updated, { revalidate: false })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as AnnualPayment
+    await mutate((prev) => replacePayment(prev, updated), { revalidate: false })
+  }
+
+  const handleDelete = async () => {
+    if (!editingItem) return
+    const id = editingItem.id
+    await mutate((prev) => (prev ?? []).filter((row) => row.id !== id), { revalidate: false })
+    await fetch(`/api/annual-payments/${id}`, { method: 'DELETE' })
   }
 
   const handleSwitch = async (paymentId: number, switchOn: boolean) => {
@@ -134,6 +215,64 @@ export function AnnualPaymentWidget() {
       setSaving(false)
     }
   }
+
+  const handleSaveCarFromInfo = async (detail: CarInsuranceAnnualDetail) => {
+    if (!infoItem || infoItem.paymentType !== 'carInsurance') return
+    const amount = carInsuranceAnnualGrandTotal(detail)
+    const payload: AnnualPaymentPayload = {
+      title: infoItem.title,
+      month: infoItem.month,
+      dayOfMonth: infoItem.dayOfMonth,
+      amount,
+      paymentType: 'carInsurance',
+      carInsuranceDetail: detail,
+      cursorProDetail: null,
+    }
+    const res = await fetch(`/api/annual-payments/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as AnnualPayment
+    await mutate((prev) => replacePayment(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const handleSaveCursorFromInfo = async (detail: CursorProAnnualDetail) => {
+    if (!infoItem || infoItem.paymentType !== 'cursorPro') return
+    const amount = cursorProAnnualGrandTotal(detail)
+    let month = infoItem.month
+    let dayOfMonth = infoItem.dayOfMonth
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(detail.lastPaidOn)
+    if (match) {
+      month = Number(match[2])
+      dayOfMonth = Number(match[3])
+    }
+    const payload: AnnualPaymentPayload = {
+      title: infoItem.title,
+      month,
+      dayOfMonth,
+      amount,
+      paymentType: 'cursorPro',
+      carInsuranceDetail: null,
+      cursorProDetail: detail,
+    }
+    const res = await fetch(`/api/annual-payments/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as AnnualPayment
+    await mutate((prev) => replacePayment(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const isCarInfo = infoItem?.paymentType === 'carInsurance'
+  const isCursorInfo = infoItem?.paymentType === 'cursorPro'
 
   if (isLoading) {
     return (
@@ -167,13 +306,8 @@ export function AnnualPaymentWidget() {
             {yearLabel}
           </Typography>
           <Tooltip title="연납 추가">
-            <IconButton size="small" color="primary" onClick={() => setAddOpen(true)} aria-label="연납 추가">
+            <IconButton size="small" color="primary" onClick={openAdd} aria-label="연납 추가">
               <AddRoundedIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="연납 설정">
-            <IconButton size="small" onClick={() => setSettingsOpen(true)} aria-label="연납 설정">
-              <EditRoundedIcon fontSize="small" />
             </IconButton>
           </Tooltip>
         </Stack>
@@ -239,7 +373,9 @@ export function AnnualPaymentWidget() {
                 key={payment.id}
                 payment={payment}
                 saving={saving}
+                onEdit={() => openEdit(payment)}
                 onSwitchChange={(switchOn) => handleSwitch(payment.id, switchOn)}
+                onOpenDetailInfo={() => setInfoItem(payment)}
               />
             ))}
           </Stack>
@@ -251,13 +387,48 @@ export function AnnualPaymentWidget() {
         )}
       </Paper>
 
-      <AnnualPaymentFormDialog open={addOpen} onClose={() => setAddOpen(false)} onSubmit={handleAdd} />
+      <AnnualPaymentFormDialog
+        open={formOpen}
+        item={editingItem}
+        onClose={closeForm}
+        onSubmit={editingItem ? handleUpdate : handleAdd}
+        onDelete={editingItem ? handleDelete : undefined}
+      />
 
-      <AnnualPaymentSettingsDialog
-        open={settingsOpen}
-        payments={payments}
-        onClose={() => setSettingsOpen(false)}
-        onSubmit={handleSettingsSave}
+      <AnnualCarInsuranceViewDialog
+        open={Boolean(isCarInfo && !infoEditOpen)}
+        title={infoItem?.title ?? ''}
+        detail={infoItem?.carInsuranceDetail ?? null}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <AnnualCarInsuranceEditorDialog
+        open={Boolean(infoEditOpen && isCarInfo)}
+        initial={infoItem?.carInsuranceDetail ?? null}
+        paymentTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSaveCarFromInfo(detail)
+        }}
+      />
+
+      <AnnualCursorProViewDialog
+        open={Boolean(isCursorInfo && !infoEditOpen)}
+        title={infoItem?.title ?? ''}
+        detail={infoItem?.cursorProDetail ?? null}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <AnnualCursorProEditorDialog
+        open={Boolean(infoEditOpen && isCursorInfo)}
+        initial={infoItem?.cursorProDetail ?? null}
+        paymentTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSaveCursorFromInfo(detail)
+        }}
       />
     </>
   )

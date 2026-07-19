@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-19 14:30 (날씨 삭제·달력 추가)
 // 수정: Auto — 2026-07-13 23:43 (자산 탭)
 // 수정: Auto — 2026-07-12 23:36 (카드탭 2depth)
 // 수정: Auto — 2026-07-12 23:17 (상단 탭 바 높이·폰트 조정)
@@ -8,9 +9,9 @@ import { AccountWidget } from '@/components/home/AccountWidget'
 import { AssetWidget } from '@/components/home/AssetWidget'
 import { InvestmentWidget } from '@/components/home/InvestmentWidget'
 import { AnnualPaymentWidget } from '@/components/home/AnnualPaymentWidget'
+import { CalendarWidget } from '@/components/home/CalendarWidget'
 import { DdayWidget } from '@/components/home/DdayWidget'
 import { TodoWidget } from '@/components/home/TodoWidget'
-import { WeatherWidget } from '@/components/home/WeatherWidget'
 import { DividendWidget } from '@/components/home/DividendWidget'
 import { CardTabContent } from '@/components/home/CardTabContent'
 import { ManageTabOrderDialog } from '@/components/home/ManageTabOrderDialog'
@@ -22,7 +23,6 @@ import type { ManageTabId } from '@/lib/manageTabOrder'
 
 import { sxMainTabLayout, sxMainTabTopRow, sxPageScrollBody } from '@/config/responsiveLayout'
 import Box from '@mui/material/Box'
-import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import { useEffect, useState } from 'react'
@@ -36,11 +36,11 @@ function renderTabPanel(tab: ManageTabId) {
     case 'main':
       return (
         <Box sx={sxMainTabLayout}>
+          <CalendarWidget />
           <Box sx={sxMainTabTopRow}>
             <TodoWidget />
             <DdayWidget />
           </Box>
-          <WeatherWidget />
         </Box>
       )
     case 'account':

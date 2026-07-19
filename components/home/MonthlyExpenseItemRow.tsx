@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-19 13:10 (보금자리론 정보 아이콘)
 // 수정: Auto — 2026-07-19 03:30 (국민연금 정보 아이콘)
 // 수정: Auto — 2026-07-19 03:15 (건보 고지서 정보 아이콘)
 // 수정: Auto — 2026-07-19 03:25 (상세 타입 정보 아이콘)
@@ -34,6 +35,8 @@ function hasDetailPayload(item: MonthlyExpense): boolean {
   if (item.expenseType === 'healthInsurance') return item.healthInsuranceDetail != null
   if (item.expenseType === 'nationalPension') return item.nationalPensionDetail != null
   if (item.expenseType === 'insurance') return item.insuranceDetail != null
+  if (item.expenseType === 'rental') return item.rentalDetail != null
+  if (item.expenseType === 'bogeumjari') return item.bogeumjariDetail != null
   return false
 }
 

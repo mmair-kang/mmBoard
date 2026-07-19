@@ -1,7 +1,11 @@
+// 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
+// 수정: Auto — 2026-07-19 12:15 (할인 약정 종료일·남은 일수)
 // 수정: Auto — 2026-07-19 03:30 (국민연금 전용 고지서 분리)
 // 수정: Auto — 2026-07-19 03:15 (건보는 전용 고지서 구조로 분리)
 // 수정: Auto — 2026-07-19 03:25 (국민연금·건강보험 지역가입자)
 // 수정: Auto — 2026-07-19 03:15 (통신비 상세 내역)
+
+import dayjs from 'dayjs'
 
 export const MONTHLY_EXPENSE_TYPES = [
   'none',
@@ -9,6 +13,8 @@ export const MONTHLY_EXPENSE_TYPES = [
   'nationalPension',
   'healthInsurance',
   'insurance',
+  'rental',
+  'bogeumjari',
 ] as const
 export type MonthlyExpenseType = (typeof MONTHLY_EXPENSE_TYPES)[number]
 
@@ -22,6 +28,8 @@ export const MONTHLY_EXPENSE_DETAIL_TYPES = [
   'nationalPension',
   'healthInsurance',
   'insurance',
+  'rental',
+  'bogeumjari',
 ] as const
 export type MonthlyExpenseDetailType = (typeof MONTHLY_EXPENSE_DETAIL_TYPES)[number]
 
@@ -30,6 +38,8 @@ export type TelecomDiscount = {
   name: string
   /** 할인·감면액(양수) — 금액에서 차감 */
   amount: number
+  /** 약정·할인 종료일 (YYYY-MM-DD). null이면 기간 없음 */
+  endsOn: string | null
 }
 
 export type TelecomDetailRow = {
@@ -38,6 +48,8 @@ export type TelecomDetailRow = {
   listPrice: number
   discounts: TelecomDiscount[]
   note: string
+  /** 요금제 약정 종료일 (YYYY-MM-DD). null이면 기간 없음 */
+  endsOn: string | null
 }
 
 export type TelecomDetailSection = {
@@ -61,11 +73,11 @@ function newId() {
 }
 
 export function emptyTelecomDiscount(): TelecomDiscount {
-  return { id: newId(), name: '', amount: 0 }
+  return { id: newId(), name: '', amount: 0, endsOn: null }
 }
 
 export function emptyTelecomRow(): TelecomDetailRow {
-  return { id: newId(), name: '', listPrice: 0, discounts: [], note: '' }
+  return { id: newId(), name: '', listPrice: 0, discounts: [], note: '', endsOn: null }
 }
 
 export function emptyTelecomSection(title = ''): TelecomDetailSection {
@@ -104,6 +116,10 @@ export function getMonthlyExpenseTypeLabel(type: MonthlyExpenseType): string {
       return '건강보험료'
     case 'insurance':
       return '보험'
+    case 'rental':
+      return '렌탈'
+    case 'bogeumjari':
+      return '보금자리론'
     default:
       return '없음'
   }
@@ -148,6 +164,36 @@ export function telecomGrandTotal(detail: TelecomDetail): number {
 
 export const expenseDetailGrandTotal = telecomGrandTotal
 
+/** 약정 종료일까지 남은 일수 (종료일 포함 기준 diff). null이면 기간 없음 */
+export function getTelecomDiscountDaysRemaining(
+  endsOn: string | null | undefined,
+  today = dayjs(),
+): number | null {
+  if (!endsOn) return null
+  const end = dayjs(endsOn).startOf('day')
+  if (!end.isValid()) return null
+  return end.diff(today.startOf('day'), 'day')
+}
+
+/** 예: "123일 남음" / "오늘 종료" / "종료됨" */
+export function formatTelecomDiscountRemaining(
+  endsOn: string | null | undefined,
+  today = dayjs(),
+): string | null {
+  const days = getTelecomDiscountDaysRemaining(endsOn, today)
+  if (days == null) return null
+  if (days > 0) return `${days}일 남음`
+  if (days === 0) return '오늘 종료'
+  return '종료됨'
+}
+
+export function formatTelecomDiscountEndsOn(endsOn: string | null | undefined): string | null {
+  if (!endsOn) return null
+  const end = dayjs(endsOn)
+  if (!end.isValid()) return null
+  return end.format('YYYY.MM.DD')
+}
+
 function parseDiscount(raw: unknown): TelecomDiscount | null {
   if (!raw || typeof raw !== 'object') return null
   const row = raw as Record<string, unknown>
@@ -155,7 +201,12 @@ function parseDiscount(raw: unknown): TelecomDiscount | null {
   const amount = Math.round(Number(row.amount ?? 0))
   if (!Number.isFinite(amount) || amount < 0) return null
   const id = typeof row.id === 'string' && row.id ? row.id : newId()
-  return { id, name, amount }
+  let endsOn: string | null = null
+  if (typeof row.endsOn === 'string' && row.endsOn.trim()) {
+    const trimmed = row.endsOn.trim().slice(0, 10)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) endsOn = trimmed
+  }
+  return { id, name, amount, endsOn }
 }
 
 function parseRow(raw: unknown): TelecomDetailRow | null {
@@ -171,8 +222,13 @@ function parseRow(raw: unknown): TelecomDetailRow | null {
     const parsed = parseDiscount(d)
     if (parsed) discounts.push(parsed)
   }
+  let endsOn: string | null = null
+  if (typeof row.endsOn === 'string' && row.endsOn.trim()) {
+    const trimmed = row.endsOn.trim().slice(0, 10)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) endsOn = trimmed
+  }
   const id = typeof row.id === 'string' && row.id ? row.id : newId()
-  return { id, name, listPrice, discounts, note }
+  return { id, name, listPrice, discounts, note, endsOn }
 }
 
 function parseSection(raw: unknown): TelecomDetailSection | null {

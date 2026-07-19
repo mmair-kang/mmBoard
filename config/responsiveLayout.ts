@@ -79,7 +79,7 @@ export const sxMainTabLayout: SxProps<Theme> = {
   minWidth: 0,
 }
 
-/** PC — 할일·D-day 1행, 날씨는 아래 전체 너비 */
+/** PC — 할일·D-day 1행 (달력은 그 위 전체 너비) */
 export const sxMainTabTopRow: SxProps<Theme> = {
   display: 'grid',
   gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },

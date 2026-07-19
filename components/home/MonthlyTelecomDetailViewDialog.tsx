@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-19 12:15 (할인 약정 남은 일수)
 // 수정: Auto — 2026-07-19 03:25 (국민연금·건보 상세 조회)
 // 수정: Auto — 2026-07-19 03:15 (통신비 상세 조회)
 
@@ -13,6 +14,8 @@ import {
 } from '@/config/formDialogLayout'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
+  formatTelecomDiscountEndsOn,
+  formatTelecomDiscountRemaining,
   getExpenseDetailFieldLabels,
   getMonthlyExpenseTypeLabel,
   rowSettlement,
@@ -123,10 +126,35 @@ export function MonthlyTelecomDetailViewDialog({
                           borderColor: 'divider',
                         }}
                       >
-                        <Stack direction="row" justifyContent="space-between" gap={1}>
-                          <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', minWidth: 0 }}>
-                            {row.name || '항목'}
-                          </Typography>
+                        <Stack direction="row" justifyContent="space-between" gap={1} alignItems="flex-start">
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', minWidth: 0 }}>
+                              {row.name || '항목'}
+                            </Typography>
+                            {(() => {
+                              const remaining = formatTelecomDiscountRemaining(row.endsOn)
+                              const endsLabel = formatTelecomDiscountEndsOn(row.endsOn)
+                              if (!remaining) return null
+                              return (
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    fontWeight: 800,
+                                    display: 'block',
+                                    color:
+                                      remaining === '종료됨'
+                                        ? 'error.main'
+                                        : remaining === '오늘 종료'
+                                          ? 'warning.main'
+                                          : 'primary.main',
+                                  }}
+                                >
+                                  약정 {remaining}
+                                  {endsLabel ? ` · ${endsLabel}` : ''}
+                                </Typography>
+                              )
+                            })()}
+                          </Box>
                           <Typography
                             sx={{
                               fontWeight: 800,
@@ -140,15 +168,44 @@ export function MonthlyTelecomDetailViewDialog({
                         </Stack>
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                           {labels.listPrice} {formatWon(row.listPrice)}
-                          {row.discounts.length > 0
-                            ? row.discounts
-                                .map(
-                                  (d) =>
-                                    ` · ${d.name || labels.discount} −${d.amount.toLocaleString('ko-KR')}원`,
-                                )
-                                .join('')
-                            : null}
                         </Typography>
+                        {row.discounts.length > 0 ? (
+                          <Stack spacing={0.2} sx={{ mt: 0.25 }}>
+                            {row.discounts.map((d) => {
+                              const remaining = formatTelecomDiscountRemaining(d.endsOn)
+                              const endsLabel = formatTelecomDiscountEndsOn(d.endsOn)
+                              return (
+                                <Typography
+                                  key={d.id}
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ fontWeight: 600, display: 'block' }}
+                                >
+                                  · {d.name || labels.discount} −
+                                  {d.amount.toLocaleString('ko-KR')}원
+                                  {remaining ? (
+                                    <Box
+                                      component="span"
+                                      sx={{
+                                        ml: 0.5,
+                                        fontWeight: 800,
+                                        color:
+                                          remaining === '종료됨'
+                                            ? 'error.main'
+                                            : remaining === '오늘 종료'
+                                              ? 'warning.main'
+                                              : 'primary.main',
+                                      }}
+                                    >
+                                      {remaining}
+                                      {endsLabel ? ` (${endsLabel})` : ''}
+                                    </Box>
+                                  ) : null}
+                                </Typography>
+                              )
+                            })}
+                          </Stack>
+                        ) : null}
                         {row.note.trim() ? (
                           <Typography
                             variant="caption"

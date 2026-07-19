@@ -1,3 +1,7 @@
+// 수정: Auto — 2026-07-19 10:15 (⑥ 건강보험료 원단위 내림)
+// 수정: Auto — 2026-07-19 10:10 (⑧ 원단위(10원) 내림)
+// 수정: Auto — 2026-07-19 10:05 (⑧=(①+(②×③))×요율, 소수 입력)
+// 수정: Auto — 2026-07-19 10:00 (⑧ 장기요양 = (①+③)×요율 절사)
 // 수정: Auto — 2026-07-19 03:25 (재산보험료 절사·최종 10원 절사)
 // 수정: Auto — 2026-07-19 03:15 (지역가입자 고지서 ①~⑨)
 
@@ -16,19 +20,21 @@ export type HealthInsuranceDetail = {
   temporaryReduction: number
   /** ⑦ 건강 면제·지원금 */
   healthExemption: number
-  /** ⑧ 장기요양보험료 */
-  longTermCarePremium: number
+  /** ⑧ 장기요양보험료율 (%) — 예: 13.14 */
+  longTermCareRate: number
   /** ⑨ 장기 면제·지원금 */
   longTermCareExemption: number
 }
 
 /** 계산된 고지서 행 */
 export type HealthInsuranceComputed = {
-  /** ③ 재산보험료 = ② × 단가 */
+  /** ③ 재산보험료 = ② × 단가 (원단위 절사) */
   propertyPremium: number
-  /** ⑥ 건강보험료 = (①+③)−(④+⑤) */
+  /** ⑥ 건강보험료 = (①+③)−(④+⑤) 후 원단위(10원) 내림 */
   healthPremium: number
-  /** 계 납부보험료 = (⑥−⑦)+(⑧−⑨) */
+  /** ⑧ 장기요양보험료 = (①+(②×③))×요율% 후 원단위(10원) 내림 */
+  longTermCarePremium: number
+  /** 계 납부보험료 = (⑥−⑦)+(⑧−⑨), 10원 미만 절사 */
   totalPayable: number
 }
 
@@ -43,7 +49,7 @@ export function defaultHealthInsuranceDetail(): HealthInsuranceDetail {
     reduction: 0,
     temporaryReduction: 0,
     healthExemption: 0,
-    longTermCarePremium: 0,
+    longTermCareRate: 0,
     longTermCareExemption: 0,
   }
 }
@@ -61,17 +67,25 @@ function nonNegNumber(n: unknown): number {
 }
 
 export function computeHealthInsurance(detail: HealthInsuranceDetail): HealthInsuranceComputed {
-  // 공단 산정: 점수×단가 소수점 이하 절사 (예: 365×211.5=77197.5 → 77197)
-  const propertyPremium = Math.floor(detail.propertyPoints * detail.propertyPointUnit)
-  const healthPremium =
+  // ③ 재산보험료 = ② × 단가 (원단위 절사)
+  const rawPropertyPremium = detail.propertyPoints * detail.propertyPointUnit
+  const propertyPremium = Math.floor(rawPropertyPremium)
+  // ⑧ 장기요양 = (① + (②×③)) × 장기요양보험료율% → 원단위(10원) 내림
+  const baseForLtc = detail.incomePremium + rawPropertyPremium
+  const longTermCareRaw = (baseForLtc * detail.longTermCareRate) / 100
+  const longTermCarePremium = Math.floor(Math.max(0, longTermCareRaw) / 10) * 10
+  // ⑥ 건강보험료 = (①+③)−(④+⑤) → 원단위(10원) 내림 (예: 51039 → 51030)
+  const healthPremiumRaw =
     detail.incomePremium + propertyPremium - detail.reduction - detail.temporaryReduction
+  const healthPremium = Math.floor(Math.max(0, healthPremiumRaw) / 10) * 10
   const rawTotal =
-    healthPremium - detail.healthExemption + detail.longTermCarePremium - detail.longTermCareExemption
-  // 최종 납부보험료: 10원 미만 절사 (예: 110148 → 110140)
+    healthPremium - detail.healthExemption + longTermCarePremium - detail.longTermCareExemption
+  // 최종 납부보험료: 10원 미만 절사
   const totalPayable = Math.floor(Math.max(0, rawTotal) / 10) * 10
   return {
     propertyPremium: Math.max(0, propertyPremium),
-    healthPremium: Math.max(0, healthPremium),
+    healthPremium,
+    longTermCarePremium: Math.max(0, longTermCarePremium),
     totalPayable,
   }
 }
@@ -111,7 +125,7 @@ export function parseHealthInsuranceDetail(raw: unknown): HealthInsuranceDetail 
     reduction: nonNegRound(row.reduction),
     temporaryReduction: nonNegRound(row.temporaryReduction),
     healthExemption: nonNegRound(row.healthExemption),
-    longTermCarePremium: nonNegRound(row.longTermCarePremium),
+    longTermCareRate: nonNegNumber(row.longTermCareRate),
     longTermCareExemption: nonNegRound(row.longTermCareExemption),
   }
 }
@@ -125,7 +139,9 @@ export type HealthInsuranceBillRow = {
   no: string
   label: string
   valueLabel: string
-  emphasize?: 'total' | 'subtotal'
+  emphasize?: 'total' | 'subtotal' | 'highlight'
+  /** 점수/원 값만 primary 색 */
+  valueAccent?: boolean
 }
 
 /** 고지서와 같은 표 행 목록 */
@@ -133,6 +149,9 @@ export function buildHealthInsuranceBillRows(detail: HealthInsuranceDetail): Hea
   const c = computeHealthInsurance(detail)
   const unit = detail.propertyPointUnit
   const unitLabel = Number.isInteger(unit) ? String(unit) : String(unit)
+  const rateLabel = Number.isInteger(detail.longTermCareRate)
+    ? String(detail.longTermCareRate)
+    : String(detail.longTermCareRate)
 
   return [
     {
@@ -150,6 +169,7 @@ export function buildHealthInsuranceBillRows(detail: HealthInsuranceDetail): Hea
       no: '②',
       label: '재산(주택·건물·토지·전월세 등) 점수',
       valueLabel: `${detail.propertyPoints.toLocaleString('ko-KR')} 점`,
+      valueAccent: true,
     },
     {
       no: '③',
@@ -168,7 +188,7 @@ export function buildHealthInsuranceBillRows(detail: HealthInsuranceDetail): Hea
     },
     {
       no: '⑥',
-      label: '건강보험료 (① + ③) - (④ + ⑤)',
+      label: '건강보험료 (① + ③) - (④ + ⑤), 원단위 내림',
       valueLabel: `${c.healthPremium.toLocaleString('ko-KR')} 원`,
       emphasize: 'subtotal',
     },
@@ -179,8 +199,9 @@ export function buildHealthInsuranceBillRows(detail: HealthInsuranceDetail): Hea
     },
     {
       no: '⑧',
-      label: '장기요양보험료',
-      valueLabel: `${detail.longTermCarePremium.toLocaleString('ko-KR')} 원`,
+      label: `장기요양보험료 ((①+(②×③)) × ${rateLabel}%, 원단위 내림)`,
+      valueLabel: `${c.longTermCarePremium.toLocaleString('ko-KR')} 원`,
+      emphasize: 'highlight',
     },
     {
       no: '⑨',

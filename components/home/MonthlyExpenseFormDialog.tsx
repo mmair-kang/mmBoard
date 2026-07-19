@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
+// 수정: Auto — 2026-07-19 13:00 (렌탈 타입)
 // 수정: Auto — 2026-07-19 03:40 (보험 타입)
 // 수정: Auto — 2026-07-19 03:30 (국민연금 고지서·타입 Select)
 // 수정: Auto — 2026-07-19 03:15 (건보 고지서 전용 입력)
@@ -9,6 +11,8 @@ import { MonthlyDaySelect } from '@/components/home/MonthlyDaySelect'
 import { MonthlyHealthInsuranceEditorDialog } from '@/components/home/MonthlyHealthInsuranceEditorDialog'
 import { MonthlyInsuranceEditorDialog } from '@/components/home/MonthlyInsuranceEditorDialog'
 import { MonthlyNationalPensionEditorDialog } from '@/components/home/MonthlyNationalPensionEditorDialog'
+import { MonthlyBogeumjariEditorDialog } from '@/components/home/MonthlyBogeumjariEditorDialog'
+import { MonthlyRentalEditorDialog } from '@/components/home/MonthlyRentalEditorDialog'
 import { MonthlyTelecomDetailEditorDialog } from '@/components/home/MonthlyTelecomDetailEditorDialog'
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogFooter } from '@/components/common/FormDialogFooter'
@@ -25,6 +29,11 @@ import {
 import type { MonthlyExpense } from '@/hooks/useMonthlyExpenses'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
+  bogeumjariGrandTotal,
+  defaultBogeumjariDetail,
+  type BogeumjariDetail,
+} from '@/lib/bogeumjariExpenseDetail'
+import {
   defaultHealthInsuranceDetail,
   healthInsuranceGrandTotal,
   type HealthInsuranceDetail,
@@ -40,6 +49,11 @@ import {
   nationalPensionGrandTotal,
   type NationalPensionDetail,
 } from '@/lib/nationalPensionDetail'
+import {
+  defaultRentalDetail,
+  rentalGrandTotal,
+  type RentalDetail,
+} from '@/lib/rentalExpenseDetail'
 import {
   MONTHLY_EXPENSE_TYPES,
   defaultExpenseDetail,
@@ -83,10 +97,14 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
   const [healthDetail, setHealthDetail] = useState<HealthInsuranceDetail | null>(null)
   const [pensionDetail, setPensionDetail] = useState<NationalPensionDetail | null>(null)
   const [insuranceDetail, setInsuranceDetail] = useState<InsuranceDetail | null>(null)
+  const [rentalDetail, setRentalDetail] = useState<RentalDetail | null>(null)
+  const [bogeumjariDetail, setBogeumjariDetail] = useState<BogeumjariDetail | null>(null)
   const [telecomOpen, setTelecomOpen] = useState(false)
   const [healthOpen, setHealthOpen] = useState(false)
   const [pensionOpen, setPensionOpen] = useState(false)
   const [insuranceOpen, setInsuranceOpen] = useState(false)
+  const [rentalOpen, setRentalOpen] = useState(false)
+  const [bogeumjariOpen, setBogeumjariOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -102,10 +120,14 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       setHealthDetail(null)
       setPensionDetail(null)
       setInsuranceDetail(null)
+      setRentalDetail(null)
+      setBogeumjariDetail(null)
       setTelecomOpen(false)
       setHealthOpen(false)
       setPensionOpen(false)
       setInsuranceOpen(false)
+      setRentalOpen(false)
+      setBogeumjariOpen(false)
       setSubmitting(false)
       setDeleting(false)
       setFormError(null)
@@ -121,6 +143,8 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       setHealthDetail(item.healthInsuranceDetail)
       setPensionDetail(item.nationalPensionDetail)
       setInsuranceDetail(item.insuranceDetail)
+      setRentalDetail(item.rentalDetail)
+      setBogeumjariDetail(item.bogeumjariDetail)
     } else {
       setTitle('')
       setDayOfMonth(null)
@@ -131,6 +155,8 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       setHealthDetail(null)
       setPensionDetail(null)
       setInsuranceDetail(null)
+      setRentalDetail(null)
+      setBogeumjariDetail(null)
     }
   }, [open, item])
 
@@ -150,12 +176,23 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
     () => (insuranceDetail ? insuranceGrandTotal(insuranceDetail) : 0),
     [insuranceDetail],
   )
+  const rentalTotal = useMemo(
+    () => (rentalDetail ? rentalGrandTotal(rentalDetail) : 0),
+    [rentalDetail],
+  )
+  const bogeumjariTotal = useMemo(
+    () => (bogeumjariDetail ? bogeumjariGrandTotal(bogeumjariDetail) : 0),
+    [bogeumjariDetail],
+  )
 
   const usesTelecom = hasSectionExpenseDetailType(expenseType)
   const usesHealth = expenseType === 'healthInsurance'
   const usesPension = expenseType === 'nationalPension'
   const usesInsurance = expenseType === 'insurance'
-  const usesDetail = usesTelecom || usesHealth || usesPension || usesInsurance
+  const usesRental = expenseType === 'rental'
+  const usesBogeumjari = expenseType === 'bogeumjari'
+  const usesDetail =
+    usesTelecom || usesHealth || usesPension || usesInsurance || usesRental || usesBogeumjari
 
   const detailTotal = usesHealth
     ? healthTotal
@@ -163,7 +200,11 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       ? pensionTotal
       : usesInsurance
         ? insuranceTotal
-        : telecomTotal
+        : usesRental
+          ? rentalTotal
+          : usesBogeumjari
+            ? bogeumjariTotal
+            : telecomTotal
   const parsedAmount = usesDetail
     ? detailTotal
     : Math.round(Number(amount.replace(/[^\d]/g, ''))) || 0
@@ -174,13 +215,17 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
     (!usesTelecom || telecomDetail != null) &&
     (!usesHealth || healthDetail != null) &&
     (!usesPension || pensionDetail != null) &&
-    (!usesInsurance || insuranceDetail != null)
+    (!usesInsurance || insuranceDetail != null) &&
+    (!usesRental || rentalDetail != null) &&
+    (!usesBogeumjari || bogeumjariDetail != null)
 
   const clearDetails = () => {
     setTelecomDetail(null)
     setHealthDetail(null)
     setPensionDetail(null)
     setInsuranceDetail(null)
+    setRentalDetail(null)
+    setBogeumjariDetail(null)
   }
 
   const handleExpenseTypeChange = (next: MonthlyExpenseType) => {
@@ -189,6 +234,8 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
     setHealthOpen(false)
     setPensionOpen(false)
     setInsuranceOpen(false)
+    setRentalOpen(false)
+    setBogeumjariOpen(false)
     if (hasSectionExpenseDetailType(next)) {
       clearDetails()
       setTelecomDetail(defaultExpenseDetail())
@@ -205,6 +252,16 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       clearDetails()
       setInsuranceDetail(defaultInsuranceDetail())
       setInsuranceOpen(true)
+    } else if (next === 'rental') {
+      clearDetails()
+      setRentalDetail(defaultRentalDetail())
+      setRentalOpen(true)
+    } else if (next === 'bogeumjari') {
+      clearDetails()
+      const nextDetail = defaultBogeumjariDetail()
+      setBogeumjariDetail(nextDetail)
+      setDayOfMonth(nextDetail.paymentDay)
+      setBogeumjariOpen(true)
     } else {
       clearDetails()
     }
@@ -214,6 +271,8 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
     if (usesHealth) setHealthOpen(true)
     else if (usesPension) setPensionOpen(true)
     else if (usesInsurance) setInsuranceOpen(true)
+    else if (usesRental) setRentalOpen(true)
+    else if (usesBogeumjari) setBogeumjariOpen(true)
     else if (usesTelecom) setTelecomOpen(true)
   }
 
@@ -233,6 +292,8 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
         healthInsuranceDetail: usesHealth ? healthDetail : null,
         nationalPensionDetail: usesPension ? pensionDetail : null,
         insuranceDetail: usesInsurance ? insuranceDetail : null,
+        rentalDetail: usesRental ? rentalDetail : null,
+        bogeumjariDetail: usesBogeumjari ? bogeumjariDetail : null,
       })
       onClose()
     } catch (error) {
@@ -261,7 +322,11 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
       ? '금액은 최종징수 결정액(A)으로 자동 반영됩니다'
       : usesInsurance
         ? '금액은 계약 보험료로 자동 반영됩니다'
-        : `금액은 ${getMonthlyExpenseTypeLabel(expenseType)} 상세 합계로 자동 반영됩니다`
+        : usesRental
+          ? '금액은 월 렌탈료로 자동 반영됩니다'
+          : usesBogeumjari
+            ? '금액은 월 상환액으로, 일정은 납부일로 자동 반영됩니다'
+            : `금액은 ${getMonthlyExpenseTypeLabel(expenseType)} 상세 합계로 자동 반영됩니다`
 
   return (
     <>
@@ -418,6 +483,29 @@ export function MonthlyExpenseFormDialog({ open, item, onClose, onSubmit, onDele
         onSave={(next) => {
           setInsuranceDetail(next)
           setAmount(String(insuranceGrandTotal(next)))
+        }}
+      />
+
+      <MonthlyRentalEditorDialog
+        open={rentalOpen}
+        initial={rentalDetail}
+        expenseTitle={title.trim() || undefined}
+        onClose={() => setRentalOpen(false)}
+        onSave={(next) => {
+          setRentalDetail(next)
+          setAmount(String(rentalGrandTotal(next)))
+        }}
+      />
+
+      <MonthlyBogeumjariEditorDialog
+        open={bogeumjariOpen}
+        initial={bogeumjariDetail}
+        expenseTitle={title.trim() || undefined}
+        onClose={() => setBogeumjariOpen(false)}
+        onSave={(next) => {
+          setBogeumjariDetail(next)
+          setAmount(String(bogeumjariGrandTotal(next)))
+          setDayOfMonth(next.paymentDay)
         }}
       />
     </>

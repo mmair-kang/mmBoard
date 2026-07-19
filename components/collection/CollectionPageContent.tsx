@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-07-19 14:25 (소장 만 단위 반올림)
+// 수정: Auto — 2026-07-19 13:45 (소장 2depth 총액)
 // 수정: Auto — 2026-07-19 02:55 (수시 초록·항목명 톤)
 // 수정: Auto — 2026-07-19 02:50 (제품명·메타 글자 축소)
 // 수정: Auto — 2026-07-19 02:45 (목록 칩 표시 설정)
@@ -36,9 +38,11 @@ import {
   sxCollectionLivingSubButtonLabel,
   sxCollectionLivingSubRow,
   sxCollectionLivingTotalAmount,
-  sxCollectionSubChip,
+  sxCollectionOwnSubButton,
+  sxCollectionOwnSubButtonAmountFoot,
+  sxCollectionOwnSubButtonLabel,
+  sxCollectionOwnSubPanel,
   sxCollectionSubChipByColor,
-  sxCollectionSubChipPanel,
   sxCollectionSubChipPanelByColor,
   sxCollectionThumbNameFrame,
 } from '@/components/collection/collectionStyles'
@@ -112,7 +116,7 @@ import {
   sxPageStickyHeaderPad,
   sxPageTitle,
 } from '@/config/responsiveLayout'
-import { buildLivingMonthlyBreakdown, calcLivingMonthlyCost, formatCompactLivingAmount } from '@/lib/livingCost'
+import { buildLivingMonthlyBreakdown, buildOwnPurchaseBreakdown, calcLivingMonthlyCost, formatCompactLivingAmount, formatCompactOwnAmount } from '@/lib/livingCost'
 import { matchesAnySearch } from '@/lib/koreanSearch'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
@@ -251,6 +255,66 @@ function LivingMonthlyPanel({
           숨김 OFF인 항목만 합계에 포함됩니다
         </Typography>
       ) : null}
+    </Box>
+  )
+}
+
+function OwnSubAmountPanel({
+  colorHex,
+  subs,
+  activeSub,
+  amountBySub,
+  onSelectSub,
+  subChipLongPress,
+  wrapSubChipClick,
+  subChipButtonSx,
+}: {
+  colorHex: string
+  subs: readonly CollectionSubEntry[]
+  activeSub: CollectionSubKey
+  amountBySub: Map<string, number>
+  onSelectSub: (key: CollectionSubKey) => void
+  subChipLongPress: ReturnType<typeof useLongPress>['pointerHandlers']
+  wrapSubChipClick: ReturnType<typeof useLongPress>['wrapClick']
+  subChipButtonSx: Record<string, unknown>
+}) {
+  return (
+    <Box sx={sxCollectionOwnSubPanel(colorHex)}>
+      <Stack
+        direction="row"
+        sx={{
+          display: 'flex',
+          gap: 0.4,
+          width: '100%',
+        }}
+        {...subChipLongPress}
+      >
+        {subs.map((c) => {
+          const selected = activeSub === c.key
+          const amount = amountBySub.get(c.key) ?? 0
+          const hasAmount = amount > 0
+          return (
+            <Box
+              key={c.key}
+              component="button"
+              type="button"
+              onClick={wrapSubChipClick(() => onSelectSub(c.key as CollectionSubKey))}
+              sx={{
+                ...sxCollectionOwnSubButton(colorHex, selected),
+                ...subChipButtonSx,
+                touchAction: 'manipulation',
+              }}
+            >
+              <Box component="span" sx={sxCollectionOwnSubButtonLabel(colorHex, selected)}>
+                {c.label}
+              </Box>
+              <Box component="span" sx={sxCollectionOwnSubButtonAmountFoot(colorHex, hasAmount, selected)}>
+                {hasAmount ? formatCompactOwnAmount(amount) : '—'}
+              </Box>
+            </Box>
+          )
+        })}
+      </Stack>
     </Box>
   )
 }
@@ -587,7 +651,9 @@ export function CollectionPageContent() {
     isFoodSection ? 'appliance' : subCategory,
   )
 
-  const { items: allItems, isLoading: allLoading, mutate: mutateAll } = useAllCollectionItems(isSearching)
+  const { items: allItems, isLoading: allLoading, mutate: mutateAll } = useAllCollectionItems(
+    isSearching || section === 'own',
+  )
   const {
     products: allProducts,
     isLoading: allProductsLoading,
@@ -608,6 +674,23 @@ export function CollectionPageContent() {
     }
     return map
   }, [livingMonthlyBreakdown.rows])
+
+  const ownPurchaseBreakdown = useMemo(
+    () =>
+      buildOwnPurchaseBreakdown(
+        allItems,
+        mainCategory,
+        getCollectionSubFilters(mainCategory, subs),
+      ),
+    [allItems, mainCategory, subs],
+  )
+  const ownPurchaseBySub = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const row of ownPurchaseBreakdown.rows) {
+      map.set(row.subKey, row.total)
+    }
+    return map
+  }, [ownPurchaseBreakdown.rows])
 
   const displayProducts = useMemo(() => {
     if (!isSearching && !isFoodSection) return []
@@ -1113,24 +1196,16 @@ export function CollectionPageContent() {
               ))}
             </Box>
           ) : (
-            <Box sx={sxCollectionSubChipPanel(mainCategory)}>
-              {getCollectionSubFilters(mainCategory, subs).map((c) => (
-                <Box
-                  key={c.key}
-                  component="button"
-                  type="button"
-                  {...subChipLongPress}
-                  onClick={wrapSubChipClick(() => setSubCategory(c.key as CollectionSubKey))}
-                  sx={{
-                    ...sxCollectionSubChip(mainCategory, subCategory === c.key),
-                    ...subChipButtonSx,
-                    touchAction: 'manipulation',
-                  }}
-                >
-                  {c.label}
-                </Box>
-              ))}
-            </Box>
+            <OwnSubAmountPanel
+              colorHex={getCollectionMainMeta(mainCategory).color}
+              subs={getCollectionSubFilters(mainCategory, subs)}
+              activeSub={subCategory}
+              amountBySub={ownPurchaseBySub}
+              onSelectSub={setSubCategory}
+              subChipLongPress={subChipLongPress}
+              wrapSubChipClick={wrapSubChipClick}
+              subChipButtonSx={subChipButtonSx}
+            />
           )}
         </Stack>
       </Box>

@@ -1,10 +1,14 @@
 'use client'
+// 수정: Auto — 2026-07-19 13:10 (보금자리론 상세)
+// 수정: Auto — 2026-07-19 13:00 (렌탈 계약정보)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
 // 수정: Auto — 2026-07-19 03:30 (국민연금 고지서 정보·수정)
 // 수정: Auto — 2026-07-19 03:15 (건보 고지서 정보·수정)
 // 수정: Auto — 2026-07-19 03:25 (국민연금·건보 상세)
 // 수정: Auto — 2026-07-19 03:15 (통신비 정보·수정)
 
+import { MonthlyBogeumjariEditorDialog } from '@/components/home/MonthlyBogeumjariEditorDialog'
+import { MonthlyBogeumjariViewDialog } from '@/components/home/MonthlyBogeumjariViewDialog'
 import { MonthlyExpenseFormDialog } from '@/components/home/MonthlyExpenseFormDialog'
 import { MonthlyExpenseItemRow } from '@/components/home/MonthlyExpenseItemRow'
 import { MonthlyExpenseOrderDialog } from '@/components/home/MonthlyExpenseOrderDialog'
@@ -14,12 +18,18 @@ import { MonthlyInsuranceEditorDialog } from '@/components/home/MonthlyInsurance
 import { MonthlyInsuranceViewDialog } from '@/components/home/MonthlyInsuranceViewDialog'
 import { MonthlyNationalPensionEditorDialog } from '@/components/home/MonthlyNationalPensionEditorDialog'
 import { MonthlyNationalPensionViewDialog } from '@/components/home/MonthlyNationalPensionViewDialog'
+import { MonthlyRentalEditorDialog } from '@/components/home/MonthlyRentalEditorDialog'
+import { MonthlyRentalViewDialog } from '@/components/home/MonthlyRentalViewDialog'
 import { MonthlyTelecomDetailEditorDialog } from '@/components/home/MonthlyTelecomDetailEditorDialog'
 import { MonthlyTelecomDetailViewDialog } from '@/components/home/MonthlyTelecomDetailViewDialog'
 import { type MonthlyExpense, useMonthlyExpenses } from '@/hooks/useMonthlyExpenses'
 import { useLongPress } from '@/hooks/useLongPress'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import { formatWon } from '@/lib/annualPaymentCalc'
+import {
+  bogeumjariGrandTotal,
+  type BogeumjariDetail,
+} from '@/lib/bogeumjariExpenseDetail'
 import {
   healthInsuranceGrandTotal,
   type HealthInsuranceDetail,
@@ -33,6 +43,7 @@ import {
   nationalPensionGrandTotal,
   type NationalPensionDetail,
 } from '@/lib/nationalPensionDetail'
+import { rentalGrandTotal, type RentalDetail } from '@/lib/rentalExpenseDetail'
 import {
   hasSectionExpenseDetailType,
   telecomGrandTotal,
@@ -140,6 +151,8 @@ export function MonthlyExpenseWidget() {
       healthInsuranceDetail: null,
       nationalPensionDetail: null,
       insuranceDetail: null,
+      rentalDetail: null,
+      bogeumjariDetail: null,
     }
     const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
       method: 'PATCH',
@@ -166,6 +179,8 @@ export function MonthlyExpenseWidget() {
       healthInsuranceDetail: detail,
       nationalPensionDetail: null,
       insuranceDetail: null,
+      rentalDetail: null,
+      bogeumjariDetail: null,
     }
     const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
       method: 'PATCH',
@@ -192,6 +207,8 @@ export function MonthlyExpenseWidget() {
       healthInsuranceDetail: null,
       nationalPensionDetail: detail,
       insuranceDetail: null,
+      rentalDetail: null,
+      bogeumjariDetail: null,
     }
     const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
       method: 'PATCH',
@@ -218,6 +235,64 @@ export function MonthlyExpenseWidget() {
       healthInsuranceDetail: null,
       nationalPensionDetail: null,
       insuranceDetail: detail,
+      rentalDetail: null,
+      bogeumjariDetail: null,
+    }
+    const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as MonthlyExpense
+    await mutate((prev) => replaceItem(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const handleSaveRentalFromInfo = async (detail: RentalDetail) => {
+    if (!infoItem || infoItem.expenseType !== 'rental') return
+    const amount = rentalGrandTotal(detail)
+    const payload: MonthlyExpensePayload = {
+      title: infoItem.title,
+      dayOfMonth: infoItem.dayOfMonth,
+      amount,
+      payType: infoItem.payType,
+      expenseType: 'rental',
+      telecomDetail: null,
+      healthInsuranceDetail: null,
+      nationalPensionDetail: null,
+      insuranceDetail: null,
+      rentalDetail: detail,
+      bogeumjariDetail: null,
+    }
+    const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '수정에 실패했습니다'))
+    const updated = (await res.json()) as MonthlyExpense
+    await mutate((prev) => replaceItem(prev, updated), { revalidate: false })
+    setInfoItem(updated)
+    setInfoEditOpen(false)
+  }
+
+  const handleSaveBogeumjariFromInfo = async (detail: BogeumjariDetail) => {
+    if (!infoItem || infoItem.expenseType !== 'bogeumjari') return
+    const amount = bogeumjariGrandTotal(detail)
+    const payload: MonthlyExpensePayload = {
+      title: infoItem.title,
+      dayOfMonth: detail.paymentDay,
+      amount,
+      payType: infoItem.payType,
+      expenseType: 'bogeumjari',
+      telecomDetail: null,
+      healthInsuranceDetail: null,
+      nationalPensionDetail: null,
+      insuranceDetail: null,
+      rentalDetail: null,
+      bogeumjariDetail: detail,
     }
     const res = await fetch(`/api/monthly-expenses/${infoItem.id}`, {
       method: 'PATCH',
@@ -235,6 +310,8 @@ export function MonthlyExpenseWidget() {
   const isHealthInfo = infoItem?.expenseType === 'healthInsurance'
   const isPensionInfo = infoItem?.expenseType === 'nationalPension'
   const isInsuranceInfo = infoItem?.expenseType === 'insurance'
+  const isRentalInfo = infoItem?.expenseType === 'rental'
+  const isBogeumjariInfo = infoItem?.expenseType === 'bogeumjari'
 
   return (
     <>
@@ -403,6 +480,42 @@ export function MonthlyExpenseWidget() {
         onClose={() => setInfoEditOpen(false)}
         onSave={(detail) => {
           void handleSaveInsuranceFromInfo(detail)
+        }}
+      />
+
+      <MonthlyRentalViewDialog
+        open={Boolean(isRentalInfo && !infoEditOpen)}
+        title={infoItem?.title ?? ''}
+        detail={infoItem?.rentalDetail ?? null}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <MonthlyRentalEditorDialog
+        open={Boolean(infoEditOpen && isRentalInfo)}
+        initial={infoItem?.rentalDetail ?? null}
+        expenseTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSaveRentalFromInfo(detail)
+        }}
+      />
+
+      <MonthlyBogeumjariViewDialog
+        open={Boolean(isBogeumjariInfo && !infoEditOpen)}
+        title={infoItem?.title ?? ''}
+        detail={infoItem?.bogeumjariDetail ?? null}
+        onClose={() => setInfoItem(null)}
+        onEdit={() => setInfoEditOpen(true)}
+      />
+
+      <MonthlyBogeumjariEditorDialog
+        open={Boolean(infoEditOpen && isBogeumjariInfo)}
+        initial={infoItem?.bogeumjariDetail ?? null}
+        expenseTitle={infoItem?.title}
+        onClose={() => setInfoEditOpen(false)}
+        onSave={(detail) => {
+          void handleSaveBogeumjariFromInfo(detail)
         }}
       />
     </>

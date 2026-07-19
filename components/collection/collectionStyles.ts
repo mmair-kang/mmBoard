@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-19 13:45 (소장 2depth 총액 버튼)
 // 수정: Auto — 2026-07-19 03:08 (주황/초록 조화 회색 테두리)
 // 수정: Auto — 2026-07-19 03:05 (항목명 테두리 회색)
 // 수정: Auto — 2026-07-19 03:02 (항목명 테두리만 진하게)
@@ -401,6 +402,79 @@ export function sxCollectionLivingSubRow() {
     pt: 0.5,
     borderTop: 1,
     borderColor: alpha(FOOD_LIVING_HEX, 0.14),
+  } as const
+}
+
+/** 소장 등 — 카테고리+금액 통합 버튼 (메인 색상) */
+export function sxCollectionOwnSubButton(hex: string, selected: boolean) {
+  return {
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    p: 0,
+    borderRadius: 2,
+    border: '1px solid',
+    borderColor: selected ? alpha(hex, 0.52) : alpha(hex, 0.3),
+    bgcolor: 'background.paper',
+    cursor: 'pointer',
+    outline: 'none',
+    overflow: 'hidden',
+    WebkitTapHighlightColor: 'transparent',
+    boxShadow: selected ? `0 2px 6px ${alpha(hex, 0.22)}` : `0 1px 2px ${alpha(hex, 0.08)}`,
+    transition: 'background-color 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, transform 0.1s ease',
+    '&:hover': {
+      borderColor: alpha(hex, selected ? 0.58 : 0.38),
+      boxShadow: selected ? `0 2px 8px ${alpha(hex, 0.28)}` : `0 1px 4px ${alpha(hex, 0.14)}`,
+    },
+    '&:active': {
+      transform: 'scale(0.98)',
+    },
+  } as const
+}
+
+export function sxCollectionOwnSubButtonLabel(hex: string, selected: boolean) {
+  return {
+    py: 0.42,
+    px: 0.45,
+    textAlign: 'center',
+    fontSize: '0.78rem',
+    fontWeight: selected ? 800 : 600,
+    color: selected ? hex : alpha(hex, 0.72),
+    lineHeight: 1.25,
+  } as const
+}
+
+export function sxCollectionOwnSubButtonAmountFoot(hex: string, hasAmount: boolean, selected: boolean) {
+  return {
+    py: 0.3,
+    px: 0.35,
+    textAlign: 'center',
+    fontSize: '0.62rem',
+    fontWeight: selected ? 900 : 800,
+    lineHeight: 1.2,
+    letterSpacing: '-0.02em',
+    color: hasAmount ? hex : 'text.disabled',
+    bgcolor: (theme: Theme) =>
+      alpha(hex, theme.palette.mode === 'dark' ? (selected ? 0.22 : 0.14) : selected ? 0.16 : 0.1),
+    borderTop: '1px solid',
+    borderColor: alpha(hex, selected ? 0.24 : 0.16),
+  } as const
+}
+
+export function sxCollectionOwnSubPanel(hex: string) {
+  return {
+    px: 0.85,
+    py: 0.65,
+    borderRadius: 2.5,
+    background: (theme: Theme) => {
+      const greyWash = alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.06 : 0.035)
+      const colorWash = alpha(hex, theme.palette.mode === 'dark' ? 0.06 : 0.04)
+      return `linear-gradient(${colorWash}, ${colorWash}), ${greyWash}`
+    },
+    border: '1px solid',
+    borderColor: alpha(hex, 0.1),
   } as const
 }
 

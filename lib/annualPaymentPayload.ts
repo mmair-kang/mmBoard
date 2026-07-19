@@ -1,7 +1,26 @@
+// 수정: Auto — 2026-07-19 15:10 (Cursor PRO)
+// 수정: Auto — 2026-07-19 14:40 (연납 타입·자동차보험)
 // 수정: Auto — 2026-06-08
 
 import { annualDayToDb } from '@/lib/annualPaymentLabel'
+import {
+  hasAnnualPaymentDetailType,
+  isValidAnnualPaymentType,
+  type AnnualPaymentType,
+} from '@/lib/annualPaymentTypes'
 import { parseOutflowDayValue } from '@/lib/accountPayload'
+import {
+  carInsuranceAnnualDetailForDb,
+  carInsuranceAnnualGrandTotal,
+  parseCarInsuranceAnnualDetail,
+  type CarInsuranceAnnualDetail,
+} from '@/lib/carInsuranceAnnualDetail'
+import {
+  cursorProAnnualDetailForDb,
+  cursorProAnnualGrandTotal,
+  parseCursorProAnnualDetail,
+  type CursorProAnnualDetail,
+} from '@/lib/cursorProAnnualDetail'
 
 export type AnnualPaymentPayload = {
   id?: number
@@ -9,6 +28,9 @@ export type AnnualPaymentPayload = {
   month: number
   dayOfMonth: number | null
   amount: number
+  paymentType: AnnualPaymentType
+  carInsuranceDetail: CarInsuranceAnnualDetail | null
+  cursorProDetail: CursorProAnnualDetail | null
 }
 
 export type AnnualPaymentProgressPayload = {
@@ -19,6 +41,16 @@ export function parseAnnualPaymentMonth(value: unknown): number | undefined {
   const month = Math.round(Number(value))
   if (!Number.isFinite(month) || month < 1 || month > 12) return undefined
   return month
+}
+
+export function annualDetailJsonForDb(payload: AnnualPaymentPayload): string | null {
+  if (payload.paymentType === 'carInsurance') {
+    return carInsuranceAnnualDetailForDb(payload.carInsuranceDetail)
+  }
+  if (payload.paymentType === 'cursorPro') {
+    return cursorProAnnualDetailForDb(payload.cursorProDetail)
+  }
+  return null
 }
 
 export function parseAnnualPaymentPayload(value: unknown): AnnualPaymentPayload | null {
@@ -36,15 +68,47 @@ export function parseAnnualPaymentPayload(value: unknown): AnnualPaymentPayload 
   }
 
   const title = typeof body.title === 'string' ? body.title.trim() : ''
-  const amount = Math.round(Number(body.amount))
   if (!title) return null
+
+  const paymentTypeRaw = body.paymentType ?? 'none'
+  if (!isValidAnnualPaymentType(paymentTypeRaw)) return null
+  const paymentType = paymentTypeRaw
+
+  let carInsuranceDetail: CarInsuranceAnnualDetail | null = null
+  let cursorProDetail: CursorProAnnualDetail | null = null
+
+  if (paymentType === 'carInsurance') {
+    carInsuranceDetail = parseCarInsuranceAnnualDetail(
+      body.carInsuranceDetail ?? body.detailJson,
+    )
+    if (!carInsuranceDetail) return null
+  } else if (paymentType === 'cursorPro') {
+    cursorProDetail = parseCursorProAnnualDetail(body.cursorProDetail ?? body.detailJson)
+    if (!cursorProDetail) return null
+  }
+
+  let amount = Math.round(Number(body.amount))
+  if (paymentType === 'carInsurance' && carInsuranceDetail) {
+    amount = carInsuranceAnnualGrandTotal(carInsuranceDetail)
+  } else if (paymentType === 'cursorPro' && cursorProDetail) {
+    amount = cursorProAnnualGrandTotal(cursorProDetail)
+  }
   if (!Number.isFinite(amount) || amount < 1) return null
 
   const idRaw = body.id
   const id = idRaw != null ? Math.round(Number(idRaw)) : undefined
   if (id != null && (!Number.isFinite(id) || id < 1)) return null
 
-  return { id, title, month, dayOfMonth, amount }
+  return {
+    id,
+    title,
+    month,
+    dayOfMonth,
+    amount,
+    paymentType,
+    carInsuranceDetail: paymentType === 'carInsurance' ? carInsuranceDetail : null,
+    cursorProDetail: paymentType === 'cursorPro' ? cursorProDetail : null,
+  }
 }
 
 export function parseAnnualPaymentsPayload(body: Record<string, unknown>): AnnualPaymentPayload[] | null {
@@ -69,3 +133,5 @@ export function parseAnnualPaymentProgressPayload(
   if (!('switchOn' in body)) return null
   return { switchOn: Boolean(body.switchOn) }
 }
+
+export { hasAnnualPaymentDetailType }

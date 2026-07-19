@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-19 10:25 (② 점수 파란 글씨·⑧ 파란 배경)
 // 수정: Auto — 2026-07-19 03:15 (지역가입자 고지서 조회)
 
 import { AppDialog } from '@/components/common/AppDialog'
@@ -100,6 +101,8 @@ export function MonthlyHealthInsuranceViewDialog({ open, title, detail, onClose,
               {rows.map((row) => {
                 const isTotal = row.emphasize === 'total'
                 const isSub = row.emphasize === 'subtotal'
+                const isHighlight = row.emphasize === 'highlight'
+                const blueBg = isTotal || isSub || isHighlight
                 return (
                   <Stack
                     key={row.no}
@@ -113,9 +116,9 @@ export function MonthlyHealthInsuranceViewDialog({ open, title, detail, onClose,
                       borderColor: 'divider',
                       bgcolor: (theme) =>
                         isTotal
-                          ? alpha(theme.palette.primary.main, 0.08)
-                          : isSub
-                            ? alpha(theme.palette.primary.main, 0.04)
+                          ? alpha(theme.palette.primary.main, 0.1)
+                          : isSub || isHighlight
+                            ? alpha(theme.palette.primary.main, 0.06)
                             : 'transparent',
                     }}
                   >
@@ -134,7 +137,7 @@ export function MonthlyHealthInsuranceViewDialog({ open, title, detail, onClose,
                       sx={{
                         flex: 1,
                         minWidth: 0,
-                        fontWeight: isTotal || isSub ? 700 : 500,
+                        fontWeight: blueBg ? 700 : 500,
                         fontSize: '0.78rem',
                         lineHeight: 1.35,
                         whiteSpace: 'pre-line',
@@ -150,6 +153,7 @@ export function MonthlyHealthInsuranceViewDialog({ open, title, detail, onClose,
                         fontSize: '0.78rem',
                         textAlign: 'right',
                         whiteSpace: 'nowrap',
+                        color: row.valueAccent ? 'primary.main' : 'text.primary',
                       }}
                     >
                       {row.valueLabel}

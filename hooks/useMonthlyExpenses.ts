@@ -1,12 +1,16 @@
 'use client'
+// 수정: Auto — 2026-07-19 13:10 (보금자리론 타입)
+// 수정: Auto — 2026-07-19 13:00 (렌탈 타입)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약상세)
 // 수정: Auto — 2026-07-19 03:30 (국민연금 고지서형)
 // 수정: Auto — 2026-07-19 03:15 (건보 고지서형 상세)
 // 수정: Auto — 2026-07-19 03:15 (통신비 타입·상세)
 
+import type { BogeumjariDetail } from '@/lib/bogeumjariExpenseDetail'
 import type { HealthInsuranceDetail } from '@/lib/healthInsuranceDetail'
 import type { InsuranceDetail } from '@/lib/insuranceExpenseDetail'
 import type { NationalPensionDetail } from '@/lib/nationalPensionDetail'
+import type { RentalDetail } from '@/lib/rentalExpenseDetail'
 import { swrJsonFetch } from '@/lib/swrFetch'
 import type { MonthlyExpenseType, TelecomDetail } from '@/lib/telecomExpenseDetail'
 import useSWR from 'swr'
@@ -26,6 +30,8 @@ export interface MonthlyExpense {
   healthInsuranceDetail: HealthInsuranceDetail | null
   nationalPensionDetail: NationalPensionDetail | null
   insuranceDetail: InsuranceDetail | null
+  rentalDetail: RentalDetail | null
+  bogeumjariDetail: BogeumjariDetail | null
   sortOrder: number
   createdAt: string
 }

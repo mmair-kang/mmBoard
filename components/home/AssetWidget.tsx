@@ -1,17 +1,15 @@
 'use client'
+// 수정: Auto — 2026-07-19 13:10 (보금자리론 상세 모달 제거)
 // 수정: Auto — 2026-07-18 01:42 (순자산 파랑·칩·순가치 톤)
 // 수정: Auto — 2026-07-18 01:40 (순가치·계좌잔고 UI)
 // 수정: Auto — 2026-07-18 01:35 (미래에셋·성남사랑 계좌연동)
 // 수정: Auto — 2026-07-14 01:29 (아파트·대출 통합·순서)
 // 수정: Auto — 2026-07-14 01:29 (연동 라벨)
-// 수정: Auto — 2026-07-14 01:27 (금리·납부일 모달 편집)
-// 수정: Auto — 2026-07-14 01:23 (보금자리론 상세 모달)
 // 수정: Auto — 2026-07-13 23:56
 // 수정: Auto — 2026-07-13 23:54 (보금자리론 스타일)
 // 수정: Auto — 2026-07-13 23:43
 
 import { FreshAmountField } from '@/components/common/FreshAmountField'
-import { BogeumjariLoanDetailDialog } from '@/components/home/BogeumjariLoanDetailDialog'
 import { useAccount } from '@/hooks/useAccount'
 import { useAssetSettings } from '@/hooks/useAssetSettings'
 import { useInvestments } from '@/hooks/useInvestments'
@@ -19,8 +17,6 @@ import { readApiErrorMessage } from '@/lib/apiResponse'
 import { calcAssetBreakdown } from '@/lib/assetCalc'
 import { formatWon } from '@/lib/accountCalc'
 import { formatRelativeDayKo } from '@/lib/relativeDayLabel'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
-import IconButton from '@mui/material/IconButton'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -33,9 +29,6 @@ import { useMemo, useState } from 'react'
 type AssetPatch = {
   apartmentValue?: number
   bogeumjariLoan?: number
-  bogeumjariLoanRate?: number
-  bogeumjariMonthlyPayment?: number
-  bogeumjariPaymentDay?: number
 }
 
 function AssetAutoRow({
@@ -176,7 +169,6 @@ function ApartmentLoanCard({
   saving,
   onApartmentCommit,
   onLoanCommit,
-  onLoanInfoClick,
 }: {
   apartmentValue: number
   bogeumjariLoan: number
@@ -185,7 +177,6 @@ function ApartmentLoanCard({
   saving: boolean
   onApartmentCommit: (amount: number) => Promise<void>
   onLoanCommit: (amount: number) => Promise<void>
-  onLoanInfoClick: () => void
 }) {
   const netPropertyKrw = apartmentValue - bogeumjariLoan
 
@@ -239,19 +230,9 @@ function ApartmentLoanCard({
           })}
         >
           <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 0.5 }}>
-            <Stack direction="row" alignItems="center" spacing={0.25}>
-              <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', color: 'text.secondary' }}>
-                보금자리론
-              </Typography>
-              <IconButton
-                size="small"
-                aria-label="보금자리론 상세 정보"
-                onClick={onLoanInfoClick}
-                sx={{ p: 0.35, color: 'text.disabled' }}
-              >
-                <InfoOutlinedIcon sx={{ fontSize: '0.95rem' }} />
-              </IconButton>
-            </Stack>
+            <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', color: 'text.secondary' }}>
+              보금자리론
+            </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.64rem' }}>
               대출잔액
             </Typography>
@@ -285,7 +266,6 @@ export function AssetWidget() {
     mutate,
   } = useAssetSettings()
   const [saving, setSaving] = useState(false)
-  const [loanDetailOpen, setLoanDetailOpen] = useState(false)
 
   const summary = useMemo(() => {
     return calcAssetBreakdown(
@@ -391,7 +371,6 @@ export function AssetWidget() {
         saving={saving}
         onApartmentCommit={(amount) => patchSettings({ apartmentValue: amount })}
         onLoanCommit={(amount) => patchSettings({ bogeumjariLoan: amount })}
-        onLoanInfoClick={() => setLoanDetailOpen(true)}
       />
 
       <AccountBalanceAutoRow
@@ -418,19 +397,6 @@ export function AssetWidget() {
         amount={summary.pensionKrw}
         hint="투자 탭 · 연금저축펀드 + IRP 합산"
         syncLabel="투자연동"
-      />
-
-      <BogeumjariLoanDetailDialog
-        open={loanDetailOpen}
-        balance={bogeumjariLoan}
-        annualRatePercent={bogeumjariLoanRate}
-        paymentDay={bogeumjariPaymentDay}
-        monthlyPayment={bogeumjariMonthlyPayment}
-        saving={saving}
-        onRateCommit={(rate) => patchSettings({ bogeumjariLoanRate: rate })}
-        onPaymentDayCommit={(day) => patchSettings({ bogeumjariPaymentDay: day })}
-        onMonthlyPaymentCommit={(amount) => patchSettings({ bogeumjariMonthlyPayment: amount })}
-        onClose={() => setLoanDetailOpen(false)}
       />
     </Stack>
   )
