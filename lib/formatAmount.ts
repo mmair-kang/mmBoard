@@ -1,7 +1,8 @@
-// 수정: Auto — 2026-06-08
+// 수정: Auto — 2026-07-21 21:43
 
-export function formatAmountDisplay(value: number): string {
-  return value.toLocaleString('ko-KR')
+export function formatAmountDisplay(value: number | null | undefined): string {
+  const amount = typeof value === 'number' && Number.isFinite(value) ? value : 0
+  return amount.toLocaleString('ko-KR')
 }
 
 export function formatAmountDigitsInput(digits: string): string {

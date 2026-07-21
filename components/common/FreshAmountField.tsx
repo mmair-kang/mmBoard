@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography'
 import { alpha, type Theme } from '@mui/material/styles'
 import { useEffect, useRef, useState } from 'react'
 
-type SoftInputTone = 'primary' | 'success' | 'loan'
+type SoftInputTone = 'primary' | 'success' | 'info' | 'loan'
 
 type Props = {
   value: number

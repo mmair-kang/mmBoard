@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-07-21 22:00 (관리계좌 동적 연동)
+// 수정: Auto — 2026-07-21 21:36 (IBK청약 계좌연동)
 // 수정: Auto — 2026-07-19 13:10 (보금자리론 상세 모달 제거)
 // 수정: Auto — 2026-07-18 01:42 (순자산 파랑·칩·순가치 톤)
 // 수정: Auto — 2026-07-18 01:40 (순가치·계좌잔고 UI)
@@ -14,7 +16,7 @@ import { useAccount } from '@/hooks/useAccount'
 import { useAssetSettings } from '@/hooks/useAssetSettings'
 import { useInvestments } from '@/hooks/useInvestments'
 import { readApiErrorMessage } from '@/lib/apiResponse'
-import { calcAssetBreakdown } from '@/lib/assetCalc'
+import { calcAssetBreakdown, type ManagedAccountBalanceItem } from '@/lib/assetCalc'
 import { formatWon } from '@/lib/accountCalc'
 import { formatRelativeDayKo } from '@/lib/relativeDayLabel'
 import Box from '@mui/material/Box'
@@ -77,11 +79,13 @@ function AssetAutoRow({
 }
 
 function AccountBalanceAutoRow({
+  miraeAssetName,
   miraeAssetBalanceKrw,
-  seongnamLoveBalanceKrw,
+  managedAccounts,
 }: {
+  miraeAssetName: string
   miraeAssetBalanceKrw: number
-  seongnamLoveBalanceKrw: number
+  managedAccounts: ManagedAccountBalanceItem[]
 }) {
   return (
     <Paper
@@ -114,10 +118,10 @@ function AccountBalanceAutoRow({
           <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.75}>
             <Chip
               size="small"
-              label="미래에셋"
+              label={miraeAssetName}
               color="primary"
               variant="outlined"
-              sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
+              sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700, maxWidth: 96 }}
             />
             <Typography
               sx={{
@@ -133,28 +137,36 @@ function AccountBalanceAutoRow({
               {formatWon(miraeAssetBalanceKrw)}
             </Typography>
           </Stack>
-          <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.75}>
-            <Chip
-              size="small"
-              label="성남사랑"
-              color="success"
-              variant="outlined"
-              sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
-            />
-            <Typography
-              sx={{
-                fontWeight: 900,
-                fontSize: '0.88rem',
-                whiteSpace: 'nowrap',
-                fontVariantNumeric: 'tabular-nums',
-                minWidth: '6.5rem',
-                textAlign: 'right',
-                color: 'success.dark',
-              }}
+          {managedAccounts.map((row) => (
+            <Stack
+              key={row.id}
+              direction="row"
+              alignItems="center"
+              justifyContent="flex-end"
+              spacing={0.75}
             >
-              {formatWon(seongnamLoveBalanceKrw)}
-            </Typography>
-          </Stack>
+              <Chip
+                size="small"
+                label={row.name}
+                color="success"
+                variant="outlined"
+                sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700, maxWidth: 96 }}
+              />
+              <Typography
+                sx={{
+                  fontWeight: 900,
+                  fontSize: '0.88rem',
+                  whiteSpace: 'nowrap',
+                  fontVariantNumeric: 'tabular-nums',
+                  minWidth: '6.5rem',
+                  textAlign: 'right',
+                  color: 'success.dark',
+                }}
+              >
+                {formatWon(row.balanceKrw)}
+              </Typography>
+            </Stack>
+          ))}
         </Stack>
       </Stack>
     </Paper>
@@ -272,7 +284,12 @@ export function AssetWidget() {
       accounts,
       {
         miraeAssetBalanceKrw: account?.balance ?? 0,
-        seongnamLoveBalanceKrw: account?.seongnamLoveBalance ?? 0,
+        miraeAssetName: account?.name || '미래에셋',
+        managedAccounts: (account?.managedAccounts ?? []).map((row) => ({
+          id: row.id,
+          name: row.name,
+          balanceKrw: row.balance ?? 0,
+        })),
       },
       {
         apartmentValue,
@@ -287,7 +304,8 @@ export function AssetWidget() {
   }, [
     accounts,
     account?.balance,
-    account?.seongnamLoveBalance,
+    account?.name,
+    account?.managedAccounts,
     apartmentValue,
     apartmentValueUpdatedAt,
     bogeumjariLoan,
@@ -374,8 +392,9 @@ export function AssetWidget() {
       />
 
       <AccountBalanceAutoRow
+        miraeAssetName={summary.miraeAssetName}
         miraeAssetBalanceKrw={summary.miraeAssetBalanceKrw}
-        seongnamLoveBalanceKrw={summary.seongnamLoveBalanceKrw}
+        managedAccounts={summary.managedAccounts}
       />
 
       <AssetAutoRow

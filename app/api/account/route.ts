@@ -1,13 +1,19 @@
-// 수정: Auto — 2026-07-18 01:35 (성남사랑 잔액)
+// 수정: Auto — 2026-07-21 21:57 (관리계좌)
 import { eq } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 
 import {
   parseAccountBalancePayload,
+  parseManagedAccountBalancePayload,
+  parseManagedAccountsSettingsPayload,
   parseOutflowsPayload,
-  parseSeongnamLoveBalancePayload,
 } from '@/lib/accountPayload'
-import { getAccountWithOutflows, syncOutflows } from '@/lib/accountQuery'
+import {
+  getAccountWithOutflows,
+  syncManagedAccounts,
+  syncOutflows,
+  updateManagedAccountBalance,
+} from '@/lib/accountQuery'
 import { db } from '@/lib/db'
 import { mainAccounts } from '@/lib/schema'
 
@@ -25,17 +31,17 @@ export async function PATCH(request: Request) {
     const updates: {
       name?: string
       balance?: number
-      seongnamLoveBalance?: number
+      managedGroupName?: string
       updatedAt?: string
       balanceUpdatedAt?: string
-      seongnamLoveBalanceUpdatedAt?: string
     } = {}
 
     if (typeof body.name === 'string' && body.name.trim()) {
       updates.name = body.name.trim()
     }
 
-    if ('balance' in body) {
+    const isManagedBalancePatch = 'managedAccountId' in body
+    if ('balance' in body && !isManagedBalancePatch) {
       const balance = parseAccountBalancePayload(body)
       if (balance === null) {
         return NextResponse.json({ message: 'invalid request' }, { status: 400 })
@@ -45,18 +51,21 @@ export async function PATCH(request: Request) {
       updates.updatedAt = now
     }
 
-    if ('seongnamLoveBalance' in body) {
-      const seongnamLoveBalance = parseSeongnamLoveBalancePayload(body)
-      if (seongnamLoveBalance === null) {
-        return NextResponse.json({ message: 'invalid request' }, { status: 400 })
-      }
-      updates.seongnamLoveBalance = seongnamLoveBalance
-      updates.seongnamLoveBalanceUpdatedAt = now
+    const managedSettings =
+      'managedGroupName' in body || 'managedAccounts' in body
+        ? parseManagedAccountsSettingsPayload(body)
+        : null
+    if (('managedGroupName' in body || 'managedAccounts' in body) && managedSettings === null) {
+      return NextResponse.json({ message: 'invalid request' }, { status: 400 })
+    }
+    if (managedSettings) {
+      updates.managedGroupName = managedSettings.managedGroupName
       updates.updatedAt = now
     }
 
-    if (updates.name !== undefined && updates.updatedAt === undefined) {
-      updates.updatedAt = now
+    const managedBalance = isManagedBalancePatch ? parseManagedAccountBalancePayload(body) : null
+    if (isManagedBalancePatch && managedBalance === null) {
+      return NextResponse.json({ message: 'invalid request' }, { status: 400 })
     }
 
     const hasOutflows = 'outflows' in body
@@ -71,7 +80,8 @@ export async function PATCH(request: Request) {
     if (
       updates.name === undefined &&
       updates.balance === undefined &&
-      updates.seongnamLoveBalance === undefined &&
+      !managedSettings &&
+      !managedBalance &&
       !hasOutflows
     ) {
       return NextResponse.json({ message: 'invalid request' }, { status: 400 })
@@ -80,25 +90,33 @@ export async function PATCH(request: Request) {
     if (
       updates.name !== undefined ||
       updates.balance !== undefined ||
-      updates.seongnamLoveBalance !== undefined
+      updates.managedGroupName !== undefined
     ) {
       await db
         .update(mainAccounts)
         .set({
           ...(updates.name !== undefined ? { name: updates.name } : {}),
           ...(updates.balance !== undefined ? { balance: updates.balance } : {}),
-          ...(updates.seongnamLoveBalance !== undefined
-            ? { seongnamLoveBalance: updates.seongnamLoveBalance }
+          ...(updates.managedGroupName !== undefined
+            ? { managedGroupName: updates.managedGroupName }
             : {}),
           ...(updates.updatedAt !== undefined ? { updatedAt: updates.updatedAt } : {}),
           ...(updates.balanceUpdatedAt !== undefined
             ? { balanceUpdatedAt: updates.balanceUpdatedAt }
             : {}),
-          ...(updates.seongnamLoveBalanceUpdatedAt !== undefined
-            ? { seongnamLoveBalanceUpdatedAt: updates.seongnamLoveBalanceUpdatedAt }
-            : {}),
         })
         .where(eq(mainAccounts.id, account.id))
+    }
+
+    if (managedSettings) {
+      await syncManagedAccounts(managedSettings.managedAccounts)
+    }
+
+    if (managedBalance) {
+      const updated = await updateManagedAccountBalance(managedBalance.id, managedBalance.balance)
+      if (!updated) {
+        return NextResponse.json({ message: 'not found' }, { status: 404 })
+      }
     }
 
     if (outflows) {

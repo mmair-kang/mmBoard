@@ -114,6 +114,10 @@ export const mainAccounts = sqliteTable('main_accounts', {
   balanceUpdatedAt: text('balance_updated_at'),
   seongnamLoveBalance: integer('seongnam_love_balance').notNull().default(0),
   seongnamLoveBalanceUpdatedAt: text('seongnam_love_balance_updated_at'),
+  ibkSubscriptionBalance: integer('ibk_subscription_balance').notNull().default(0),
+  ibkSubscriptionBalanceUpdatedAt: text('ibk_subscription_balance_updated_at'),
+  /** 관리계좌 그룹 표시명 */
+  managedGroupName: text('managed_group_name').notNull().default('관리계좌'),
 })
 
 export const accountOutflows = sqliteTable('account_outflows', {
@@ -125,6 +129,18 @@ export const accountOutflows = sqliteTable('account_outflows', {
   amount: integer('amount').notNull(),
   switchOn: integer('switch_on').notNull().default(0),
   progressMonth: text('progress_month').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+})
+
+/** 관리계좌 목록 (성남사랑·IBK청약 등) */
+export const managedAccounts = sqliteTable('managed_accounts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  /** general | subscription */
+  accountType: text('account_type').notNull().default('general'),
+  balance: integer('balance').notNull().default(0),
+  balanceUpdatedAt: text('balance_updated_at'),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: text('created_at').notNull(),
 })

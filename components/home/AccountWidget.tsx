@@ -1,19 +1,25 @@
 'use client'
-// 수정: Auto — 2026-07-18 01:45 (미래에셋 헤더 높이)
-// 수정: Auto — 2026-07-18 01:35 (성남사랑 연두 잔액)
+// 수정: Auto — 2026-07-21 22:00 (관리계좌 헤더·목록)
+// 수정: Auto — 2026-07-21 21:50 (성남사랑·IBK 한 카드)
+// 수정: Auto — 2026-07-21 21:46 (IBK청약 정보 모달)
+// 수정: Auto — 2026-07-21 21:43 (IBK 잔액 undefined 방어)
+// 수정: Auto — 2026-07-21 21:36 (IBK청약 + 잔액 카드 높이 축소)
 
 import { FreshAmountField } from '@/components/common/FreshAmountField'
 import { AccountFormDialog } from '@/components/home/AccountFormDialog'
 import { AccountOutflowFormDialog } from '@/components/home/AccountOutflowFormDialog'
-import { type MainAccount, useAccount } from '@/hooks/useAccount'
+import { IbkSubscriptionInfoDialog } from '@/components/home/IbkSubscriptionInfoDialog'
+import { ManagedAccountsFormDialog } from '@/components/home/ManagedAccountsFormDialog'
+import { type MainAccount, type ManagedAccount, useAccount } from '@/hooks/useAccount'
 import { calcAccountProjectedBalance, formatWon } from '@/lib/accountCalc'
 import { readApiErrorMessage } from '@/lib/apiResponse'
-import type { OutflowPayload } from '@/lib/accountPayload'
+import type { ManagedAccountPayload, OutflowPayload } from '@/lib/accountPayload'
 import { formatMonthlyDayLabel } from '@/lib/monthlyDayLabel'
 import { formatRelativeDayKo } from '@/lib/relativeDayLabel'
 import { inactiveSwitchRowBg } from '@/lib/widgetSurfaces'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -34,7 +40,7 @@ function accountBlueSurface(theme: Theme) {
   }
 }
 
-function seongnamLoveSurface(theme: Theme) {
+function managedAccountSurface(theme: Theme) {
   return {
     borderColor: alpha(theme.palette.success.main, 0.28),
     bgcolor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.1 : 0.05),
@@ -105,11 +111,92 @@ function OutflowRow({
   )
 }
 
+function ManagedAccountBalanceRow({
+  row,
+  saving,
+  onCommit,
+  onInfoClick,
+}: {
+  row: ManagedAccount
+  saving: boolean
+  onCommit: (balance: number) => Promise<void>
+  onInfoClick?: () => void
+}) {
+  const updatedLabel = formatRelativeDayKo(row.balanceUpdatedAt)
+  const showInfo = row.accountType === 'subscription' && onInfoClick
+
+  return (
+    <Box
+      sx={(theme) => ({
+        borderRadius: 2,
+        border: 1,
+        px: 0.9,
+        py: 0.55,
+        ...managedAccountSurface(theme),
+      })}
+    >
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 0.35, gap: 0.5 }}
+      >
+        <Stack direction="row" alignItems="center" spacing={0.15} sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 700,
+              fontSize: '0.7rem',
+              color: 'success.dark',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {row.name}
+          </Typography>
+          {showInfo ? (
+            <Tooltip title="청약통장 안내">
+              <IconButton
+                size="small"
+                color="success"
+                onClick={onInfoClick}
+                aria-label={`${row.name} 안내`}
+                sx={{ p: 0.15 }}
+              >
+                <InfoOutlinedIcon sx={{ fontSize: '1rem' }} />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+        </Stack>
+        {updatedLabel ? (
+          <Typography
+            variant="caption"
+            color="text.disabled"
+            sx={{ fontWeight: 600, fontSize: '0.66rem', flexShrink: 0 }}
+          >
+            {updatedLabel}
+          </Typography>
+        ) : null}
+      </Stack>
+      <FreshAmountField
+        value={row.balance ?? 0}
+        onCommit={onCommit}
+        disabled={saving}
+        compact
+        softInput="success"
+      />
+    </Box>
+  )
+}
+
 export function AccountWidget() {
   const { account, isLoading, mutate } = useAccount()
   const [saving, setSaving] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [managedSettingsOpen, setManagedSettingsOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const [subscriptionInfoOpen, setSubscriptionInfoOpen] = useState(false)
 
   const monthLabel = dayjs().format('M월')
 
@@ -126,11 +213,6 @@ export function AccountWidget() {
   const balanceUpdatedLabel = useMemo(() => {
     if (!account) return null
     return formatRelativeDayKo(account.balanceUpdatedAt ?? account.updatedAt)
-  }, [account])
-
-  const seongnamLoveUpdatedLabel = useMemo(() => {
-    if (!account) return null
-    return formatRelativeDayKo(account.seongnamLoveBalanceUpdatedAt)
   }, [account])
 
   const commitBalance = async (parsed: number) => {
@@ -150,14 +232,14 @@ export function AccountWidget() {
     }
   }
 
-  const commitSeongnamLoveBalance = async (parsed: number) => {
+  const commitManagedBalance = async (managedAccountId: number, parsed: number) => {
     if (!account) return
     setSaving(true)
     try {
       const res = await fetch('/api/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ seongnamLoveBalance: parsed }),
+        body: JSON.stringify({ managedAccountId, balance: parsed }),
       })
       if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
       const updated = (await res.json()) as MainAccount
@@ -179,6 +261,20 @@ export function AccountWidget() {
   }
 
   const handleSettingsSave = async (payload: { name: string; outflows: OutflowPayload[] }) => {
+    const res = await fetch('/api/account', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
+    const updated = (await res.json()) as MainAccount
+    await mutate(updated, { revalidate: false })
+  }
+
+  const handleManagedSettingsSave = async (payload: {
+    managedGroupName: string
+    managedAccounts: ManagedAccountPayload[]
+  }) => {
     const res = await fetch('/api/account', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -220,9 +316,10 @@ export function AccountWidget() {
   }
 
   const projectedLow = projection.projectedBalance < 0
+  const managedAccounts = account.managedAccounts ?? []
 
   return (
-    <Stack spacing={1.25}>
+    <Stack spacing={1}>
       <Paper
         variant="outlined"
         sx={(theme) => ({
@@ -238,14 +335,14 @@ export function AccountWidget() {
           spacing={0.5}
           sx={(theme) => ({
             px: 1.25,
-            py: 0.65,
-            minHeight: 36,
+            py: 0.45,
+            minHeight: 30,
             borderBottom: 1,
             borderColor: alpha(theme.palette.primary.main, 0.12),
             bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.06 : 0.025),
           })}
         >
-          <Typography sx={{ fontWeight: 800, fontSize: '0.95rem', flex: 1, minWidth: 0, lineHeight: 1.2 }} noWrap>
+          <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', flex: 1, minWidth: 0, lineHeight: 1.2 }} noWrap>
             {account.name}
           </Typography>
           <Typography
@@ -273,13 +370,13 @@ export function AccountWidget() {
           </Tooltip>
         </Stack>
 
-        <Box sx={{ px: 1.25, py: 1.1 }}>
+        <Box sx={{ px: 1.25, py: 0.7 }}>
           <Box
             sx={(theme) => ({
               borderRadius: 2,
               border: 1,
-              px: 1.1,
-              py: 1,
+              px: 0.9,
+              py: 0.65,
               ...accountBlueSurface(theme),
             })}
           >
@@ -287,11 +384,11 @@ export function AccountWidget() {
               direction="row"
               alignItems="baseline"
               justifyContent="space-between"
-              sx={{ mb: 0.65, gap: 1 }}
+              sx={{ mb: 0.4, gap: 1 }}
             >
               <Typography
                 variant="caption"
-                sx={{ fontWeight: 700, fontSize: '0.72rem', color: 'primary.dark' }}
+                sx={{ fontWeight: 700, fontSize: '0.7rem', color: 'primary.dark' }}
               >
                 잔액
               </Typography>
@@ -299,7 +396,7 @@ export function AccountWidget() {
                 <Typography
                   variant="caption"
                   color="text.disabled"
-                  sx={{ fontWeight: 600, fontSize: '0.68rem', flexShrink: 0 }}
+                  sx={{ fontWeight: 600, fontSize: '0.66rem', flexShrink: 0 }}
                 >
                   {balanceUpdatedLabel}
                 </Typography>
@@ -307,10 +404,10 @@ export function AccountWidget() {
             </Stack>
 
             <FreshAmountField
-              value={account.balance}
+              value={account.balance ?? 0}
               onCommit={commitBalance}
               disabled={saving}
-              large
+              compact
               softInput="primary"
             />
 
@@ -319,22 +416,22 @@ export function AccountWidget() {
               alignItems="center"
               justifyContent="space-between"
               sx={(theme) => ({
-                mt: 0.85,
-                pt: 0.85,
+                mt: 0.5,
+                pt: 0.5,
                 borderTop: 1,
                 borderColor: alpha(theme.palette.primary.main, 0.14),
               })}
             >
               <Typography
                 variant="caption"
-                sx={{ fontWeight: 700, fontSize: '0.72rem', color: 'primary.dark' }}
+                sx={{ fontWeight: 700, fontSize: '0.7rem', color: 'primary.dark' }}
               >
                 예상 잔액
               </Typography>
               <Typography
                 sx={{
                   fontWeight: 800,
-                  fontSize: '0.9rem',
+                  fontSize: '0.84rem',
                   fontVariantNumeric: 'tabular-nums',
                   color: projectedLow ? 'error.main' : 'primary.dark',
                 }}
@@ -408,67 +505,59 @@ export function AccountWidget() {
         <Stack
           direction="row"
           alignItems="center"
-          spacing={0.75}
+          spacing={0.5}
           sx={(theme) => ({
             px: 1.25,
-            py: 0.65,
-            minHeight: 36,
+            py: 0.45,
+            minHeight: 30,
             borderBottom: 1,
             borderColor: alpha(theme.palette.success.main, 0.16),
             bgcolor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.08 : 0.04),
           })}
         >
-          <Typography
-            sx={{ fontWeight: 800, fontSize: '0.95rem', flex: 1, minWidth: 0, color: 'success.dark', lineHeight: 1.2 }}
-            noWrap
-          >
-            성남사랑
+          <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', flex: 1, minWidth: 0, lineHeight: 1.2 }} noWrap>
+            {account.managedGroupName || '관리계좌'}
           </Typography>
+          <Tooltip title="관리계좌 설정">
+            <IconButton
+              size="small"
+              onClick={() => setManagedSettingsOpen(true)}
+              aria-label="관리계좌 설정"
+              sx={{ p: 0.35 }}
+            >
+              <EditRoundedIcon sx={{ fontSize: '1.05rem' }} />
+            </IconButton>
+          </Tooltip>
         </Stack>
 
-        <Box sx={{ px: 1.25, py: 1.1 }}>
-          <Box
-            sx={(theme) => ({
-              borderRadius: 2,
-              border: 1,
-              px: 1.1,
-              py: 1,
-              ...seongnamLoveSurface(theme),
-            })}
-          >
-            <Stack
-              direction="row"
-              alignItems="baseline"
-              justifyContent="space-between"
-              sx={{ mb: 0.65, gap: 1 }}
-            >
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 700, fontSize: '0.72rem', color: 'success.dark' }}
-              >
-                잔액
-              </Typography>
-              {seongnamLoveUpdatedLabel ? (
-                <Typography
-                  variant="caption"
-                  color="text.disabled"
-                  sx={{ fontWeight: 600, fontSize: '0.68rem', flexShrink: 0 }}
-                >
-                  {seongnamLoveUpdatedLabel}
-                </Typography>
-              ) : null}
-            </Stack>
-
-            <FreshAmountField
-              value={account.seongnamLoveBalance}
-              onCommit={commitSeongnamLoveBalance}
-              disabled={saving}
-              large
-              softInput="success"
-            />
-          </Box>
-        </Box>
+        {managedAccounts.length > 0 ? (
+          <Stack spacing={0.85} sx={{ px: 1.25, py: 0.7 }}>
+            {managedAccounts.map((row) => (
+              <ManagedAccountBalanceRow
+                key={row.id}
+                row={row}
+                saving={saving}
+                onCommit={(balance) => commitManagedBalance(row.id, balance)}
+                onInfoClick={
+                  row.accountType === 'subscription'
+                    ? () => setSubscriptionInfoOpen(true)
+                    : undefined
+                }
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Stack alignItems="center" py={2.5} px={1.5} color="text.secondary">
+            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>관리계좌가 없습니다</Typography>
+            <Typography variant="caption">수정 버튼으로 계좌를 추가해 보세요</Typography>
+          </Stack>
+        )}
       </Paper>
+
+      <IbkSubscriptionInfoDialog
+        open={subscriptionInfoOpen}
+        onClose={() => setSubscriptionInfoOpen(false)}
+      />
 
       <AccountOutflowFormDialog open={addOpen} onClose={() => setAddOpen(false)} onSubmit={handleAddOutflow} />
 
@@ -477,6 +566,13 @@ export function AccountWidget() {
         account={account}
         onClose={() => setSettingsOpen(false)}
         onSubmit={handleSettingsSave}
+      />
+
+      <ManagedAccountsFormDialog
+        open={managedSettingsOpen}
+        account={account}
+        onClose={() => setManagedSettingsOpen(false)}
+        onSubmit={handleManagedSettingsSave}
       />
     </Stack>
   )

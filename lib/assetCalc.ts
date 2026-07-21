@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-07-18 01:35 (성남사랑 순자산 포함)
+// 수정: Auto — 2026-07-21 22:00 (관리계좌 합산)
 
 import type { InvestmentAccountView } from '@/lib/investmentQuery'
 
@@ -16,9 +16,16 @@ export type AssetManualSettings = {
   bogeumjariPaymentDay: number
 }
 
+export type ManagedAccountBalanceItem = {
+  id: number
+  name: string
+  balanceKrw: number
+}
+
 export type AccountBalancesInput = {
   miraeAssetBalanceKrw: number
-  seongnamLoveBalanceKrw: number
+  miraeAssetName: string
+  managedAccounts: ManagedAccountBalanceItem[]
 }
 
 export type AssetBreakdown = AssetManualSettings & {
@@ -26,7 +33,8 @@ export type AssetBreakdown = AssetManualSettings & {
   overseasDividendKrw: number
   pensionKrw: number
   miraeAssetBalanceKrw: number
-  seongnamLoveBalanceKrw: number
+  miraeAssetName: string
+  managedAccounts: ManagedAccountBalanceItem[]
   accountBalanceKrw: number
 }
 
@@ -48,8 +56,9 @@ export function calcAssetBreakdown(
   const overseasDividendKrw = accountTotalKrw(accounts, 'ds')
   const pensionKrw = accountTotalKrw(accounts, 'psf') + accountTotalKrw(accounts, 'irp')
   const miraeAssetBalanceKrw = accountBalances.miraeAssetBalanceKrw
-  const seongnamLoveBalanceKrw = accountBalances.seongnamLoveBalanceKrw
-  const accountBalanceKrw = miraeAssetBalanceKrw + seongnamLoveBalanceKrw
+  const managedAccounts = accountBalances.managedAccounts
+  const managedTotalKrw = managedAccounts.reduce((sum, row) => sum + row.balanceKrw, 0)
+  const accountBalanceKrw = miraeAssetBalanceKrw + managedTotalKrw
 
   const grossAssetsKrw =
     manual.apartmentValue +
@@ -72,7 +81,8 @@ export function calcAssetBreakdown(
     overseasDividendKrw,
     pensionKrw,
     miraeAssetBalanceKrw,
-    seongnamLoveBalanceKrw,
+    miraeAssetName: accountBalances.miraeAssetName,
+    managedAccounts,
     accountBalanceKrw,
     grossAssetsKrw,
     netAssetsKrw,

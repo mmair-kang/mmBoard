@@ -1,4 +1,4 @@
-// 수정: Auto — 2026-07-18 01:35 (성남사랑 잔액 컬럼)
+// 수정: Auto — 2026-07-21 21:57 (관리계좌 테이블)
 import { sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
@@ -25,6 +25,15 @@ export async function ensureAccountSchema() {
         sort_order INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )`)
+      await db.run(sql`CREATE TABLE IF NOT EXISTS managed_accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        account_type TEXT NOT NULL DEFAULT 'general',
+        balance INTEGER NOT NULL DEFAULT 0,
+        balance_updated_at TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )`)
       try {
         await db.run(sql`ALTER TABLE main_accounts ADD COLUMN balance_updated_at TEXT`)
       } catch {
@@ -42,6 +51,25 @@ export async function ensureAccountSchema() {
       }
       try {
         await db.run(sql`ALTER TABLE main_accounts ADD COLUMN seongnam_love_balance_updated_at TEXT`)
+      } catch {
+        /* column already exists */
+      }
+      try {
+        await db.run(
+          sql`ALTER TABLE main_accounts ADD COLUMN ibk_subscription_balance INTEGER NOT NULL DEFAULT 0`,
+        )
+      } catch {
+        /* column already exists */
+      }
+      try {
+        await db.run(sql`ALTER TABLE main_accounts ADD COLUMN ibk_subscription_balance_updated_at TEXT`)
+      } catch {
+        /* column already exists */
+      }
+      try {
+        await db.run(
+          sql`ALTER TABLE main_accounts ADD COLUMN managed_group_name TEXT NOT NULL DEFAULT '관리계좌'`,
+        )
       } catch {
         /* column already exists */
       }
