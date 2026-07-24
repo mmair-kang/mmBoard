@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-24 16:21 (시세코드·표시명 매칭)
 // 수정: Auto — 2026-07-14 02:00
 
 export type DividendMarket = 'overseas' | 'domestic'
@@ -26,8 +27,12 @@ export const DIVIDEND_HOLDING_SEEDS: DividendHoldingSeed[] = [
 
 export const DIVIDEND_TICKER_ORDER = DIVIDEND_HOLDING_SEEDS.map((row) => row.ticker)
 
-export function getDividendHoldingSeed(ticker: string): DividendHoldingSeed | undefined {
-  return DIVIDEND_HOLDING_SEEDS.find((row) => row.ticker === ticker.trim().toUpperCase())
+export function getDividendHoldingSeed(tickerOrSymbol: string): DividendHoldingSeed | undefined {
+  const key = tickerOrSymbol.trim().toUpperCase()
+  if (!key) return undefined
+  return DIVIDEND_HOLDING_SEEDS.find(
+    (row) => row.ticker.toUpperCase() === key || row.quoteSymbol.toUpperCase() === key,
+  )
 }
 
 export function isDomesticDividendTicker(ticker: string): boolean {

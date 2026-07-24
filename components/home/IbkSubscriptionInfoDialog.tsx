@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-23 13:40 (해지예상 실측 보정 안내)
 // 수정: Auto — 2026-07-21 21:46 (IBK청약 해지예상 정보 모달)
 
 import { AppDialog } from '@/components/common/AppDialog'
@@ -104,7 +105,8 @@ export function IbkSubscriptionInfoDialog({ open, onClose }: Props) {
       <FormDialogHeader onClose={onClose}>IBK청약통장 안내</FormDialogHeader>
       <DialogContent sx={{ ...formDialogContentSx, pt: 0.5 }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 0.75 }}>
-          해지 기준일은 오늘 날짜이며, 해지 예상금액은 일자에 따라 자동 갱신됩니다.
+          해지 기준일은 오늘 날짜입니다. 해지 예상금액은 은행 앱 실측(2026-07-23)을 기준으로
+          일자에 따라 자동 갱신됩니다.
         </Typography>
         <Stack>
           {rows.map((row) => (

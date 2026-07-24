@@ -405,9 +405,9 @@ export function AssetWidget() {
       />
 
       <AssetAutoRow
-        label="해외배당"
+        label="해외주식"
         amount={summary.overseasDividendKrw}
-        hint="투자 탭 · DS 해외 배당주 계좌"
+        hint="투자 탭 · DS 해외주식 계좌"
         syncLabel="투자연동"
       />
 

@@ -9,6 +9,10 @@ import {
   type DividendMarket,
 } from '@/lib/dividendCalc'
 import type { DividendEntryPayload, DividendHoldingPayload } from '@/lib/dividendPayload'
+import {
+  migrateInvestmentDividendTypesFromHoldings,
+  syncDividendHoldingsFromInvestments,
+} from '@/lib/dividendInvestmentSync'
 import { ensureDividendSchema } from '@/lib/dividendSchema'
 import { db } from '@/lib/db'
 import { dividendEntries, dividendHoldings, dividendMonths } from '@/lib/schema'
@@ -21,6 +25,7 @@ export type DividendHoldingRow = {
   market: DividendMarket
   quoteSymbol: string
   defaultShares: number
+  investmentHoldingId: number | null
   perShareDividendUsd: number
   perShareDividendKrw: number
   perShareTaxBaseKrw: number
@@ -78,6 +83,7 @@ function normalizeHoldingRow(row: typeof dividendHoldings.$inferSelect): Dividen
     market: (row.market === 'domestic' ? 'domestic' : 'overseas') as DividendMarket,
     quoteSymbol: row.quoteSymbol || row.ticker,
     defaultShares: row.defaultShares,
+    investmentHoldingId: row.investmentHoldingId ?? null,
     perShareDividendUsd: row.perShareDividendUsd,
     perShareDividendKrw: row.perShareDividendKrw,
     perShareTaxBaseKrw: row.perShareTaxBaseKrw ?? 0,
@@ -185,6 +191,8 @@ function toMonthView(month: { id: number; yearMonth: string; createdAt: string }
 
 export async function loadDividendHoldings(): Promise<DividendHoldingView[]> {
   await ensureDividendSchema()
+  await migrateInvestmentDividendTypesFromHoldings()
+  await syncDividendHoldingsFromInvestments()
   const rows = (await db
     .select()
     .from(dividendHoldings)
@@ -277,10 +285,12 @@ export async function syncDividendHoldings(holdings: DividendHoldingPayload[]) {
     const market = holding.market ?? existingRow?.market ?? 'overseas'
 
     if (holding.id && existingById.has(holding.id)) {
+      const prev = existingById.get(holding.id)!
       await db
         .update(dividendHoldings)
         .set({
-          defaultShares: holding.defaultShares,
+          // 주식수는 투자 연동 값 유지 (배당 페이지에서 수정하지 않음)
+          defaultShares: prev.defaultShares,
           perShareDividendUsd: market === 'overseas' ? holding.perShareDividendUsd : 0,
           perShareDividendKrw: market === 'domestic' ? (holding.perShareDividendKrw ?? 0) : 0,
           perShareTaxBaseKrw: market === 'domestic' ? (holding.perShareTaxBaseKrw ?? 0) : 0,

@@ -1,6 +1,8 @@
+// 수정: Auto — 2026-07-24 15:40 (종목 타입)
 // 수정: Auto — 2026-06-08
 
 import type { InvestmentAccountId } from '@/config/investmentAccounts'
+import type { InvestmentHoldingType } from '@/lib/investmentPayload'
 
 export type InvestmentHoldingRow = {
   id: number
@@ -8,6 +10,7 @@ export type InvestmentHoldingRow = {
   name: string
   symbol: string
   market: string
+  holdingType: InvestmentHoldingType
   purchasePrice: number
   shares: number
   sortOrder: number

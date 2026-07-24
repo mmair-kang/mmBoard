@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-24 15:40 (종목 타입 일반/배당)
 // 수정: Auto — 2026-06-11
 
 import { AppDialog } from '@/components/common/AppDialog'
@@ -15,7 +16,7 @@ import {
 } from '@/config/formDialogLayout'
 import { INVESTMENT_ACCOUNT_MAP } from '@/config/investmentAccounts'
 import type { InvestmentAccountView } from '@/hooks/useInvestments'
-import type { InvestmentAccountSyncPayload } from '@/lib/investmentPayload'
+import type { InvestmentAccountSyncPayload, InvestmentHoldingType } from '@/lib/investmentPayload'
 import { normalizeInvestmentSymbol } from '@/lib/stock'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
@@ -23,7 +24,11 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import DialogContent from '@mui/material/DialogContent'
 import Divider from '@mui/material/Divider'
+import FormControl from '@mui/material/FormControl'
 import IconButton from '@mui/material/IconButton'
+import InputLabel from '@mui/material/InputLabel'
+import MenuItem from '@mui/material/MenuItem'
+import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
@@ -35,6 +40,7 @@ type HoldingDraft = {
   id?: number
   name: string
   symbol: string
+  holdingType: InvestmentHoldingType
   purchasePriceText: string
   sharesText: string
 }
@@ -52,6 +58,7 @@ function holdingsToDrafts(holdings: InvestmentAccountView['holdings']): HoldingD
     id: row.id,
     name: row.name,
     symbol: row.symbol,
+    holdingType: row.holdingType === 'dividend' ? 'dividend' : 'general',
     purchasePriceText: String(row.purchasePrice),
     sharesText: String(row.shares),
   }))
@@ -64,6 +71,7 @@ export function InvestmentAccountEditDialog({ open, account, onClose, onSubmit }
   const [formError, setFormError] = useState<string | null>(null)
 
   const meta = account ? INVESTMENT_ACCOUNT_MAP[account.id] : null
+  const supportsDividendType = meta?.market === 'domestic' || meta?.market === 'overseas'
 
   useEffect(() => {
     if (!open || !account) {
@@ -92,6 +100,7 @@ export function InvestmentAccountEditDialog({ open, account, onClose, onSubmit }
         key: `new-${Date.now()}`,
         name: '',
         symbol: '',
+        holdingType: 'general',
         purchasePriceText: '',
         sharesText: '',
       },
@@ -121,6 +130,7 @@ export function InvestmentAccountEditDialog({ open, account, onClose, onSubmit }
         id: draft.id,
         name,
         symbol,
+        holdingType: supportsDividendType ? draft.holdingType : 'general',
         purchasePrice,
         shares,
       })
@@ -237,6 +247,24 @@ export function InvestmentAccountEditDialog({ open, account, onClose, onSubmit }
                         helperText={index === 0 ? symbolHint : undefined}
                         {...formDialogCompactTextFieldProps}
                       />
+                      {supportsDividendType ? (
+                        <FormControl fullWidth size="small" margin="dense">
+                          <InputLabel id={`acct-holding-type-${draft.key}`}>타입</InputLabel>
+                          <Select
+                            labelId={`acct-holding-type-${draft.key}`}
+                            label="타입"
+                            value={draft.holdingType}
+                            onChange={(e) =>
+                              updateDraft(draft.key, {
+                                holdingType: e.target.value as InvestmentHoldingType,
+                              })
+                            }
+                          >
+                            <MenuItem value="general">일반</MenuItem>
+                            <MenuItem value="dividend">배당</MenuItem>
+                          </Select>
+                        </FormControl>
+                      ) : null}
                       <Stack direction="row" spacing={0.75}>
                         <TextField
                           label="매수가 (원)"

@@ -68,6 +68,7 @@ export async function ensureDividendSchema() {
       await ensureColumn(
         `ALTER TABLE dividend_entries ADD COLUMN per_share_tax_base_krw REAL NOT NULL DEFAULT 0`,
       )
+      await ensureColumn(`ALTER TABLE dividend_holdings ADD COLUMN investment_holding_id INTEGER`)
 
       const existing = await db.select().from(dividendHoldings)
       const existingByTicker = new Map(existing.map((row) => [row.ticker.toUpperCase(), row]))

@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-24 15:40 (해외주식 표기)
 // 수정: Auto — 2026-07-15 01:34 (연금 칩 제거)
 
 export const INVESTMENT_ACCOUNT_IDS = ['nh', 'ds', 'psf', 'irp'] as const
@@ -26,7 +27,7 @@ export const INVESTMENT_ACCOUNTS: InvestmentAccountMeta[] = [
   {
     id: 'ds',
     label: 'DS',
-    title: '해외 배당주',
+    title: '해외주식',
     subtitle: '미국 ETF·주식',
     market: 'overseas',
     cashLabel: '해외 예수금',

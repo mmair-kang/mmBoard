@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-24 15:40 (종목 타입·배당 연동 컬럼)
 // 수정: Auto — 2026-07-14 01:37 (예수금 수정 시각)
 
 import { INVESTMENT_ACCOUNT_IDS } from '@/config/investmentAccounts'
@@ -35,6 +36,14 @@ export async function ensureInvestmentSchema() {
 
       try {
         await db.run(sql`ALTER TABLE investment_account_cash ADD COLUMN cash_balance_updated_at TEXT`)
+      } catch {
+        /* column already exists */
+      }
+
+      try {
+        await db.run(
+          sql`ALTER TABLE investment_holdings ADD COLUMN holding_type TEXT NOT NULL DEFAULT 'general'`,
+        )
       } catch {
         /* column already exists */
       }

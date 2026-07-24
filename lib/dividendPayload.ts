@@ -145,7 +145,8 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
   for (const item of body.holdings) {
     if (!item || typeof item !== 'object') return null
     const row = item as Record<string, unknown>
-    const ticker = typeof row.ticker === 'string' ? row.ticker.trim().toUpperCase() : ''
+    const ticker =
+      typeof row.ticker === 'string' ? row.ticker.trim() : ''
     const defaultShares = parsePositiveInt(row.defaultShares)
     const perShareDividendUsd = parseDecimal(row.perShareDividendUsd) ?? 0
     const perShareDividendKrw = parseDecimal(row.perShareDividendKrw) ?? 0
@@ -153,7 +154,8 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
     const referencePriceUsd = parseDecimal(row.referencePriceUsd) ?? 0
     const referencePriceKrw = parseDecimal(row.referencePriceKrw) ?? 0
     const market = row.market === 'domestic' ? 'domestic' : row.market === 'overseas' ? 'overseas' : undefined
-    const quoteSymbol = typeof row.quoteSymbol === 'string' ? row.quoteSymbol.trim().toUpperCase() : undefined
+    const quoteSymbol =
+      typeof row.quoteSymbol === 'string' ? row.quoteSymbol.trim().toUpperCase() : undefined
     if (
       !ticker ||
       defaultShares == null ||
@@ -169,7 +171,8 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
     if (referenceExchangeRate != null && referenceExchangeRate < 0) return null
     holdings.push({
       id: typeof row.id === 'number' ? row.id : undefined,
-      ticker,
+      // 해외 티커는 대문자, 국내 종목명(한글·혼합)은 원문 유지
+      ticker: /^[A-Za-z0-9._-]+$/.test(ticker) ? ticker.toUpperCase() : ticker,
       ...(market ? { market } : {}),
       ...(quoteSymbol ? { quoteSymbol } : {}),
       defaultShares,

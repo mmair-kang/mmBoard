@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-24 15:40 (종목 타입·배당 연동)
 // 수정: Auto — 2026-07-15 01:34 (연금 칩 제거)
 // 수정: Auto — 2026-07-14 01:37 (예수금 수정 시각)
 
@@ -12,6 +13,10 @@ import { asc, eq } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
 import {
+  migrateInvestmentDividendTypesFromHoldings,
+  syncDividendHoldingsFromInvestments,
+} from '@/lib/dividendInvestmentSync'
+import {
   calcInvestmentAccountSummary,
   calcInvestmentHoldingView,
   type InvestmentAccountSummary,
@@ -22,6 +27,7 @@ import type {
   InvestmentAccountSyncPayload,
   InvestmentCashPayload,
   InvestmentHoldingPayload,
+  InvestmentHoldingType,
 } from '@/lib/investmentPayload'
 import { ensureInvestmentSchema } from '@/lib/investmentSchema'
 import { fetchInvestmentPriceMap, normalizeInvestmentSymbol } from '@/lib/stock'
@@ -45,6 +51,10 @@ export type InvestmentData = {
   grandSummary: InvestmentAccountSummary
 }
 
+function normalizeHoldingType(value: string | null | undefined): InvestmentHoldingType {
+  return value === 'dividend' ? 'dividend' : 'general'
+}
+
 function toHoldingRow(row: typeof investmentHoldings.$inferSelect): InvestmentHoldingRow {
   return {
     id: row.id,
@@ -52,6 +62,7 @@ function toHoldingRow(row: typeof investmentHoldings.$inferSelect): InvestmentHo
     name: row.name,
     symbol: row.symbol,
     market: row.market,
+    holdingType: normalizeHoldingType(row.holdingType),
     purchasePrice: row.purchasePrice,
     shares: row.shares,
     sortOrder: row.sortOrder,
@@ -79,8 +90,18 @@ async function loadCashMap(): Promise<Map<InvestmentAccountId, CashRow>> {
   return map
 }
 
+let dividendTypeMigrated = false
+
+async function ensureDividendLinkMigration() {
+  if (dividendTypeMigrated) return
+  await migrateInvestmentDividendTypesFromHoldings()
+  await syncDividendHoldingsFromInvestments()
+  dividendTypeMigrated = true
+}
+
 export async function loadInvestmentData(): Promise<InvestmentData> {
   await ensureInvestmentSchema()
+  await ensureDividendLinkMigration()
 
   const [holdingRows, cashMap] = await Promise.all([
     db
@@ -146,6 +167,7 @@ export async function createInvestmentHolding(payload: InvestmentHoldingPayload)
       name: payload.name,
       symbol: payload.symbol,
       market: payload.market,
+      holdingType: payload.holdingType,
       purchasePrice: payload.purchasePrice,
       shares: payload.shares,
       sortOrder: nextSort,
@@ -155,6 +177,7 @@ export async function createInvestmentHolding(payload: InvestmentHoldingPayload)
 
   const row = inserted[0]
   if (!row) throw new Error('insert failed')
+  await syncDividendHoldingsFromInvestments()
   return toHoldingRow(row)
 }
 
@@ -170,6 +193,7 @@ export async function updateInvestmentHolding(
       name: payload.name,
       symbol: payload.symbol,
       market: payload.market,
+      holdingType: payload.holdingType,
       purchasePrice: payload.purchasePrice,
       shares: payload.shares,
     })
@@ -177,12 +201,14 @@ export async function updateInvestmentHolding(
     .returning()
 
   const row = updated[0]
+  await syncDividendHoldingsFromInvestments()
   return row ? toHoldingRow(row) : null
 }
 
 export async function deleteInvestmentHolding(id: number) {
   await ensureInvestmentSchema()
   await db.delete(investmentHoldings).where(eq(investmentHoldings.id, id))
+  await syncDividendHoldingsFromInvestments()
 }
 
 export async function updateInvestmentCash(payload: InvestmentCashPayload) {
@@ -217,6 +243,7 @@ export async function syncInvestmentAccount(payload: InvestmentAccountSyncPayloa
           name: holding.name,
           symbol: holding.symbol,
           market,
+          holdingType: holding.holdingType,
           purchasePrice: holding.purchasePrice,
           shares: holding.shares,
           sortOrder: i,
@@ -230,6 +257,7 @@ export async function syncInvestmentAccount(payload: InvestmentAccountSyncPayloa
       name: holding.name,
       symbol: holding.symbol,
       market,
+      holdingType: holding.holdingType,
       purchasePrice: holding.purchasePrice,
       shares: holding.shares,
       sortOrder: i,
@@ -242,4 +270,6 @@ export async function syncInvestmentAccount(payload: InvestmentAccountSyncPayloa
       await db.delete(investmentHoldings).where(eq(investmentHoldings.id, row.id))
     }
   }
+
+  await syncDividendHoldingsFromInvestments()
 }

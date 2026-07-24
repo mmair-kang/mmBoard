@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-24 15:40 (주식수 투자연동 읽기전용)
 // 수정: Auto — 2026-07-14 23:37
 
 import { AppDialog } from '@/components/common/AppDialog'
@@ -29,7 +30,6 @@ import { alpha } from '@mui/material/styles'
 import { useEffect, useMemo, useState } from 'react'
 
 type RowDraft = {
-  shares: string
   perShare: string
   taxBase: string
 }
@@ -62,7 +62,6 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
       const perShare =
         row.market === 'domestic' ? row.perShareDividendKrw : row.perShareDividendUsd
       drafts[row.id] = {
-        shares: row.defaultShares > 0 ? String(row.defaultShares) : '',
         perShare: decimalToText(perShare),
         taxBase: row.market === 'domestic' ? decimalToText(row.perShareTaxBaseKrw) : '',
       }
@@ -83,13 +82,13 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
     for (const row of holdings) {
       const draft = rowDrafts[row.id]
       if (!draft) continue
-      const shares = Math.round(Number(draft.shares.replace(/[^\d]/g, ''))) || 0
+      const shares = row.defaultShares
       const perShareValue = parseDecimalText(draft.perShare)
       const taxBaseValue = parseDecimalText(draft.taxBase)
 
-      if (shares < 0 || perShareValue <= 0) {
+      if (shares < 1 || perShareValue <= 0) {
         const unit = row.market === 'domestic' ? '주당 원' : '주당 $'
-        setFormError(`${row.ticker}의 주수와 ${unit}를 확인해 주세요.`)
+        setFormError(`${row.ticker}의 주식수(투자 연동)와 ${unit}를 확인해 주세요.`)
         return
       }
 
@@ -113,7 +112,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
     }
 
     if (payload.length === 0) {
-      setFormError('저장할 종목이 없습니다.')
+      setFormError('저장할 종목이 없습니다. 투자 페이지에서 종목 타입을 배당으로 지정해 주세요.')
       return
     }
 
@@ -132,9 +131,9 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
   const domesticHoldings = holdings.filter((row) => row.market === 'domestic')
 
   const renderRow = (row: DividendHolding, index: number) => {
-    const draft = rowDrafts[row.id] ?? { shares: '', perShare: '', taxBase: '' }
+    const draft = rowDrafts[row.id] ?? { perShare: '', taxBase: '' }
     const isDomestic = row.market === 'domestic'
-    const shares = Math.round(Number(draft.shares.replace(/[^\d]/g, ''))) || 0
+    const shares = row.defaultShares
     const perShare = parseDecimalText(draft.perShare)
     const taxBase = parseDecimalText(draft.taxBase)
     const domesticPreview =
@@ -154,22 +153,34 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
             variant="outlined"
             sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
           />
+          <Chip
+            size="small"
+            label="투자연동"
+            color="primary"
+            variant="outlined"
+            sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }}
+          />
         </Stack>
         <Stack spacing={0.75}>
-          <TextField
-            label="보유 주수"
-            fullWidth
-            value={draft.shares}
-            onChange={(e) =>
-              setRowDrafts((prev) => ({
-                ...prev,
-                [row.id]: { ...draft, shares: e.target.value.replace(/[^\d]/g, '') },
-              }))
-            }
-            inputProps={{ inputMode: 'numeric' }}
-            InputProps={{ endAdornment: <Typography variant="caption">주</Typography> }}
-            {...formDialogCompactTextFieldProps}
-          />
+          <Paper
+            variant="outlined"
+            sx={{
+              px: 1,
+              py: 0.85,
+              borderRadius: 1.5,
+              bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
+              borderColor: (theme) => alpha(theme.palette.primary.main, 0.16),
+            }}
+          >
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                보유 주수
+              </Typography>
+              <Typography sx={{ fontWeight: 900, fontSize: '0.9rem' }}>
+                {shares > 0 ? `${shares.toLocaleString('ko-KR')}주` : '—'}
+              </Typography>
+            </Stack>
+          </Paper>
           <TextField
             label={isDomestic ? '주당 배당 (원)' : '주당 배당 (세전 $)'}
             fullWidth
@@ -269,8 +280,16 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
               ) : null}
 
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, lineHeight: 1.45 }}>
-                해외·국내 배당을 한 화면에서 관리합니다. KODEX는 주당 배당·과세표준액으로 세후 입금을 계산합니다.
+                종목·주식수는 투자 페이지에서 타입을 배당으로 지정한 종목과 자동 연동됩니다. 여기서는 주당
+                배당·과세표준만 수정합니다.
               </Typography>
+
+              {holdings.length === 0 ? (
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, lineHeight: 1.45 }}>
+                  연동된 배당 종목이 없습니다. 투자 페이지(국내주식·해외주식)에서 종목 타입을 배당으로
+                  지정해 주세요.
+                </Typography>
+              ) : null}
 
               {overseasHoldings.length > 0 ? (
                 <Box>
@@ -299,7 +318,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
             </Stack>
           </Box>
         </DialogContent>
-        <FormDialogFooter submitLoading={submitting} submitLabel="저장" />
+        <FormDialogFooter submitLoading={submitting} submitLabel="저장" submitDisabled={holdings.length === 0} />
       </Box>
     </AppDialog>
   )

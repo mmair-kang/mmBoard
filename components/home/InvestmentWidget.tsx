@@ -1,10 +1,12 @@
 'use client'
+// 수정: Auto — 2026-07-24 15:40 (배당 캐시 무효화)
 // 수정: Auto — 2026-07-14 01:39 (표 클릭 수정·예수금 인라인)
 // 수정: Auto — 2026-06-15 (PC 타이포·굵기 균형)
 
 import { InvestmentAccountCard } from '@/components/home/InvestmentAccountCard'
 import { InvestmentAccountEditDialog } from '@/components/home/InvestmentAccountEditDialog'
 import type { InvestmentAccountId } from '@/config/investmentAccounts'
+import { dividendsSwrKey } from '@/hooks/useDividends'
 import { type InvestmentAccountView, useInvestments } from '@/hooks/useInvestments'
 import { readApiErrorMessage } from '@/lib/apiResponse'
 import { formatWon } from '@/lib/annualPaymentCalc'
@@ -18,6 +20,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
 import { useMemo, useState } from 'react'
+import { mutate as globalMutate } from 'swr'
 
 export function InvestmentWidget() {
   const { accounts, usdKrwRate, grandSummary, isLoading, mutate } = useInvestments()
@@ -44,6 +47,7 @@ export function InvestmentWidget() {
     if (!res.ok) throw new Error(await readApiErrorMessage(res, '저장에 실패했습니다'))
     const updated = await res.json()
     await mutate(updated, { revalidate: false })
+    void globalMutate(dividendsSwrKey)
   }
 
   const handleSaveCash = async (accountId: InvestmentAccountId, cashBalance: number) => {

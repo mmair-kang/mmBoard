@@ -1,8 +1,35 @@
 'use client'
+// 수정: Auto — 2026-07-25 01:04 ($ 우측·단위 크기·보유표 동일 포맷)
+// 수정: Auto — 2026-07-25 01:02 (월별 표 가로 스크롤 없이 맞춤·$/% 축소)
+// 수정: Auto — 2026-07-25 01:01 (월별 표 환율 반올림·정수 표시)
+// 수정: Auto — 2026-07-25 00:57 (배당률 = 세후 원화 기준)
+// 수정: Auto — 2026-07-25 00:54 (컬럼: 주·주당·배당률·환율·금융소득·세후)
+// 수정: Auto — 2026-07-24 23:53 (월별 표 세전·과세표준 열 숨김)
+// 수정: Auto — 2026-07-24 23:50 (월별 표 국내칩 제거)
+// 수정: Auto — 2026-07-24 18:25 (세전·세후 원화 표기)
 // 수정: Auto — 2026-07-15 01:00
 
-import type { DividendEntry, DividendMonth } from '@/hooks/useDividends'
-import { calcDividendEntry, formatRate, formatUsd } from '@/lib/dividendCalc'
+import {
+  dividendIncomeBg,
+  dividendNetBg,
+  dividendTableCellSx,
+  dividendTableCol,
+  dividendTableHeadCellSx,
+  dividendTableNetCellSx,
+  dividendTableNetHeadSx,
+  formatDividendKrwCell,
+  formatDividendRateCell,
+  formatDividendUsdCell,
+  formatDividendYieldCell,
+} from '@/components/home/dividendTableUi'
+import type { DividendEntry, DividendHolding, DividendMonth } from '@/hooks/useDividends'
+import {
+  calcAnnualDividendYieldPercent,
+  calcDividendEntry,
+  formatUsd,
+  resolveHoldingPriceKrw,
+  resolveHoldingPriceUsd,
+} from '@/lib/dividendCalc'
 import { DIVIDEND_TICKER_ORDER, isDomesticDividendTicker } from '@/lib/dividendHoldingsConfig'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import Chip from '@mui/material/Chip'
@@ -16,47 +43,24 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { alpha, type Theme } from '@mui/material/styles'
+import { alpha } from '@mui/material/styles'
 import dayjs from 'dayjs'
 import { useMemo } from 'react'
 
 type Props = {
   month: DividendMonth
+  holdings: DividendHolding[]
   onEdit: () => void
 }
 
 const TICKER_ORDER = DIVIDEND_TICKER_ORDER
-
-const cellSx = {
-  px: 0.45,
-  py: 0.35,
-  fontSize: '0.68rem',
-  fontWeight: { xs: 700, md: 500 },
-  lineHeight: 1.3,
-  whiteSpace: 'nowrap',
-  borderColor: 'divider',
-} as const
-
-const headCellSx = {
-  ...cellSx,
-  fontWeight: { xs: 800, md: 500 },
-  color: 'text.secondary',
-} as const
-
-const netKrwCellSx = {
-  ...cellSx,
-  fontWeight: { xs: 700, md: 700 },
-} as const
-
-const netKrwHeadSx = {
-  ...headCellSx,
-  fontWeight: { xs: 800, md: 700 },
-} as const
-
-const perShareBg = (theme: Theme) => alpha(theme.palette.primary.main, 0.06)
-const taxBaseBg = (theme: Theme) => alpha(theme.palette.warning.main, 0.06)
-const incomeBg = (theme: Theme) => alpha(theme.palette.primary.main, 0.08)
-const netBg = (theme: Theme) => alpha(theme.palette.success.main, 0.07)
+const cellSx = dividendTableCellSx
+const headCellSx = dividendTableHeadCellSx
+const netKrwCellSx = dividendTableNetCellSx
+const netKrwHeadSx = dividendTableNetHeadSx
+const col = dividendTableCol
+const incomeBg = dividendIncomeBg
+const netBg = dividendNetBg
 
 const amountChipSx = {
   height: 20,
@@ -77,11 +81,6 @@ function sortEntries(entries: DividendEntry[]) {
   })
 }
 
-function formatKrwCell(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return '—'
-  return value.toLocaleString('ko-KR')
-}
-
 function resolveFinancialIncome(entry: DividendEntry): number {
   if (entry.financialIncomeKrw != null && Number.isFinite(entry.financialIncomeKrw)) {
     return entry.financialIncomeKrw
@@ -89,22 +88,36 @@ function resolveFinancialIncome(entry: DividendEntry): number {
   return calcDividendEntry(entry).financialIncomeKrw
 }
 
-function formatPerShareDividend(entry: DividendEntry, domestic: boolean) {
-  if (entry.perShareGrossForeign == null) return '—'
-  return domestic
-    ? Math.round(entry.perShareGrossForeign).toLocaleString('ko-KR')
-    : formatUsd(entry.perShareGrossForeign)
+/** 연 배당률(세후 %) = 월 세후 원화 ÷ 평가금액(원) × 12 */
+function resolveEntryYieldPercent(
+  entry: DividendEntry,
+  domestic: boolean,
+  holding: DividendHolding | undefined,
+): number | null {
+  if (entry.shares <= 0 || !(entry.dividendKrw > 0)) return null
+  const netPerShareKrw = entry.dividendKrw / entry.shares
+
+  if (domestic) {
+    const price = holding ? resolveHoldingPriceKrw(holding, holding.livePriceKrw) : 0
+    return calcAnnualDividendYieldPercent(netPerShareKrw, price)
+  }
+
+  const priceUsd = holding ? resolveHoldingPriceUsd(holding, holding.livePriceUsd) : 0
+  const rate = entry.exchangeRate
+  if (!(priceUsd > 0) || !(rate > 0)) return null
+  return calcAnnualDividendYieldPercent(netPerShareKrw, priceUsd * rate)
 }
 
-function formatTaxBase(entry: DividendEntry, domestic: boolean) {
-  if (!domestic || entry.perShareTaxBaseKrw == null || !(entry.perShareTaxBaseKrw > 0)) return '—'
-  return entry.perShareTaxBaseKrw.toLocaleString('ko-KR')
-}
-
-export function DividendMonthCard({ month, onEdit }: Props) {
+export function DividendMonthCard({ month, holdings, onEdit }: Props) {
   const label = dayjs(`${month.yearMonth}-01`).format('YYYY년 M월')
   const { summary } = month
   const rows = useMemo(() => sortEntries(month.entries), [month.entries])
+
+  const holdingByTicker = useMemo(() => {
+    const map = new Map<string, DividendHolding>()
+    for (const row of holdings) map.set(row.ticker, row)
+    return map
+  }, [holdings])
 
   const netKrwTotal = useMemo(
     () => rows.reduce((sum, entry) => sum + (entry.dividendKrw ?? 0), 0),
@@ -121,27 +134,13 @@ export function DividendMonthCard({ month, onEdit }: Props) {
   return (
     <Paper
       variant="outlined"
-      role="button"
-      tabIndex={0}
       onClick={onEdit}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onEdit()
-        }
-      }}
       sx={{
         borderRadius: 2,
-        minWidth: 0,
         overflow: 'hidden',
         cursor: 'pointer',
-        borderColor: summary.overMonthlyLimit ? 'warning.main' : 'divider',
-        bgcolor: (theme) =>
-          summary.overMonthlyLimit ? alpha(theme.palette.warning.main, 0.06) : 'background.paper',
-        transition: 'border-color 0.15s',
-        '&:hover': {
-          borderColor: summary.overMonthlyLimit ? 'warning.dark' : 'primary.light',
-        },
+        borderColor: 'divider',
+        '&:hover': { borderColor: 'primary.light' },
       }}
     >
       <Stack
@@ -198,77 +197,111 @@ export function DividendMonthCard({ month, onEdit }: Props) {
         </Stack>
       </Stack>
 
-      <TableContainer sx={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <Table size="small" sx={{ minWidth: 360 }}>
+      <TableContainer sx={{ overflowX: 'hidden' }}>
+        <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ ...headCellSx, bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}>
+              <TableCell
+                sx={{
+                  ...headCellSx,
+                  ...col.ticker,
+                  bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06),
+                }}
+              >
                 종목
               </TableCell>
               <TableCell
                 align="right"
-                sx={{ ...headCellSx, bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}
+                sx={{
+                  ...headCellSx,
+                  ...col.shares,
+                  bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06),
+                }}
               >
                 주
               </TableCell>
               <TableCell
                 align="right"
-                sx={{ ...headCellSx, bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06) }}
+                sx={{
+                  ...headCellSx,
+                  ...col.perShare,
+                  bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06),
+                }}
+              >
+                주당
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{
+                  ...headCellSx,
+                  ...col.yield,
+                  bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06),
+                }}
+              >
+                배당률
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{
+                  ...headCellSx,
+                  ...col.rate,
+                  bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06),
+                }}
               >
                 환율
               </TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, bgcolor: perShareBg }}>
-                배당금
-              </TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, bgcolor: taxBaseBg }}>
-                과세표준
-              </TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, bgcolor: incomeBg }}>
+              <TableCell align="right" sx={{ ...headCellSx, ...col.income, bgcolor: incomeBg }}>
                 금융소득
               </TableCell>
-              <TableCell align="right" sx={{ ...netKrwHeadSx, bgcolor: netBg }}>
-                세후 원화
+              <TableCell align="right" sx={{ ...netKrwHeadSx, ...col.net, bgcolor: netBg }}>
+                세후
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.map((entry) => {
-              const domestic = isDomesticDividendTicker(entry.ticker)
+              const domestic = entry.exchangeRate === 1 || isDomesticDividendTicker(entry.ticker)
+              const holding = holdingByTicker.get(entry.ticker)
+              const grossUsd = !domestic ? entry.foreignSettlement + entry.foreignTax : null
+              const yieldPercent = resolveEntryYieldPercent(entry, domestic, holding)
               return (
                 <TableRow key={entry.id} hover>
-                  <TableCell sx={cellSx}>
-                    <Tooltip title={`${entry.dayOfMonth}일`}>
-                      <Stack direction="row" alignItems="center" spacing={0.35}>
-                        <span>{entry.ticker}</span>
-                        {domestic ? (
-                          <Chip
-                            size="small"
-                            label="국내"
-                            color="success"
-                            variant="outlined"
-                            sx={{ height: 16, fontSize: '0.55rem', fontWeight: 700 }}
-                          />
-                        ) : null}
-                      </Stack>
+                  <TableCell sx={{ ...cellSx, ...col.ticker }}>
+                    <Tooltip
+                      title={
+                        domestic
+                          ? `${entry.dayOfMonth}일`
+                          : `${entry.dayOfMonth}일 · 세전 ${grossUsd != null ? formatUsd(grossUsd) : '—'}`
+                      }
+                    >
+                      <span>{entry.ticker}</span>
                     </Tooltip>
                   </TableCell>
-                  <TableCell align="right" sx={cellSx}>
+                  <TableCell align="right" sx={{ ...cellSx, ...col.shares }}>
                     {entry.shares}
                   </TableCell>
-                  <TableCell align="right" sx={cellSx}>
-                    {domestic ? '—' : formatRate(entry.exchangeRate)}
+                  <TableCell align="right" sx={{ ...cellSx, ...col.perShare }}>
+                    {domestic
+                      ? entry.shares > 0
+                        ? Math.round((entry.foreignSettlement + entry.foreignTax) / entry.shares).toLocaleString(
+                            'ko-KR',
+                          )
+                        : '—'
+                      : entry.shares > 0
+                        ? formatDividendUsdCell((entry.foreignSettlement + entry.foreignTax) / entry.shares)
+                        : '—'}
                   </TableCell>
-                  <TableCell align="right" sx={{ ...cellSx, bgcolor: perShareBg }}>
-                    {formatPerShareDividend(entry, domestic)}
+                  <TableCell align="right" sx={{ ...cellSx, ...col.yield, color: 'text.secondary' }}>
+                    {formatDividendYieldCell(yieldPercent)}
                   </TableCell>
-                  <TableCell align="right" sx={{ ...cellSx, bgcolor: taxBaseBg }}>
-                    {formatTaxBase(entry, domestic)}
+                  <TableCell align="right" sx={{ ...cellSx, ...col.rate }}>
+                    {domestic ? '—' : formatDividendRateCell(entry.exchangeRate)}
                   </TableCell>
-                  <TableCell align="right" sx={{ ...cellSx, bgcolor: incomeBg }}>
-                    {formatKrwCell(resolveFinancialIncome(entry))}
+                  <TableCell align="right" sx={{ ...cellSx, ...col.income, bgcolor: incomeBg }}>
+                    {formatDividendKrwCell(resolveFinancialIncome(entry))}
                   </TableCell>
-                  <TableCell align="right" sx={{ ...netKrwCellSx, bgcolor: netBg }}>
-                    {formatKrwCell(entry.dividendKrw)}
+                  <TableCell align="right" sx={{ ...netKrwCellSx, ...col.net, bgcolor: netBg }}>
+                    {formatDividendKrwCell(entry.dividendKrw)}
                   </TableCell>
                 </TableRow>
               )

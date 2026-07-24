@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-07-24 18:15 (월별 배당 입력 단순화)
 // 수정: Auto — 2026-07-14 23:37
 
 import {
@@ -21,6 +22,7 @@ import {
 } from '@/config/formDialogLayout'
 import type { DividendHolding, DividendMonth } from '@/hooks/useDividends'
 import { entriesFromHoldings } from '@/lib/dividendPayload'
+import { parseDecimalText } from '@/lib/dividendPayload'
 import Box from '@mui/material/Box'
 import DialogContent from '@mui/material/DialogContent'
 import Stack from '@mui/material/Stack'
@@ -38,38 +40,42 @@ type Props = {
   open: boolean
   month?: DividendMonth | null
   holdings: DividendHolding[]
+  usdKrwRate?: number | null
   existingYearMonths: string[]
   onClose: () => void
   onSubmit: (payload: DividendMonthFormPayload) => Promise<void>
   onDelete?: () => Promise<void>
 }
 
-function validateDrafts(drafts: DividendEntryDraft[], holdings: DividendHolding[]): boolean {
+function validateDrafts(
+  drafts: DividendEntryDraft[],
+  holdings: DividendHolding[],
+  usdKrwRate?: number | null,
+): boolean {
   const marketByTicker = new Map(holdings.map((row) => [row.ticker.toUpperCase(), row.market]))
   return drafts.every((row) => {
-    const entry = draftToEntryPayload(row)
+    const entry = draftToEntryPayload(row, marketByTicker, usdKrwRate)
     const domestic =
-      marketByTicker.get(entry.ticker) === 'domestic' || entry.exchangeRate === 1
+      marketByTicker.get(entry.ticker.trim().toUpperCase()) === 'domestic' || entry.exchangeRate === 1
+    const perShare = parseDecimalText(row.perShareText)
+    const grossKrw = parseDecimalText(row.grossKrwText)
     if (domestic) {
-      const perShare = Number(row.perShareKrwText.replace(/[^\d.]/g, '')) || 0
       return (
         entry.dayOfMonth >= 1 &&
         entry.dayOfMonth <= 31 &&
         Boolean(entry.ticker) &&
-        entry.shares >= 0 &&
-        perShare > 0 &&
-        entry.foreignSettlement >= 0 &&
-        entry.foreignTax >= 0
+        entry.shares > 0 &&
+        grossKrw > 0
       )
     }
     return (
       entry.dayOfMonth >= 1 &&
       entry.dayOfMonth <= 31 &&
       Boolean(entry.ticker) &&
-      entry.shares >= 0 &&
-      entry.exchangeRate > 0 &&
-      entry.foreignSettlement > 0 &&
-      entry.foreignTax >= 0
+      entry.shares > 0 &&
+      perShare > 0 &&
+      grossKrw > 0 &&
+      entry.exchangeRate > 0
     )
   })
 }
@@ -78,6 +84,7 @@ export function DividendMonthFormDialog({
   open,
   month,
   holdings,
+  usdKrwRate = null,
   existingYearMonths,
   onClose,
   onSubmit,
@@ -102,13 +109,13 @@ export function DividendMonthFormDialog({
 
     if (month) {
       setYearMonth(month.yearMonth)
-      setEntryDrafts(entriesToDrafts(month.entries))
+      setEntryDrafts(entriesToDrafts(month.entries, holdings))
       return
     }
 
     const defaultMonth = dayjs().format('YYYY-MM')
     setYearMonth(defaultMonth)
-    setEntryDrafts(entriesToDrafts(entriesFromHoldings(holdings)))
+    setEntryDrafts(entriesToDrafts(entriesFromHoldings(holdings), holdings))
   }, [open, month, holdings])
 
   const handleSubmit = async (event?: React.FormEvent) => {
@@ -122,12 +129,12 @@ export function DividendMonthFormDialog({
       setFormError('이미 등록된 달입니다.')
       return
     }
-    if (!validateDrafts(entryDrafts, holdings)) {
-      setFormError('모든 항목의 배당일·종목·금액을 확인해 주세요.')
+    if (!validateDrafts(entryDrafts, holdings, usdKrwRate)) {
+      setFormError('모든 항목의 배당 지급일·종목·보유주수·세전 배당금(원)을 확인해 주세요. (해외는 주당 $도 필요)')
       return
     }
 
-    const entries = draftsToEntries(entryDrafts)
+    const entries = draftsToEntries(entryDrafts, holdings, usdKrwRate)
     if (entries.length === 0) {
       setFormError('저장할 배당 항목이 없습니다.')
       return
@@ -195,12 +202,13 @@ export function DividendMonthFormDialog({
               />
               {!isEdit ? (
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                  고정 보유 종목이 자동으로 채워집니다. 주수·금액은 달마다 수정할 수 있어요.
+                  보유 배당주가 자동으로 채워집니다. 주수·세전 배당금(원)만 달마다 입력하면 됩니다.
                 </Typography>
               ) : null}
               <DividendEntriesEditor
                 drafts={entryDrafts}
                 holdings={holdings}
+                usdKrwRate={usdKrwRate}
                 onChange={setEntryDrafts}
               />
               {formError ? (

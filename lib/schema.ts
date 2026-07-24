@@ -176,6 +176,8 @@ export const dividendHoldings = sqliteTable('dividend_holdings', {
   /** Yahoo/KRX 시세 조회용 (예: JEPQ, 498400) */
   quoteSymbol: text('quote_symbol').notNull().default(''),
   defaultShares: integer('default_shares').notNull().default(0),
+  /** 투자 종목 FK — 주식수는 investment_holdings.shares 연동 */
+  investmentHoldingId: integer('investment_holding_id'),
   perShareDividendUsd: real('per_share_dividend_usd').notNull().default(0),
   perShareDividendKrw: real('per_share_dividend_krw').notNull().default(0),
   /** 국내 ETF 주당 과세표준액 (원) — KODEX 등 */
@@ -236,6 +238,8 @@ export const investmentHoldings = sqliteTable('investment_holdings', {
   name: text('name').notNull(),
   symbol: text('symbol').notNull(),
   market: text('market').notNull(),
+  /** general | dividend */
+  holdingType: text('holding_type').notNull().default('general'),
   purchasePrice: integer('purchase_price').notNull(),
   shares: integer('shares').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),

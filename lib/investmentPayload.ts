@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-24 15:40 (종목 타입 general|dividend)
 // 수정: Auto — 2026-06-08
 
 import {
@@ -9,12 +10,16 @@ import {
 import { normalizeInvestmentSymbol } from '@/lib/stock'
 
 const MARKET_SET = new Set<string>(['domestic', 'overseas', 'fund'])
+const HOLDING_TYPE_SET = new Set<string>(['general', 'dividend'])
+
+export type InvestmentHoldingType = 'general' | 'dividend'
 
 export type InvestmentHoldingPayload = {
   category: InvestmentAccountId
   name: string
   symbol: string
   market: InvestmentMarket
+  holdingType: InvestmentHoldingType
   purchasePrice: number
   shares: number
 }
@@ -28,6 +33,7 @@ export type InvestmentHoldingSyncItem = {
   id?: number
   name: string
   symbol: string
+  holdingType: InvestmentHoldingType
   purchasePrice: number
   shares: number
 }
@@ -36,6 +42,10 @@ export type InvestmentAccountSyncPayload = {
   category: InvestmentAccountId
   cashBalance: number
   holdings: InvestmentHoldingSyncItem[]
+}
+
+export function parseInvestmentHoldingType(value: unknown): InvestmentHoldingType {
+  return value === 'dividend' ? 'dividend' : 'general'
 }
 
 export function parseInvestmentHoldingPayload(body: Record<string, unknown>): InvestmentHoldingPayload | null {
@@ -49,6 +59,9 @@ export function parseInvestmentHoldingPayload(body: Record<string, unknown>): In
   const marketRaw = body.market != null ? String(body.market) : defaultMarketForAccount(category)
   if (!MARKET_SET.has(marketRaw)) return null
 
+  const holdingTypeRaw = body.holdingType != null ? String(body.holdingType) : 'general'
+  if (!HOLDING_TYPE_SET.has(holdingTypeRaw)) return null
+
   const purchasePrice = Math.round(Number(body.purchasePrice))
   const shares = Math.round(Number(body.shares))
   if (!Number.isFinite(purchasePrice) || purchasePrice < 0) return null
@@ -59,6 +72,7 @@ export function parseInvestmentHoldingPayload(body: Record<string, unknown>): In
     name,
     symbol,
     market: marketRaw as InvestmentMarket,
+    holdingType: holdingTypeRaw as InvestmentHoldingType,
     purchasePrice,
     shares,
   }
@@ -104,6 +118,7 @@ export function parseInvestmentAccountSyncPayload(
       id: id != null && Number.isFinite(id) && id > 0 ? id : undefined,
       name,
       symbol,
+      holdingType: parseInvestmentHoldingType(row.holdingType),
       purchasePrice,
       shares,
     })

@@ -179,7 +179,7 @@ export function DividendWidget() {
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', lineHeight: 1.3 }}>
                 보유 배당주 예상 연 금융소득
               </Typography>
-              <Typography sx={{ fontWeight: 900, fontSize: '0.95rem', color: 'secondary.dark', lineHeight: 1.35, mt: 0.15 }}>
+              <Typography sx={{ fontWeight: 900, fontSize: '0.95rem', color: 'text.primary', lineHeight: 1.35, mt: 0.15 }}>
                 {holdingsYearEstimate != null ? formatWon(holdingsYearEstimate) : '—'}
               </Typography>
             </Box>
@@ -243,7 +243,12 @@ export function DividendWidget() {
           </Typography>
         ) : (
           sortedMonths.map((month) => (
-            <DividendMonthCard key={month.id} month={month} onEdit={() => openEdit(month)} />
+            <DividendMonthCard
+              key={month.id}
+              month={month}
+              holdings={holdings}
+              onEdit={() => openEdit(month)}
+            />
           ))
         )}
       </Stack>
@@ -260,6 +265,7 @@ export function DividendWidget() {
         open={formOpen}
         month={editingMonth}
         holdings={holdings}
+        usdKrwRate={usdKrwRate}
         existingYearMonths={existingYearMonths}
         onClose={closeForm}
         onSubmit={editingMonth ? handleUpdate : handleAdd}
