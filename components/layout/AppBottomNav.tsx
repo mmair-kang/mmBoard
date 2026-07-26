@@ -1,8 +1,9 @@
 'use client'
+// 수정: Auto — 2026-07-27 01:56 (계산 제거·건강 추가)
 // 수정: Auto — 2026-06-15 (PC 하단 네비·반응형)
 
 import { sxBottomNavInner } from '@/config/responsiveLayout'
-import CalculateRoundedIcon from '@mui/icons-material/CalculateRounded'
+import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded'
@@ -18,8 +19,8 @@ export function AppBottomNav() {
 
   const tab: number | false = (() => {
     if (pathname === '/settings') return 3
-    if (pathname === '/calc') return 2
-    if (pathname === '/shopping' || pathname === '/collection') return 1
+    if (pathname === '/shopping' || pathname === '/collection') return 2
+    if (pathname === '/health' || pathname.startsWith('/health/')) return 1
     return 0
   })()
 
@@ -51,12 +52,17 @@ export function AppBottomNav() {
         >
           <BottomNavigationAction label="관리" icon={<HomeRoundedIcon />} component={Link} href="/" />
           <BottomNavigationAction
+            label="건강"
+            icon={<FavoriteRoundedIcon />}
+            component={Link}
+            href="/health"
+          />
+          <BottomNavigationAction
             label="쇼핑"
             icon={<ShoppingCartRoundedIcon />}
             component={Link}
             href="/shopping"
           />
-          <BottomNavigationAction label="계산" icon={<CalculateRoundedIcon />} component={Link} href="/calc" />
           <BottomNavigationAction label="설정" icon={<SettingsRoundedIcon />} component={Link} href="/settings" />
         </BottomNavigation>
       </Box>

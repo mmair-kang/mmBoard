@@ -283,3 +283,44 @@ export const cardApplications = sqliteTable('card_applications', {
   cancelDate: text('cancel_date'),
   createdAt: text('created_at').notNull(),
 })
+
+// 수정: Auto — 2026-07-27 02:17 (내시경 항목·결과·권고사항 분리)
+/** 내시경 기록 — gastro(위) | colono(대장) */
+export const endoscopyRecords = sqliteTable('endoscopy_records', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  /** gastro | colono | thyroidUs | carotidUs | abdomenUs | scaling | dentalCare */
+  scopeType: text('scope_type').notNull().default('gastro'),
+  /** YYYY-MM-DD */
+  examDate: text('exam_date').notNull(),
+  examItem: text('exam_item').notNull().default(''),
+  result: text('result').notNull().default(''),
+  recommendation: text('recommendation').notNull().default(''),
+  /** JSON — [{ label, amount }] */
+  costItems: text('cost_items').notNull().default('[]'),
+  /** 이전 단일 내용 필드 — 기존 DB 호환 */
+  content: text('content').notNull().default(''),
+  createdAt: text('created_at').notNull(),
+})
+
+/** 건강검진 기록 */
+export const healthCheckups = sqliteTable('health_checkups', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  /** YYYY-MM-DD */
+  checkupDate: text('checkup_date').notNull(),
+  age: integer('age'),
+  heightCm: real('height_cm'),
+  weightKg: real('weight_kg'),
+  /** 키·체중으로 계산, 수동 입력도 허용 */
+  bmi: real('bmi'),
+  waistCm: real('waist_cm'),
+  visionLeft: real('vision_left'),
+  visionRight: real('vision_right'),
+  bpSystolic: integer('bp_systolic'),
+  bpDiastolic: integer('bp_diastolic'),
+  fastingGlucose: real('fasting_glucose'),
+  totalCholesterol: real('total_cholesterol'),
+  hdl: real('hdl'),
+  triglycerides: real('triglycerides'),
+  ldl: real('ldl'),
+  createdAt: text('created_at').notNull(),
+})
