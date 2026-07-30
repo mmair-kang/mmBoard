@@ -1,4 +1,7 @@
 'use client'
+// 수정: Auto — 2026-07-31 00:55 (재구매 날짜 표시 제거)
+// 수정: Auto — 2026-07-31 00:51 (재구매 D-day 칩·날짜 우측)
+// 수정: Auto — 2026-07-31 00:05 (상시 재구매일·D-day)
 // 수정: Auto — 2026-07-19 14:25 (소장 만 단위 반올림)
 // 수정: Auto — 2026-07-19 13:45 (소장 2depth 총액)
 // 수정: Auto — 2026-07-19 02:55 (수시 초록·항목명 톤)
@@ -28,6 +31,7 @@ import {
   sxCollectionMonthlyUnderThumb,
   sxCollectionNameUnderThumb,
   sxCollectionProductNameChip,
+  sxCollectionRepurchaseDdayChip,
   sxCollectionSearchResultPanel,
   sxCollectionSearchResultQuery,
   sxCollectionSearchResultText,
@@ -90,7 +94,7 @@ import {
 } from '@/hooks/useCollectionItems'
 import { useCollectionSubcategories } from '@/hooks/useCollectionSubcategories'
 import { useLongPress } from '@/hooks/useLongPress'
-import { formatLastPurchaseRelativeLabel } from '@/lib/shoppingDate'
+import { formatLastPurchaseRelativeLabel, formatRepurchaseSchedule } from '@/lib/shoppingDate'
 import {
   formatCollectionPackListSubline,
   getCollectionFashionListMetrics,
@@ -496,6 +500,9 @@ function CollectionProductCard({
 
   const storeLabel = getCollectionStoreLabel(item.storeKey, item.storeCustom)
   const purchaseLabel = formatLastPurchaseRelativeLabel(item.purchaseDate)
+  const repurchaseSchedule = showLivingCost
+    ? formatRepurchaseSchedule(item.purchaseDate, item.repurchaseDays)
+    : null
   const brand = item.brand.trim()
   const nameSuffix = item.nameSuffix.trim()
   const foodLabels = getCollectionFoodListLabels(item, product.listChipFlags)
@@ -561,8 +568,16 @@ function CollectionProductCard({
             </Typography>
           ) : null}
         </Stack>
-        {showMonthly || foodLabels.length > 0 ? (
+        {showMonthly || foodLabels.length > 0 || repurchaseSchedule ? (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.35, mt: 0.45, alignItems: 'center' }}>
+            {repurchaseSchedule ? (
+              <Box
+                component="span"
+                sx={sxCollectionRepurchaseDdayChip(repurchaseSchedule.daysRemaining)}
+              >
+                {repurchaseSchedule.ddayLabel}
+              </Box>
+            ) : null}
             {showMonthly ? (
               <Box component="span" sx={sxCollectionMonthlyInline(monthlyActive)}>
                 월 {formatCompactLivingAmount(monthlyCost)}

@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-07-31 00:51 (재구매 D-day 칩)
 // 수정: Auto — 2026-07-19 13:45 (소장 2depth 총액 버튼)
 // 수정: Auto — 2026-07-19 03:08 (주황/초록 조화 회색 테두리)
 // 수정: Auto — 2026-07-19 03:05 (항목명 테두리 회색)
@@ -601,6 +602,44 @@ export function sxCollectionFoodMetricChip(priceMetric: boolean) {
     borderColor: priceMetric
       ? (theme: { palette: { primary: { main: string } } }) => alpha(theme.palette.primary.main, 0.2)
       : 'divider',
+  } as const
+}
+
+/** 상시 목록 — 재구매 D-day 칩 (임박·초과 강조) */
+export function sxCollectionRepurchaseDdayChip(daysRemaining: number) {
+  const tone: 'overdue' | 'soon' | 'normal' =
+    daysRemaining <= 0 ? 'overdue' : daysRemaining <= 7 ? 'soon' : 'normal'
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    flexShrink: 0,
+    px: 0.55,
+    py: 0.12,
+    borderRadius: 0.75,
+    fontSize: '0.68rem',
+    fontWeight: 800,
+    lineHeight: 1.25,
+    letterSpacing: '-0.02em',
+    border: '1px solid',
+    color: (theme: Theme) => {
+      if (tone === 'overdue') return theme.palette.error.main
+      if (tone === 'soon') return theme.palette.warning.dark
+      return theme.palette.text.secondary
+    },
+    bgcolor: (theme: Theme) => {
+      if (tone === 'overdue') {
+        return alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.18 : 0.08)
+      }
+      if (tone === 'soon') {
+        return alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.16 : 0.1)
+      }
+      return alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.1 : 0.06)
+    },
+    borderColor: (theme: Theme) => {
+      if (tone === 'overdue') return alpha(theme.palette.error.main, 0.28)
+      if (tone === 'soon') return alpha(theme.palette.warning.main, 0.32)
+      return theme.palette.divider
+    },
   } as const
 }
 

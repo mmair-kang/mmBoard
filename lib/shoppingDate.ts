@@ -1,6 +1,9 @@
+// 수정: Auto — 2026-07-31 00:05 (재구매일·D-day)
 // 수정: Auto — 2026-06-15
 
+import dayjs from 'dayjs'
 import { formatRelativeDayKo } from '@/lib/relativeDayLabel'
+import { formatTodoDday } from '@/lib/todoFormat'
 
 const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 
@@ -23,6 +26,31 @@ export function formatLastPurchaseDateDisplay(isoDate: string | null | undefined
 /** 목록 표시용 — 오늘·N일 전 */
 export function formatLastPurchaseRelativeLabel(isoDate: string | null | undefined): string | null {
   return formatRelativeDayKo(isoDate)
+}
+
+/** 구매일 + 재구매 주기 → 다음 재구매일 (YYYY-MM-DD) */
+export function calcNextRepurchaseIso(
+  purchaseDate: string | null | undefined,
+  repurchaseDays: number | null | undefined,
+): string | null {
+  if (!purchaseDate || repurchaseDays == null || repurchaseDays < 1) return null
+  if (!ISO_DATE_RE.test(purchaseDate.trim())) return null
+  return dayjs(purchaseDate).add(repurchaseDays, 'day').format('YYYY-MM-DD')
+}
+
+/** 상시 목록용 — 재구매일 표시 + D-N / TODAY / D+N */
+export function formatRepurchaseSchedule(
+  purchaseDate: string | null | undefined,
+  repurchaseDays: number | null | undefined,
+): { dateLabel: string; ddayLabel: string; daysRemaining: number } | null {
+  const nextIso = calcNextRepurchaseIso(purchaseDate, repurchaseDays)
+  if (!nextIso) return null
+  const dateLabel = formatLastPurchaseDateDisplay(nextIso)
+  if (!dateLabel) return null
+  const daysRemaining = dayjs(nextIso).startOf('day').diff(dayjs().startOf('day'), 'day')
+  const ddayLabel = formatTodoDday(daysRemaining)
+  if (!ddayLabel) return null
+  return { dateLabel, ddayLabel, daysRemaining }
 }
 
 export function todayIsoDate(): string {
