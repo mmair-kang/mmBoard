@@ -1,10 +1,12 @@
 'use client'
+// 수정: Auto — 2026-08-03 10:21 (배당 기준일 입력)
 // 수정: Auto — 2026-07-24 15:40 (주식수 투자연동 읽기전용)
 // 수정: Auto — 2026-07-14 23:37
 
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogFooter } from '@/components/common/FormDialogFooter'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
+import { MonthlyDaySelect } from '@/components/home/MonthlyDaySelect'
 import {
   formDialogCompactTextFieldProps,
   formDialogContentScrollSx,
@@ -32,6 +34,7 @@ import { useEffect, useMemo, useState } from 'react'
 type RowDraft = {
   perShare: string
   taxBase: string
+  recordDayOfMonth: number
 }
 
 type Props = {
@@ -64,6 +67,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
       drafts[row.id] = {
         perShare: decimalToText(perShare),
         taxBase: row.market === 'domestic' ? decimalToText(row.perShareTaxBaseKrw) : '',
+        recordDayOfMonth: row.recordDayOfMonth >= 1 && row.recordDayOfMonth <= 31 ? row.recordDayOfMonth : 1,
       }
     }
     setRowDrafts(drafts)
@@ -108,6 +112,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
         perShareTaxBaseKrw: row.market === 'domestic' ? taxBaseValue : 0,
         referencePriceUsd: row.referencePriceUsd,
         referencePriceKrw: row.referencePriceKrw,
+        recordDayOfMonth: draft.recordDayOfMonth,
       })
     }
 
@@ -131,7 +136,7 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
   const domesticHoldings = holdings.filter((row) => row.market === 'domestic')
 
   const renderRow = (row: DividendHolding, index: number) => {
-    const draft = rowDrafts[row.id] ?? { perShare: '', taxBase: '' }
+    const draft = rowDrafts[row.id] ?? { perShare: '', taxBase: '', recordDayOfMonth: 1 }
     const isDomestic = row.market === 'domestic'
     const shares = row.defaultShares
     const perShare = parseDecimalText(draft.perShare)
@@ -181,6 +186,18 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
               </Typography>
             </Stack>
           </Paper>
+          <MonthlyDaySelect
+            labelId={`dividend-record-day-${row.id}`}
+            label="배당 기준일"
+            value={draft.recordDayOfMonth}
+            fullWidth
+            onChange={(day) =>
+              setRowDrafts((prev) => ({
+                ...prev,
+                [row.id]: { ...draft, recordDayOfMonth: day ?? 1 },
+              }))
+            }
+          />
           <TextField
             label={isDomestic ? '주당 배당 (원)' : '주당 배당 (세전 $)'}
             fullWidth
@@ -280,8 +297,8 @@ export function DividendHoldingsEditDialog({ open, holdings, usdKrwRate, onClose
               ) : null}
 
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, lineHeight: 1.45 }}>
-                종목·주식수는 투자 페이지에서 타입을 배당으로 지정한 종목과 자동 연동됩니다. 여기서는 주당
-                배당·과세표준만 수정합니다.
+                종목·주식수는 투자 페이지에서 타입을 배당으로 지정한 종목과 자동 연동됩니다. 여기서는 배당
+                기준일·주당 배당·과세표준만 수정합니다.
               </Typography>
 
               {holdings.length === 0 ? (

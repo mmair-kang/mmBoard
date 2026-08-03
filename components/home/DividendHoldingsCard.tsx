@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-08-03 10:21 (종목 옆 B(배당 기준일) 열·월별과 동일 width)
 // 수정: Auto — 2026-07-25 01:08 (보유 배당주 보라→블랙 테마)
 // 수정: Auto — 2026-07-25 01:04 ($ 우측·단위 크기·월별과 동일 표 포맷)
 // 수정: Auto — 2026-07-25 00:57 (배당률 = 세후 원화 기준)
@@ -145,6 +146,11 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
           <TableHead>
             <TableRow>
               <TableCell sx={{ ...headCellSx, ...col.ticker, bgcolor: headBg }}>종목</TableCell>
+              <TableCell align="right" sx={{ ...headCellSx, ...col.day, bgcolor: headBg }}>
+                <Tooltip title="배당 기준일">
+                  <span>B</span>
+                </Tooltip>
+              </TableCell>
               <TableCell align="right" sx={{ ...headCellSx, ...col.shares, bgcolor: headBg }}>
                 주
               </TableCell>
@@ -171,6 +177,12 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
                 <TableCell sx={{ ...cellSx, ...col.ticker, fontWeight: { xs: 900, md: 500 } }}>
                   {row.ticker}
                 </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ ...cellSx, ...col.day, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {row.recordDayOfMonth >= 1 && row.recordDayOfMonth <= 31 ? row.recordDayOfMonth : '—'}
+                </TableCell>
                 <TableCell align="right" sx={{ ...cellSx, ...col.shares }}>
                   {row.defaultShares > 0 ? row.defaultShares : '—'}
                 </TableCell>
@@ -193,6 +205,7 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
             ))}
             <TableRow>
               <TableCell sx={{ ...totalLabelCellSx, ...col.ticker }}>합계</TableCell>
+              <TableCell align="right" sx={{ ...cellSx, ...col.day }} />
               <TableCell align="right" sx={{ ...cellSx, ...col.shares }} />
               <TableCell align="right" sx={{ ...cellSx, ...col.perShare }} />
               <TableCell align="right" sx={{ ...cellSx, ...col.yield, color: 'text.secondary' }}>

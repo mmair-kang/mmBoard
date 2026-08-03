@@ -185,6 +185,8 @@ export const dividendHoldings = sqliteTable('dividend_holdings', {
   referencePriceUsd: real('reference_price_usd').notNull().default(0),
   referencePriceKrw: real('reference_price_krw').notNull().default(0),
   referenceExchangeRate: real('reference_exchange_rate').notNull().default(0),
+  /** 배당 기준일 (1–31) — 월별 지급일과 별개, 0=미설정 */
+  recordDayOfMonth: integer('record_day_of_month').notNull().default(0),
   sortOrder: integer('sort_order').notNull().default(0),
 })
 

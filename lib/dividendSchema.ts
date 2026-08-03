@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-08-03 10:21 (배당 기준일 record_day_of_month)
 // 수정: Auto — 2026-07-14 23:37
 import { sql } from 'drizzle-orm'
 import { eq } from 'drizzle-orm'
@@ -69,6 +70,9 @@ export async function ensureDividendSchema() {
         `ALTER TABLE dividend_entries ADD COLUMN per_share_tax_base_krw REAL NOT NULL DEFAULT 0`,
       )
       await ensureColumn(`ALTER TABLE dividend_holdings ADD COLUMN investment_holding_id INTEGER`)
+      await ensureColumn(
+        `ALTER TABLE dividend_holdings ADD COLUMN record_day_of_month INTEGER NOT NULL DEFAULT 0`,
+      )
 
       const existing = await db.select().from(dividendHoldings)
       const existingByTicker = new Map(existing.map((row) => [row.ticker.toUpperCase(), row]))

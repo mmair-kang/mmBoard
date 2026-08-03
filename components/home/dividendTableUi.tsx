@@ -1,3 +1,5 @@
+// 수정: Auto — 2026-08-03 10:21 (day 열 = 월별 G·보유 B 공통 width)
+// 수정: Auto — 2026-08-03 10:13 (월별표 G(지급일) 열·금융소득/세후 width)
 // 수정: Auto — 2026-07-25 01:07 (주 열 width 소폭 확대)
 // 수정: Auto — 2026-07-25 01:04 (월별·보유 배당표 공통 포맷)
 'use client'
@@ -48,13 +50,15 @@ export const dividendIncomeBg = (theme: Theme) => alpha(theme.palette.primary.ma
 export const dividendNetBg = (theme: Theme) => alpha(theme.palette.success.main, 0.07)
 
 export const dividendTableCol = {
-  ticker: { width: '15%' },
+  ticker: { width: '14%' },
+  /** 월별 G(지급일) · 보유 B(기준일) 공통 */
+  day: { width: '6%' },
   shares: { width: '10%' },
   perShare: { width: '13%' },
   yield: { width: '11%' },
   rate: { width: '11%' },
-  income: { width: '20%' },
-  net: { width: '20%' },
+  income: { width: '17.5%' },
+  net: { width: '17.5%' },
 } as const
 
 export function formatDividendKrwCell(value: number | null | undefined) {

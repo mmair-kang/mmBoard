@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-08-03 10:21 (보유 배당 기준일 recordDayOfMonth)
 // 수정: Auto — 2026-07-14 23:37
 
 import { calcDomesticNetFromCashAndTaxBase } from '@/lib/dividendCalc'
@@ -31,6 +32,8 @@ export type DividendHoldingPayload = {
   referencePriceUsd?: number
   referencePriceKrw?: number
   referenceExchangeRate?: number
+  /** 배당 기준일 (1–31), 0=미설정 */
+  recordDayOfMonth?: number
 }
 
 function parsePositiveInt(value: unknown): number | null {
@@ -169,6 +172,13 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
     }
     const referenceExchangeRate = parseDecimal(row.referenceExchangeRate) ?? undefined
     if (referenceExchangeRate != null && referenceExchangeRate < 0) return null
+    const recordDayRaw = row.recordDayOfMonth
+    let recordDayOfMonth = 0
+    if (recordDayRaw != null && recordDayRaw !== '') {
+      const day = parseDayOfMonth(recordDayRaw)
+      if (day == null) return null
+      recordDayOfMonth = day
+    }
     holdings.push({
       id: typeof row.id === 'number' ? row.id : undefined,
       // 해외 티커는 대문자, 국내 종목명(한글·혼합)은 원문 유지
@@ -182,6 +192,7 @@ export function parseDividendHoldingsPayload(body: Record<string, unknown>): Div
       referencePriceUsd,
       referencePriceKrw,
       ...(referenceExchangeRate != null ? { referenceExchangeRate } : {}),
+      recordDayOfMonth,
     })
   }
 

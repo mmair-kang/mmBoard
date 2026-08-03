@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-08-03 10:21 (배당 기준일 recordDayOfMonth)
 // 수정: Auto — 2026-07-14 23:51
 
 import { swrJsonFetch } from '@/lib/swrFetch'
@@ -19,6 +20,8 @@ export interface DividendHolding {
   referencePriceUsd: number
   referencePriceKrw: number
   referenceExchangeRate: number
+  /** 배당 기준일 (1–31), 0=미설정 — 월별 지급일과 별개 */
+  recordDayOfMonth: number
   sortOrder: number
   livePriceUsd: number | null
   livePriceKrw: number | null

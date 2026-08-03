@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-08-03 10:13 (종목 옆 G(지급일) 열·금융소득/세후 width)
 // 수정: Auto — 2026-07-25 01:04 ($ 우측·단위 크기·보유표 동일 포맷)
 // 수정: Auto — 2026-07-25 01:02 (월별 표 가로 스크롤 없이 맞춤·$/% 축소)
 // 수정: Auto — 2026-07-25 01:01 (월별 표 환율 반올림·정수 표시)
@@ -214,6 +215,18 @@ export function DividendMonthCard({ month, holdings, onEdit }: Props) {
                 align="right"
                 sx={{
                   ...headCellSx,
+                  ...col.day,
+                  bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06),
+                }}
+              >
+                <Tooltip title="배당 지급일">
+                  <span>G</span>
+                </Tooltip>
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{
+                  ...headCellSx,
                   ...col.shares,
                   bgcolor: (theme) => alpha(theme.palette.action.hover, 0.06),
                 }}
@@ -267,15 +280,19 @@ export function DividendMonthCard({ month, holdings, onEdit }: Props) {
               return (
                 <TableRow key={entry.id} hover>
                   <TableCell sx={{ ...cellSx, ...col.ticker }}>
-                    <Tooltip
-                      title={
-                        domestic
-                          ? `${entry.dayOfMonth}일`
-                          : `${entry.dayOfMonth}일 · 세전 ${grossUsd != null ? formatUsd(grossUsd) : '—'}`
-                      }
-                    >
-                      <span>{entry.ticker}</span>
-                    </Tooltip>
+                    {domestic ? (
+                      entry.ticker
+                    ) : (
+                      <Tooltip title={`세전 ${grossUsd != null ? formatUsd(grossUsd) : '—'}`}>
+                        <span>{entry.ticker}</span>
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ ...cellSx, ...col.day, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {entry.dayOfMonth}
                   </TableCell>
                   <TableCell align="right" sx={{ ...cellSx, ...col.shares }}>
                     {entry.shares}
