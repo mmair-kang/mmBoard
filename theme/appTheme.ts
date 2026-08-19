@@ -1,7 +1,19 @@
+// 수정: Auto — 2026-08-19 15:40 (PC도 모바일과 동일한 타이포·컴포넌트)
+
 import { APP_DIALOG_TRANSITION_MS } from '@/config/dialogMotion'
 import { createTheme } from '@mui/material'
 
 export const appTheme = createTheme({
+  /** PC에서도 xs 스타일만 쓰도록 큰 브레이크포인트는 사실상 비활성 */
+  breakpoints: {
+    values: {
+      xs: 0,
+      sm: 10000,
+      md: 10001,
+      lg: 10002,
+      xl: 10003,
+    },
+  },
   typography: {
     fontFamily: 'var(--font-paperlogy)',
     fontWeightLight: 500,
@@ -14,70 +26,21 @@ export const appTheme = createTheme({
     h5: {
       fontSize: '1.25rem',
       fontWeight: 800,
-      '@media (min-width:900px)': {
-        fontSize: '1.45rem',
-      },
     },
     body1: {
       fontSize: '0.9375rem',
-      '@media (min-width:900px)': {
-        fontSize: '1rem',
-      },
     },
     body2: {
       fontSize: '0.875rem',
-      '@media (min-width:900px)': {
-        fontSize: '0.9375rem',
-      },
     },
     caption: {
       fontSize: '0.75rem',
-      '@media (min-width:900px)': {
-        fontSize: '0.8125rem',
-      },
     },
   },
   components: {
     MuiDialog: {
       defaultProps: {
         transitionDuration: APP_DIALOG_TRANSITION_MS,
-      },
-    },
-    MuiBottomNavigationAction: {
-      styleOverrides: {
-        root: {
-          '@media (min-width:900px)': {
-            minWidth: 96,
-            paddingTop: 8,
-          },
-        },
-        label: {
-          '@media (min-width:900px)': {
-            fontSize: '0.8rem',
-            fontWeight: 600,
-          },
-        },
-      },
-    },
-    MuiTab: {
-      styleOverrides: {
-        root: {
-          '@media (min-width:900px)': {
-            fontSize: '0.9rem',
-            minHeight: 48,
-          },
-        },
-      },
-    },
-    MuiIconButton: {
-      styleOverrides: {
-        root: {
-          '@media (min-width:900px)': {
-            '& .MuiSvgIcon-root': {
-              fontSize: '1.35rem',
-            },
-          },
-        },
       },
     },
   },

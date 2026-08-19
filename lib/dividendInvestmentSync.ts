@@ -54,6 +54,9 @@ async function absorbTickerConflicts(
     if (!(inherited.referencePriceKrw) && row.referencePriceKrw > 0) {
       inherited.referencePriceKrw = row.referencePriceKrw
     }
+    if (!(inherited.infoUrl) && row.infoUrl?.trim()) {
+      inherited.infoUrl = row.infoUrl
+    }
 
     await remapEntryTickers(row.ticker, displayName)
     await db.delete(dividendHoldings).where(eq(dividendHoldings.id, row.id))
@@ -149,6 +152,9 @@ export async function syncDividendHoldingsFromInvestments() {
             : {}),
           ...(existing.referencePriceKrw <= 0 && inherited.referencePriceKrw
             ? { referencePriceKrw: inherited.referencePriceKrw }
+            : {}),
+          ...(!existing.infoUrl?.trim() && inherited.infoUrl
+            ? { infoUrl: inherited.infoUrl }
             : {}),
         })
         .where(eq(dividendHoldings.id, existing.id))

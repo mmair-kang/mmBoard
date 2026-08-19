@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-08-19 15:48 (보유배당주 종목 링크 info_url)
 // 수정: Auto — 2026-08-03 10:21 (배당 기준일 record_day_of_month)
 // 수정: Auto — 2026-07-14 23:37
 import { sql } from 'drizzle-orm'
@@ -73,6 +74,7 @@ export async function ensureDividendSchema() {
       await ensureColumn(
         `ALTER TABLE dividend_holdings ADD COLUMN record_day_of_month INTEGER NOT NULL DEFAULT 0`,
       )
+      await ensureColumn(`ALTER TABLE dividend_holdings ADD COLUMN info_url TEXT NOT NULL DEFAULT ''`)
 
       const existing = await db.select().from(dividendHoldings)
       const existingByTicker = new Map(existing.map((row) => [row.ticker.toUpperCase(), row]))

@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-08-19 15:48 (보유배당주 종목 링크 infoUrl)
 // 수정: Auto — 2026-08-03 10:21 (보유 배당 기준일 recordDayOfMonth)
 // 수정: Auto — 2026-07-14 23:37
 import { asc, eq } from 'drizzle-orm'
@@ -34,6 +35,7 @@ export type DividendHoldingRow = {
   referencePriceKrw: number
   referenceExchangeRate: number
   recordDayOfMonth: number
+  infoUrl: string
   sortOrder: number
 }
 
@@ -93,6 +95,7 @@ function normalizeHoldingRow(row: typeof dividendHoldings.$inferSelect): Dividen
     referencePriceKrw: row.referencePriceKrw,
     referenceExchangeRate: row.referenceExchangeRate,
     recordDayOfMonth: row.recordDayOfMonth ?? 0,
+    infoUrl: row.infoUrl ?? '',
     sortOrder: row.sortOrder,
   }
 }
@@ -301,6 +304,7 @@ export async function syncDividendHoldings(holdings: DividendHoldingPayload[]) {
           referencePriceKrw: holding.referencePriceKrw ?? 0,
           referenceExchangeRate: market === 'overseas' ? referenceExchangeRate : 0,
           recordDayOfMonth: holding.recordDayOfMonth ?? 0,
+          infoUrl: holding.infoUrl ?? prev.infoUrl ?? '',
           sortOrder: i,
         })
         .where(eq(dividendHoldings.id, holding.id))
@@ -319,6 +323,7 @@ export async function syncDividendHoldings(holdings: DividendHoldingPayload[]) {
       referencePriceKrw: holding.referencePriceKrw ?? 0,
       referenceExchangeRate: market === 'overseas' ? referenceExchangeRate : 0,
       recordDayOfMonth: holding.recordDayOfMonth ?? 0,
+      infoUrl: holding.infoUrl ?? '',
       sortOrder: i,
     })
   }

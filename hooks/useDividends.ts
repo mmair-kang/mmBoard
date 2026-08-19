@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-08-19 15:48 (보유배당주 종목 링크)
 // 수정: Auto — 2026-08-03 10:21 (배당 기준일 recordDayOfMonth)
 // 수정: Auto — 2026-07-14 23:51
 
@@ -22,6 +23,8 @@ export interface DividendHolding {
   referenceExchangeRate: number
   /** 배당 기준일 (1–31), 0=미설정 — 월별 지급일과 별개 */
   recordDayOfMonth: number
+  /** 종목 클릭 시 새 창으로 열 페이지 */
+  infoUrl: string
   sortOrder: number
   livePriceUsd: number | null
   livePriceKrw: number | null

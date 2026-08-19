@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-08-19 15:48 (종목 클릭 시 링크 새 창)
 // 수정: Auto — 2026-08-03 10:21 (종목 옆 B(배당 기준일) 열·월별과 동일 width)
 // 수정: Auto — 2026-07-25 01:08 (보유 배당주 보라→블랙 테마)
 // 수정: Auto — 2026-07-25 01:04 ($ 우측·단위 크기·월별과 동일 표 포맷)
@@ -71,6 +72,10 @@ const totalLabelCellSx = {
   fontWeight: { xs: 900, md: 500 },
   color: { xs: 'text.primary', md: 'text.secondary' },
 } as const
+
+function openHoldingInfoUrl(url: string) {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
 
 function formatPerShare(row: DividendHolding): ReactNode {
   if (row.market === 'domestic') {
@@ -172,9 +177,32 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {holdings.map((row) => (
+            {holdings.map((row) => {
+              const canOpen = Boolean(row.infoUrl)
+              return (
               <TableRow key={row.id} hover>
-                <TableCell sx={{ ...cellSx, ...col.ticker, fontWeight: { xs: 900, md: 500 } }}>
+                <TableCell
+                  onClick={
+                    canOpen
+                      ? () => {
+                          openHoldingInfoUrl(row.infoUrl)
+                        }
+                      : undefined
+                  }
+                  sx={{
+                    ...cellSx,
+                    ...col.ticker,
+                    fontWeight: { xs: 900, md: 500 },
+                    ...(canOpen
+                      ? {
+                          color: 'primary.main',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          textUnderlineOffset: '2px',
+                        }
+                      : {}),
+                  }}
+                >
                   {row.ticker}
                 </TableCell>
                 <TableCell
@@ -202,7 +230,8 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
                   {formatDividendKrwCell(row.netKrw)}
                 </TableCell>
               </TableRow>
-            ))}
+              )
+            })}
             <TableRow>
               <TableCell sx={{ ...totalLabelCellSx, ...col.ticker }}>합계</TableCell>
               <TableCell align="right" sx={{ ...cellSx, ...col.day }} />

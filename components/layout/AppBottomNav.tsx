@@ -1,8 +1,9 @@
 'use client'
+// 수정: Auto — 2026-08-19 15:40 (PC도 모바일과 동일한 타이포)
 // 수정: Auto — 2026-07-27 01:56 (계산 제거·건강 추가)
 // 수정: Auto — 2026-06-15 (PC 하단 네비·반응형)
 
-import { sxBottomNavInner } from '@/config/responsiveLayout'
+import { sxBottomNavBar, sxBottomNavInner } from '@/config/responsiveLayout'
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
@@ -25,28 +26,16 @@ export function AppBottomNav() {
   })()
 
   return (
-    <Paper
-      sx={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: (theme) => theme.zIndex.appBar,
-        borderTop: 1,
-        borderColor: 'divider',
-        bgcolor: { md: 'background.paper' },
-      }}
-      elevation={8}
-    >
+    <Paper sx={sxBottomNavBar} elevation={8}>
       <Box sx={sxBottomNavInner}>
         <BottomNavigation
           value={tab}
           showLabels
           sx={{
-            height: { xs: 56, md: 64 },
+            height: 56,
             bgcolor: 'transparent',
             '& .MuiSvgIcon-root': {
-              fontSize: { xs: '1.5rem', md: '1.65rem' },
+              fontSize: '1.5rem',
             },
           }}
         >
