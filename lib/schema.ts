@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-08-25 00:50 (정리 방·수납장·칸)
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const shoppingItems = sqliteTable('shopping_items', {
@@ -327,4 +328,42 @@ export const healthCheckups = sqliteTable('health_checkups', {
   triglycerides: real('triglycerides'),
   ldl: real('ldl'),
   createdAt: text('created_at').notNull(),
+})
+
+/** 정리 페이지 방 (안방·거실 등) */
+export const organizeRooms = sqliteTable('organize_rooms', {
+  key: text('key').primaryKey(),
+  label: text('label').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  updatedAt: text('updated_at').notNull(),
+})
+
+/** 집 수납장 레이아웃 설정 — 그리드 / 다단 */
+export const organizeCabinets = sqliteTable('organize_cabinets', {
+  key: text('key').primaryKey(),
+  /** bedroom | living | … */
+  room: text('room').notNull(),
+  label: text('label').notNull(),
+  /** grid | shelves */
+  layoutType: text('layout_type').notNull(),
+  cols: integer('cols').notNull(),
+  rows: integer('rows').notNull(),
+  shelves: integer('shelves').notNull().default(1),
+  shelfRows: integer('shelf_rows').notNull().default(1),
+  sortOrder: integer('sort_order').notNull().default(0),
+  color: text('color').notNull(),
+  bg: text('bg').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+/** 집 수납장 칸 내용 — 방·수납장·행·열 단위 1줄 텍스트 */
+export const organizeCells = sqliteTable('organize_cells', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  /** bedroom | living | … */
+  room: text('room').notNull(),
+  cabinetKey: text('cabinet_key').notNull(),
+  rowIndex: integer('row_index').notNull(),
+  colIndex: integer('col_index').notNull(),
+  content: text('content').notNull().default(''),
+  updatedAt: text('updated_at').notNull(),
 })
