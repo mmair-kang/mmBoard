@@ -1,5 +1,5 @@
 'use client'
-// 수정: Auto — 2026-08-25 00:50 (방·수납장 CRUD·색상)
+// 수정: Auto — 2026-08-25 22:16 (onRename 반환 타입)
 
 import { OrganizeCabinetDialog } from '@/components/organize/OrganizeCabinetDialog'
 import { OrganizeCabinetGrid } from '@/components/organize/OrganizeCabinetGrid'
@@ -325,7 +325,9 @@ export function OrganizePageContent() {
           const created = await addRoom(label)
           changeRoom(created.key)
         }}
-        onRename={renameRoom}
+        onRename={async (key, label) => {
+          await renameRoom(key, label)
+        }}
         onDelete={async (key) => {
           await deleteRoom(key)
           await mutateCabinets()
