@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-09-02 16:45 (납입정보 전화 연결)
+// 수정: Auto — 2026-09-02 16:00 (납입정보 탭)
 // 수정: Auto — 2026-07-19 16:15 (결제 카드 표시)
 // 수정: Auto — 2026-07-19 03:45 (납입내역·방법 제거, 횟수·최종월 자동)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약내역 조회)
@@ -16,6 +18,7 @@ import {
 import type { MonthlyExpensePayType } from '@/hooks/useMonthlyExpenses'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
+  DEFAULT_INSURANCE_PAYMENT_INFO,
   formatInsurancePeriod,
   getInsurancePaymentAutoInfo,
   type InsuranceDetail,
@@ -24,6 +27,7 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
+import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -90,6 +94,73 @@ function TableCard({ children }: { children: React.ReactNode }) {
   )
 }
 
+type PaymentInfoPart =
+  | { type: 'text'; value: string }
+  | { type: 'phone'; display: string; tel: string }
+
+/** 대표번호·휴대폰·지역번호. 카드번호(4-4-4-4)는 제외 */
+const PAYMENT_PHONE_RE =
+  /(1[568]\d{2}[-\s.]?\d{4}|01[016789][-\s]?\d{3,4}[-\s]?\d{4}|02[-\s]?\d{3,4}[-\s]?\d{4}|0[3-6]\d[-\s]?\d{3,4}[-\s]?\d{4})(\s*전화)?/g
+
+function splitPaymentInfoParts(text: string): PaymentInfoPart[] {
+  const parts: PaymentInfoPart[] = []
+  let lastIndex = 0
+  for (const match of text.matchAll(PAYMENT_PHONE_RE)) {
+    const index = match.index ?? 0
+    if (index > lastIndex) parts.push({ type: 'text', value: text.slice(lastIndex, index) })
+    const number = match[1]
+    const suffix = match[2] ?? ''
+    parts.push({
+      type: 'phone',
+      display: `${number}${suffix}`,
+      tel: number.replace(/[^\d]/g, ''),
+    })
+    lastIndex = index + match[0].length
+  }
+  if (lastIndex < text.length) parts.push({ type: 'text', value: text.slice(lastIndex) })
+  return parts.length > 0 ? parts : [{ type: 'text', value: text }]
+}
+
+function PaymentInfoText({ text }: { text: string }) {
+  const parts = useMemo(() => splitPaymentInfoParts(text), [text])
+  return (
+    <Typography
+      component="div"
+      sx={{
+        px: 1.25,
+        py: 1.1,
+        fontWeight: 600,
+        fontSize: '0.82rem',
+        lineHeight: 1.7,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }}
+    >
+      {parts.map((part, index) =>
+        part.type === 'phone' ? (
+          <Link
+            key={`${part.tel}-${index}`}
+            href={`tel:${part.tel}`}
+            underline="always"
+            onClick={(e) => e.stopPropagation()}
+            sx={{
+              fontWeight: 800,
+              color: 'primary.main',
+              textUnderlineOffset: '2px',
+            }}
+          >
+            {part.display}
+          </Link>
+        ) : (
+          <Box key={`t-${index}`} component="span">
+            {part.value}
+          </Box>
+        ),
+      )}
+    </Typography>
+  )
+}
+
 export function MonthlyInsuranceViewDialog({
   open,
   title,
@@ -112,6 +183,7 @@ export function MonthlyInsuranceViewDialog({
 
   const productLabel = detail?.productName?.trim() || title
   const premium = detail?.premium ?? 0
+  const paymentInfo = detail?.paymentInfo ?? DEFAULT_INSURANCE_PAYMENT_INFO
 
   return (
     <AppDialog
@@ -146,6 +218,7 @@ export function MonthlyInsuranceViewDialog({
             '& .MuiTab-root': { minHeight: 40, fontWeight: 700, fontSize: '0.82rem' },
           }}
         >
+          <Tab label="납입정보" />
           <Tab label="계약정보" />
           <Tab label="보장내용" />
         </Tabs>
@@ -156,6 +229,24 @@ export function MonthlyInsuranceViewDialog({
               등록된 상세 내역이 없습니다
             </Typography>
           ) : tab === 0 ? (
+            <Box>
+              <Typography sx={{ fontWeight: 800, fontSize: '0.84rem', color: 'primary.main', mb: 0.5 }}>
+                납입정보
+              </Typography>
+              <TableCard>
+                {paymentInfo.trim() ? (
+                  <PaymentInfoText text={paymentInfo} />
+                ) : (
+                  <Typography
+                    color="text.secondary"
+                    sx={{ px: 1.25, py: 2, textAlign: 'center', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    등록된 납입정보가 없습니다
+                  </Typography>
+                )}
+              </TableCard>
+            </Box>
+          ) : tab === 1 ? (
             <Stack spacing={1.25}>
               <Box>
                 <Typography sx={{ fontWeight: 800, fontSize: '0.84rem', color: 'primary.main', mb: 0.5 }}>

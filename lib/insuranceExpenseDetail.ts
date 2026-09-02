@@ -1,3 +1,5 @@
+// 수정: Auto — 2026-09-02 16:45 (납입정보 문구)
+// 수정: Auto — 2026-09-02 16:00 (납입정보 자유 메모)
 // 수정: Auto — 2026-07-19 03:45 (납입내역·납입방법 제거, 횟수·최종월 자동)
 // 수정: Auto — 2026-07-19 03:40 (민간보험 계약·보장·납입)
 
@@ -18,6 +20,15 @@ export type InsuranceCoverageRow = {
   amount: number
 }
 
+/** 납입정보 기본 메모 (기존 보험에 필드가 없을 때·신규 입력 초기값) */
+export const DEFAULT_INSURANCE_PAYMENT_INFO = `매달 카드 수동 납부
+평일 09-18 시에 가능
+① 1588-5959 전화
+②  1. 보이는 ARS 접속
+③ 5. 보험료 카드납부
+4889 7200 0621 1834
+12/30`
+
 /** 보험 계약내역상세 */
 export type InsuranceDetail = {
   kind: 'privateInsurance'
@@ -33,6 +44,8 @@ export type InsuranceDetail = {
   premium: number
   /** 납입기간 (예: 20년납) */
   paymentTerm: string
+  /** 납입 관련 자유 메모 */
+  paymentInfo: string
   /** 계약자 */
   contractorName: string
   /** 피보험자 */
@@ -53,6 +66,7 @@ export function defaultInsuranceDetail(): InsuranceDetail {
     periodEnd: '',
     premium: 0,
     paymentTerm: '',
+    paymentInfo: DEFAULT_INSURANCE_PAYMENT_INFO,
     contractorName: '',
     insuredName: '',
     coverages: [emptyInsuranceCoverage()],
@@ -202,6 +216,7 @@ export function parseInsuranceDetail(raw: unknown): InsuranceDetail | null {
     periodEnd: asString(row.periodEnd),
     premium: nonNegRound(row.premium),
     paymentTerm: asString(row.paymentTerm),
+    paymentInfo: 'paymentInfo' in row ? asString(row.paymentInfo) : DEFAULT_INSURANCE_PAYMENT_INFO,
     contractorName: asString(row.contractorName),
     insuredName: asString(row.insuredName),
     coverages: coverages.length > 0 ? coverages : [emptyInsuranceCoverage()],

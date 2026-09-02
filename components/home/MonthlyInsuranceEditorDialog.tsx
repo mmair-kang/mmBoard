@@ -1,4 +1,6 @@
 'use client'
+// 수정: Auto — 2026-09-02 16:45 (납입정보 문구)
+// 수정: Auto — 2026-09-02 16:00 (납입정보 자유 입력)
 // 수정: Auto — 2026-07-19 03:45 (납입내역·방법 제거, 횟수·최종월 자동)
 // 수정: Auto — 2026-07-19 03:40 (보험 계약내역 입력)
 
@@ -15,6 +17,7 @@ import {
 } from '@/config/formDialogLayout'
 import { formatWon } from '@/lib/annualPaymentCalc'
 import {
+  DEFAULT_INSURANCE_PAYMENT_INFO,
   defaultInsuranceDetail,
   emptyInsuranceCoverage,
   getInsurancePaymentAutoInfo,
@@ -29,6 +32,8 @@ import DialogContent from '@mui/material/DialogContent'
 import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { alpha } from '@mui/material/styles'
@@ -73,10 +78,14 @@ export function MonthlyInsuranceEditorDialog({
   onSave,
 }: Props) {
   const [detail, setDetail] = useState<InsuranceDetail>(() => defaultInsuranceDetail())
+  const [tab, setTab] = useState(0)
 
   useEffect(() => {
     if (!open) return
-    setDetail(initial ? structuredClone(initial) : defaultInsuranceDetail())
+    setTab(0)
+    const next = initial ? structuredClone(initial) : defaultInsuranceDetail()
+    if (next.paymentInfo == null) next.paymentInfo = DEFAULT_INSURANCE_PAYMENT_INFO
+    setDetail(next)
   }, [open, initial])
 
   const autoPay = useMemo(
@@ -107,8 +116,47 @@ export function MonthlyInsuranceEditorDialog({
           {expenseTitle ? ` · ${expenseTitle}` : ''}
         </Typography>
       </FormDialogHeader>
-      <DialogContent sx={{ ...formDialogContentSx, px: { xs: 1.5, sm: 2 } }} dividers={false}>
+      <DialogContent sx={{ ...formDialogContentSx, px: { xs: 1.5, sm: 2 }, pt: 0 }} dividers={false}>
+        <Tabs
+          value={tab}
+          onChange={(_, v: number) => setTab(v)}
+          variant="fullWidth"
+          sx={{
+            minHeight: 40,
+            mb: 0.5,
+            borderBottom: 1,
+            borderColor: 'divider',
+            '& .MuiTab-root': { minHeight: 40, fontWeight: 700, fontSize: '0.82rem' },
+          }}
+        >
+          <Tab label="납입정보" />
+          <Tab label="계약정보" />
+          <Tab label="보장내용" />
+        </Tabs>
         <Box sx={formDialogContentScrollSx}>
+          {tab === 0 ? (
+            <Stack spacing={formDialogFieldStackSpacing}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                납부 방법, 연락처, 카드번호 등을 자유롭게 적으세요. 줄바꿈이 그대로 표시됩니다.
+              </Typography>
+              <TextField
+                label="납입정보"
+                value={detail.paymentInfo}
+                onChange={(e) => patch({ paymentInfo: e.target.value })}
+                fullWidth
+                multiline
+                minRows={10}
+                placeholder={`매달 카드 수동 납부
+평일 09-18 시에 가능
+① 1588-5959 전화`}
+                size="small"
+                sx={{
+                  '& .MuiInputBase-root': { fontSize: '0.9rem', alignItems: 'flex-start' },
+                  '& .MuiInputBase-input': { py: 0.75, lineHeight: 1.65 },
+                }}
+              />
+            </Stack>
+          ) : tab === 1 ? (
           <Stack spacing={formDialogFieldStackSpacing}>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
               보험사 앱「계약내역상세」기준으로 입력하세요. 보험료가 고정비 금액으로 반영됩니다.
@@ -225,8 +273,9 @@ export function MonthlyInsuranceEditorDialog({
               fullWidth
               {...formDialogCompactTextFieldProps}
             />
-
-            <Divider />
+          </Stack>
+          ) : (
+            <Stack spacing={formDialogFieldStackSpacing}>
             <SectionTitle>보장내용</SectionTitle>
             <Stack spacing={0.85}>
               {detail.coverages.map((row, idx) => (
@@ -316,18 +365,28 @@ export function MonthlyInsuranceEditorDialog({
                 보장 추가
               </Button>
             </Stack>
-
-            <Typography sx={{ fontWeight: 800, textAlign: 'right', color: 'primary.main' }}>
-              고정비 반영 보험료 {formatWon(detail.premium)}
-            </Typography>
-          </Stack>
+            </Stack>
+          )}
         </Box>
       </DialogContent>
-      <DialogActions sx={{ ...formDialogActionsSx, px: { xs: 1.5, sm: 2 } }}>
-        <Button onClick={onClose}>취소</Button>
-        <Button variant="contained" onClick={handleSave} disabled={detail.premium < 1}>
-          반영
-        </Button>
+      <DialogActions
+        sx={{
+          ...formDialogActionsSx,
+          px: { xs: 1.5, sm: 2 },
+          justifyContent: 'space-between',
+        }}
+      >
+        <Typography sx={{ fontWeight: 800, color: 'primary.main' }}>
+          고정비 반영 보험료 {formatWon(detail.premium)}
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button onClick={onClose} size="small">
+            취소
+          </Button>
+          <Button variant="contained" onClick={handleSave} disabled={detail.premium < 1} size="small">
+            반영
+          </Button>
+        </Stack>
       </DialogActions>
     </AppDialog>
   )

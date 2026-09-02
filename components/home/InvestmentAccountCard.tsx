@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-09-02 17:00 (국내·해외 파랑, 연금·IRP 초록)
 // 수정: Auto — 2026-07-18 01:48 (주 열 너비)
 // 수정: Auto — 2026-07-15 01:34 (연금 칩 제거)
 // 수정: Auto — 2026-07-15 01:29 (예수금 input 너비)
@@ -73,21 +74,20 @@ const returnCellSx = {
   fontWeight: { xs: 800, md: 700 },
 } as const
 
-const ACCOUNT_THEME: Record<
-  InvestmentAccountView['id'],
-  { color: 'primary' | 'secondary' | 'warning' | 'info'; label: string }
-> = {
+type AccountAccent = 'primary' | 'success'
+
+const ACCOUNT_THEME: Record<InvestmentAccountView['id'], { color: AccountAccent; label: string }> = {
   nh: { color: 'primary', label: 'NH' },
-  ds: { color: 'secondary', label: 'DS' },
-  psf: { color: 'warning', label: 'PSF' },
-  irp: { color: 'info', label: 'IRP' },
+  ds: { color: 'primary', label: 'DS' },
+  psf: { color: 'success', label: 'PSF' },
+  irp: { color: 'success', label: 'IRP' },
 }
 
-function sectionBg(theme: Theme, color: 'primary' | 'secondary' | 'warning' | 'info') {
+function sectionBg(theme: Theme, color: AccountAccent) {
   return alpha(theme.palette[color].main, 0.06)
 }
 
-function sectionHeadBg(theme: Theme, color: 'primary' | 'secondary' | 'warning' | 'info') {
+function sectionHeadBg(theme: Theme, color: AccountAccent) {
   return alpha(theme.palette[color].main, 0.12)
 }
 
@@ -184,7 +184,7 @@ export function InvestmentAccountCard({ account, cashSaving, onOpenEdit, onCashC
               disabled={cashSaving}
               dense
               fullWidth={false}
-              softInput="primary"
+              softInput={themeMeta.color}
               leadingLabel={cashUpdatedLabel}
             />
           </Box>
