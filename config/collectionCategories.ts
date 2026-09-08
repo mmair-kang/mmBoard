@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-09-08 12:23 (상시에서 간식 제외)
 // 수정: Auto — 2026-07-19 02:55 (수시 초록·항목명 톤)
 // 수정: Auto — 2026-06-11 (상시·수시·소장)
 
@@ -126,6 +127,24 @@ export const COLLECTION_SUBCATEGORIES = {
 
 export type CollectionSubKey = string
 
+/** 상시 메뉴에서만 숨기는 소분류 — 수시·소장 편집에는 유지 */
+export const SNACK_SUB_KEY = 'snack'
+
+export function isSnackSubKey(key: string): boolean {
+  return key === SNACK_SUB_KEY
+}
+
+/** food 소분류 — 상시(regular)에서는 간식 제외. 편집 중인 항목이 간식이면 유지 */
+export function getFoodSubcategoriesForScope(
+  scope: FoodScopeKey,
+  subs?: CollectionSubEntry[],
+  keepSubKey?: string | null,
+): CollectionSubEntry[] {
+  const all = [...getCollectionSubcategories('food', subs)]
+  if (scope !== 'regular') return all
+  return all.filter((s) => s.key !== SNACK_SUB_KEY || s.key === keepSubKey)
+}
+
 export type CollectionSubFilterKey = CollectionSubKey | typeof COLLECTION_SUB_ALL
 
 export type CollectionSubEntry = { key: string; label: string }
@@ -196,6 +215,26 @@ export function getCollectionSubcategories(main: CollectionMainKey, subs?: Colle
 /** 2depth 목록 (전체 없음) */
 export function getCollectionSubFilters(main: CollectionMainKey, subs?: CollectionSubEntry[]) {
   return getCollectionSubcategories(main, subs)
+}
+
+/** 섹션별 소분류 칩 — 상시에서는 간식 제외 */
+export function getSectionSubFilters(
+  section: CollectionSectionKey,
+  main: CollectionMainKey,
+  subs?: CollectionSubEntry[],
+): CollectionSubEntry[] {
+  const all = [...getCollectionSubFilters(main, subs)]
+  if (section !== 'regular') return all
+  return all.filter((s) => s.key !== SNACK_SUB_KEY)
+}
+
+export function getDefaultSubcategoryForSection(
+  section: CollectionSectionKey,
+  main: CollectionMainKey,
+  subs?: CollectionSubEntry[],
+): CollectionSubKey {
+  const list = getSectionSubFilters(section, main, subs)
+  return list[0]?.key ?? getFirstSubcategory(main, subs)
 }
 
 export function getDefaultSubcategory(main: CollectionMainKey, subs?: CollectionSubEntry[]): CollectionSubKey {

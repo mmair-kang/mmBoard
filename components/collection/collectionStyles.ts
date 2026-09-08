@@ -1,3 +1,6 @@
+// 수정: Auto — 2026-09-08 17:02 (분류순·임박순 아이콘 그룹 한 줄)
+// 수정: Auto — 2026-09-08 12:37 (분류순·임박순 버튼 그룹)
+// 수정: Auto — 2026-09-08 12:23 (상시 임박순 버튼)
 // 수정: Auto — 2026-07-31 00:51 (재구매 D-day 칩)
 // 수정: Auto — 2026-07-19 13:45 (소장 2depth 총액 버튼)
 // 수정: Auto — 2026-07-19 03:08 (주황/초록 조화 회색 테두리)
@@ -403,6 +406,85 @@ export function sxCollectionLivingSubRow() {
     pt: 0.5,
     borderTop: 1,
     borderColor: alpha(FOOD_LIVING_HEX, 0.14),
+  } as const
+}
+
+const URGENT_SORT_HEX = '#ea580c'
+
+/** 상시 — 분류순 / 임박순 세그먼트 트랙 */
+export function sxCollectionSortSegmentTrack() {
+  return {
+    display: 'inline-flex',
+    flexShrink: 0,
+    gap: 0.2,
+    p: 0.2,
+    borderRadius: 1.5,
+    bgcolor: (theme: Theme) =>
+      alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.16 : 0.08),
+    border: '1px solid',
+    borderColor: (theme: Theme) =>
+      alpha(theme.palette.grey[500], theme.palette.mode === 'dark' ? 0.22 : 0.12),
+  } as const
+}
+
+/** 상시 — 분류순 / 임박순 아이콘 세그먼트 */
+export function sxCollectionSortSegmentItem(active: boolean, tone: 'category' | 'urgent') {
+  const hex = tone === 'urgent' ? URGENT_SORT_HEX : FOOD_LIVING_HEX
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 28,
+    height: 26,
+    minWidth: 28,
+    p: 0,
+    borderRadius: 1.1,
+    border: 'none',
+    bgcolor: active ? 'background.paper' : 'transparent',
+    color: active ? hex : FOOD_LIVING_LABEL_IDLE,
+    cursor: 'pointer',
+    outline: 'none',
+    WebkitTapHighlightColor: 'transparent',
+    boxShadow: active ? '0 1px 3px rgba(15, 23, 42, 0.1)' : 'none',
+    transition: 'background-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease',
+    '& .MuiSvgIcon-root': {
+      fontSize: '1.08rem',
+    },
+    '&:hover': {
+      color: active ? hex : chipTextColor,
+    },
+    '&:active': {
+      transform: 'scale(0.96)',
+    },
+  } as const
+}
+
+export function sxCollectionUrgentSortHint() {
+  return {
+    fontSize: '0.6rem',
+    fontWeight: 600,
+    color: 'text.secondary',
+    lineHeight: 1.3,
+    mt: 0.45,
+  } as const
+}
+
+export function sxCollectionMixedSubChip() {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    flexShrink: 0,
+    px: 0.55,
+    py: 0.1,
+    borderRadius: 0.75,
+    fontSize: '0.62rem',
+    fontWeight: 800,
+    lineHeight: 1.25,
+    letterSpacing: '-0.02em',
+    color: FOOD_LIVING_HEX,
+    bgcolor: (theme: Theme) => alpha(FOOD_LIVING_HEX, theme.palette.mode === 'dark' ? 0.16 : 0.1),
+    border: '1px solid',
+    borderColor: alpha(FOOD_LIVING_HEX, 0.28),
   } as const
 }
 

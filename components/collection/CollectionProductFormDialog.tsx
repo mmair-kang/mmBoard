@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-09-08 12:23 (상시 폼에서 간식 제외)
 // 수정: Auto — 2026-07-19 01:40 (제품 추가·제품명)
 // 수정: Auto — 2026-07-19 01:25 (브랜드 변형 UI 제거)
 
@@ -14,10 +15,10 @@ import { ShoppingImageField } from '@/components/shopping/ShoppingImageField'
 import {
   COLLECTION_STORES,
   FOOD_SCOPES,
-  getCollectionSubcategories,
   getDefaultFoodScopeForSection,
   getFirstSubcategory,
   getFoodScopeLabel,
+  getFoodSubcategoriesForScope,
   getSubcategoryLabel,
   isConsumableSection,
   type CollectionSectionKey,
@@ -192,6 +193,7 @@ export function CollectionProductFormDialog({
   const { subs: formSubs } = useCollectionSubcategories('food')
 
   const subLabel = getSubcategoryLabel('food', formSub, formSubs)
+  const visibleSubs = getFoodSubcategoriesForScope(formFoodScope, formSubs, product?.subCategory)
   const form = variants[activeIndex] ?? variants[0] ?? emptyVariant()
   const isBox = form.packType === 'box'
   const isNoAmount = form.amountUnit === COLLECTION_AMOUNT_UNIT_NONE
@@ -265,9 +267,10 @@ export function CollectionProductFormDialog({
 
   useEffect(() => {
     if (!open) return
-    if (formSubs.some((s) => s.key === formSub)) return
-    setFormSub(getFirstSubcategory('food', formSubs))
-  }, [open, formSubs, formSub])
+    const next = getFoodSubcategoriesForScope(formFoodScope, formSubs, product?.subCategory)
+    if (next.some((s) => s.key === formSub)) return
+    setFormSub(next[0]?.key ?? getFirstSubcategory('food', formSubs))
+  }, [open, formFoodScope, formSubs, formSub, product?.subCategory])
 
   const patchActive = (patch: Partial<VariantFormState>) => {
     setVariants((prev) =>
@@ -427,7 +430,7 @@ export function CollectionProductFormDialog({
                       작은 카테고리
                     </Typography>
                     <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-                      {getCollectionSubcategories('food', formSubs).map((c) => (
+                      {visibleSubs.map((c) => (
                         <Box
                           key={c.key}
                           component="button"

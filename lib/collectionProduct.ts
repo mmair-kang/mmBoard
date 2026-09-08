@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-09-08 12:23 (재구매 D-day 임박순)
 // 수정: Auto — 2026-07-19 02:45 (목록 칩 설정)
 // 수정: Auto — 2026-07-19 01:35 (빈 제품·이름 중복)
 
@@ -14,6 +15,7 @@ import {
   type CollectionFoodListChipFlags,
 } from '@/lib/collectionFoodListChips'
 import type { collectionProducts } from '@/lib/schema'
+import { formatRepurchaseSchedule } from '@/lib/shoppingDate'
 
 type ProductRow = typeof collectionProducts.$inferSelect
 
@@ -78,6 +80,34 @@ export function upsertCollectionProductSorted<T extends CollectionProductDto>(
 ): T[] {
   const list = (products ?? []).filter((row) => row.id !== product.id)
   return sortCollectionProductsBySelectedPurchase([...list, product])
+}
+
+/** 재구매 D-day 임박순 — 초과(D+) → TODAY → D-1 → …, 일정 없는 항목은 맨 아래 */
+export function getProductRepurchaseDaysRemaining(product: CollectionProductDto): number | null {
+  const selected = getSelectedVariant(product)
+  if (!selected) return null
+  return formatRepurchaseSchedule(selected.purchaseDate, selected.repurchaseDays)?.daysRemaining ?? null
+}
+
+export function sortCollectionProductsByRepurchaseUrgency<T extends CollectionProductDto>(products: T[]): T[] {
+  return [...products].sort((a, b) => {
+    const aDays = getProductRepurchaseDaysRemaining(a)
+    const bDays = getProductRepurchaseDaysRemaining(b)
+    if (aDays == null && bDays == null) {
+      const aSel = getSelectedVariant(a)
+      const bSel = getSelectedVariant(b)
+      if (!aSel && !bSel) return b.createdAt.localeCompare(a.createdAt)
+      if (!aSel) return 1
+      if (!bSel) return -1
+      const byPurchase = bSel.purchaseDate.localeCompare(aSel.purchaseDate)
+      if (byPurchase !== 0) return byPurchase
+      return b.createdAt.localeCompare(a.createdAt)
+    }
+    if (aDays == null) return 1
+    if (bDays == null) return -1
+    if (aDays !== bDays) return aDays - bDays
+    return a.name.localeCompare(b.name, 'ko')
+  })
 }
 
 /** 목록 카드용 — 선택 변형이 없으면 null */

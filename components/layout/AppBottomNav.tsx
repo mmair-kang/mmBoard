@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-09-08 12:11 (하단 네비: 관리·정리·쇼핑·건강·설정)
 // 수정: Auto — 2026-08-24 22:20 (관리 오른쪽에 정리 추가)
 // 수정: Auto — 2026-08-19 15:40 (PC도 모바일과 동일한 타이포)
 // 수정: Auto — 2026-07-27 01:56 (계산 제거·건강 추가)
@@ -22,8 +23,8 @@ export function AppBottomNav() {
 
   const tab: number | false = (() => {
     if (pathname === '/settings') return 4
-    if (pathname === '/shopping' || pathname === '/collection') return 3
-    if (pathname === '/health' || pathname.startsWith('/health/')) return 2
+    if (pathname === '/health' || pathname.startsWith('/health/')) return 3
+    if (pathname === '/shopping' || pathname === '/collection') return 2
     if (pathname === '/organize' || pathname.startsWith('/organize/')) return 1
     return 0
   })()
@@ -54,16 +55,16 @@ export function AppBottomNav() {
             href="/organize"
           />
           <BottomNavigationAction
-            label="건강"
-            icon={<FavoriteRoundedIcon />}
-            component={Link}
-            href="/health"
-          />
-          <BottomNavigationAction
             label="쇼핑"
             icon={<ShoppingCartRoundedIcon />}
             component={Link}
             href="/shopping"
+          />
+          <BottomNavigationAction
+            label="건강"
+            icon={<FavoriteRoundedIcon />}
+            component={Link}
+            href="/health"
           />
           <BottomNavigationAction label="설정" icon={<SettingsRoundedIcon />} component={Link} href="/settings" />
         </BottomNavigation>

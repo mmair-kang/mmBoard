@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-09-08 12:23 (상시 폼에서 간식 제외)
 // 수정: Auto — 2026-06-26 (재구매중 → 숨김 대체)
 
 import { AppDialog } from '@/components/common/AppDialog'
@@ -36,6 +37,8 @@ import {
   getFirstSubcategory,
 
   getFoodScopeLabel,
+
+  getFoodSubcategoriesForScope,
 
   getSectionMainCategories,
 
@@ -464,10 +467,20 @@ export function CollectionItemFormDialog({
   }, [open, item, mainCategory, subCategory, section])
 
   useEffect(() => {
+
     if (!open) return
-    if (formSubs.some((s) => s.key === formSub)) return
-    setFormSub(getFirstSubcategory(formMain, formSubs))
-  }, [open, formMain, formSubs, formSub])
+
+    const visible = isFoodMainCategory(formMain)
+
+      ? getFoodSubcategoriesForScope(formFoodScope, formSubs, item?.subCategory)
+
+      : formSubs
+
+    if (visible.some((s) => s.key === formSub)) return
+
+    setFormSub(visible[0]?.key ?? getFirstSubcategory(formMain, formSubs))
+
+  }, [open, formMain, formSubs, formSub, formFoodScope, item?.subCategory])
 
   const handleOptionTypeChange = (next: CollectionOptionType) => {
 
@@ -788,7 +801,10 @@ export function CollectionItemFormDialog({
 
                     <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
 
-                      {getCollectionSubcategories(formMain, formSubs).map((c) => (
+                      {(isFoodMainCategory(formMain)
+                        ? getFoodSubcategoriesForScope(formFoodScope, formSubs, item?.subCategory)
+                        : getCollectionSubcategories(formMain, formSubs)
+                      ).map((c) => (
 
                         <Box
 

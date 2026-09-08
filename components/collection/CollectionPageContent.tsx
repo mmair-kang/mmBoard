@@ -1,4 +1,7 @@
 'use client'
+// 수정: Auto — 2026-09-08 17:02 (분류순·임박순 아이콘 그룹 한 줄)
+// 수정: Auto — 2026-09-08 12:37 (분류순·임박순 버튼 그룹)
+// 수정: Auto — 2026-09-08 12:23 (상시 간식 제외·D-day 임박순)
 // 수정: Auto — 2026-07-31 00:55 (재구매 날짜 표시 제거)
 // 수정: Auto — 2026-07-31 00:51 (재구매 D-day 칩·날짜 우측)
 // 수정: Auto — 2026-07-31 00:05 (상시 재구매일·D-day)
@@ -42,6 +45,7 @@ import {
   sxCollectionLivingSubButtonLabel,
   sxCollectionLivingSubRow,
   sxCollectionLivingTotalAmount,
+  sxCollectionMixedSubChip,
   sxCollectionOwnSubButton,
   sxCollectionOwnSubButtonAmountFoot,
   sxCollectionOwnSubButtonLabel,
@@ -49,6 +53,9 @@ import {
   sxCollectionSubChipByColor,
   sxCollectionSubChipPanelByColor,
   sxCollectionThumbNameFrame,
+  sxCollectionSortSegmentItem,
+  sxCollectionSortSegmentTrack,
+  sxCollectionUrgentSortHint,
 } from '@/components/collection/collectionStyles'
 import { ListSearchField } from '@/components/common/ListSearchField'
 import { CollectionFashionListMetrics } from '@/components/collection/CollectionFashionListMetrics'
@@ -68,13 +75,15 @@ import {
   getCollectionStoreLabel,
   getCollectionSubFilters,
   getDefaultMainForSection,
-  getDefaultSubcategory,
+  getDefaultSubcategoryForSection,
   getFirstSubcategory,
+  getSectionSubFilters,
   getSubcategoryLabel,
   isConsumableSection,
   isFashionMainCategory,
   isFoodMainCategory,
   isCollectionPackDetailCategory,
+  SNACK_SUB_KEY,
   type CollectionMainKey,
   type CollectionSectionKey,
   type CollectionSubEntry,
@@ -107,6 +116,7 @@ import {
   collectionProductToPayload,
   getSelectedVariant,
   productToDisplayItem,
+  sortCollectionProductsByRepurchaseUrgency,
   upsertCollectionProductSorted,
 } from '@/lib/collectionProduct'
 import type { CollectionProductPayload } from '@/lib/collectionProductPayload'
@@ -123,6 +133,8 @@ import {
 import { buildLivingMonthlyBreakdown, buildOwnPurchaseBreakdown, calcLivingMonthlyCost, formatCompactLivingAmount, formatCompactOwnAmount } from '@/lib/livingCost'
 import { matchesAnySearch } from '@/lib/koreanSearch'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded'
+import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded'
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -198,6 +210,8 @@ function LivingMonthlyPanel({
   subs,
   activeSub,
   monthlyBySub,
+  urgentSortActive,
+  onSortModeChange,
   onSelectSub,
   subChipLongPress,
   wrapSubChipClick,
@@ -207,6 +221,8 @@ function LivingMonthlyPanel({
   subs: readonly CollectionSubEntry[]
   activeSub: CollectionSubKey
   monthlyBySub: Map<string, number>
+  urgentSortActive: boolean
+  onSortModeChange: (urgent: boolean) => void
   onSelectSub: (key: CollectionSubKey) => void
   subChipLongPress: ReturnType<typeof useLongPress>['pointerHandlers']
   wrapSubChipClick: ReturnType<typeof useLongPress>['wrapClick']
@@ -214,21 +230,57 @@ function LivingMonthlyPanel({
 }) {
   return (
     <Box sx={sxCollectionLivingSummaryPanel()}>
-      <Stack direction="row" alignItems="baseline" justifyContent="space-between" gap={0.5}>
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>
-          한달 상시비
-        </Typography>
-        <Typography sx={sxCollectionLivingTotalAmount()}>
-          {formatPrice(total)}
-          <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 700, ml: 0.15, opacity: 0.85 }}>
-            /월
-          </Box>
-        </Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" gap={0.75}>
+        <Box role="group" aria-label="목록 정렬" sx={sxCollectionSortSegmentTrack()}>
+          <Tooltip title="분류순" enterDelay={400}>
+            <Box
+              component="button"
+              type="button"
+              onClick={() => onSortModeChange(false)}
+              aria-label="분류순"
+              aria-pressed={!urgentSortActive}
+              sx={sxCollectionSortSegmentItem(!urgentSortActive, 'category')}
+            >
+              <CategoryRoundedIcon />
+            </Box>
+          </Tooltip>
+          <Tooltip title="임박순" enterDelay={400}>
+            <Box
+              component="button"
+              type="button"
+              onClick={() => onSortModeChange(true)}
+              aria-label="임박순"
+              aria-pressed={urgentSortActive}
+              sx={sxCollectionSortSegmentItem(urgentSortActive, 'urgent')}
+            >
+              <ScheduleRoundedIcon />
+            </Box>
+          </Tooltip>
+        </Box>
+        <Stack direction="row" alignItems="baseline" gap={0.55} sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>
+            한달 상시비
+          </Typography>
+          <Typography sx={sxCollectionLivingTotalAmount()}>
+            {formatPrice(total)}
+            <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 700, ml: 0.15, opacity: 0.85 }}>
+              /월
+            </Box>
+          </Typography>
+        </Stack>
       </Stack>
 
-      <Stack direction="row" sx={sxCollectionLivingSubRow()} {...subChipLongPress}>
+      <Stack
+        direction="row"
+        sx={{
+          ...sxCollectionLivingSubRow(),
+          opacity: urgentSortActive ? 0.55 : 1,
+          transition: 'opacity 0.15s ease',
+        }}
+        {...subChipLongPress}
+      >
         {subs.map((c) => {
-          const selected = activeSub === c.key
+          const selected = !urgentSortActive && activeSub === c.key
           const monthly = monthlyBySub.get(c.key) ?? 0
           const hasAmount = monthly > 0
           return (
@@ -254,7 +306,11 @@ function LivingMonthlyPanel({
         })}
       </Stack>
 
-      {total === 0 ? (
+      {urgentSortActive ? (
+        <Typography sx={sxCollectionUrgentSortHint()}>
+          전체 카테고리 · 재구매 D-day 가까운 순
+        </Typography>
+      ) : total === 0 ? (
         <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1.3, mt: 0.45 }}>
           숨김 OFF인 항목만 합계에 포함됩니다
         </Typography>
@@ -471,11 +527,13 @@ function CollectionProductCard({
   onOpen,
   onDetail,
   showLivingCost,
+  subLabel,
 }: {
   product: CollectionProduct
   onOpen: (product: CollectionProduct) => void
   onDetail: (item: CollectionItem) => void
   showLivingCost?: boolean
+  subLabel?: string
 }) {
   const item = productToDisplayItem(product)
   const name = product.name.trim()
@@ -547,6 +605,11 @@ function CollectionProductCard({
       </Box>
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Stack direction="row" alignItems="center" gap={0.6} sx={{ minWidth: 0, flexWrap: 'wrap' }}>
+          {subLabel ? (
+            <Box component="span" sx={sxCollectionMixedSubChip()}>
+              {subLabel}
+            </Box>
+          ) : null}
           {brand ? (
             <Box component="span" sx={sxCollectionBrandChip()}>
               {brand}
@@ -623,7 +686,9 @@ function CollectionProductCard({
 export function CollectionPageContent() {
   const [section, setSection] = useState<CollectionSectionKey>('regular')
   const [mainCategory, setMainCategory] = useState<CollectionMainKey>(() => getDefaultMainForSection('regular'))
-  const [subCategory, setSubCategory] = useState<CollectionSubKey>(() => getDefaultSubcategory('food'))
+  const [subCategory, setSubCategory] = useState<CollectionSubKey>(() =>
+    getDefaultSubcategoryForSection('regular', 'food'),
+  )
   const activeFoodScope: FoodScopeKey | undefined = isConsumableSection(section) ? section : undefined
   const isFoodSection = Boolean(activeFoodScope)
   const [formOpen, setFormOpen] = useState(false)
@@ -641,6 +706,7 @@ export function CollectionPageContent() {
   const [subEditOpen, setSubEditOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showHidden, setShowHidden] = useState(false)
+  const [urgentSort, setUrgentSort] = useState(false)
   const trimmedQuery = searchQuery.trim()
   const isSearching = Boolean(trimmedQuery)
   const { mutate: globalMutate } = useSWRConfig()
@@ -673,14 +739,26 @@ export function CollectionPageContent() {
     products: allProducts,
     isLoading: allProductsLoading,
     mutate: mutateAllProducts,
-  } = useAllCollectionProducts(isSearching)
+  } = useAllCollectionProducts(isSearching || (section === 'regular' && urgentSort))
   const { items: regularFoodItems, mutate: mutateRegularFood } = useRegularFoodItems(
     section === 'regular' && !isSearching,
   )
 
+  const regularSubFilters = useMemo(
+    () => getSectionSubFilters('regular', 'food', subs),
+    [subs],
+  )
+  const sectionSubFilters = useMemo(
+    () => getSectionSubFilters(section, mainCategory, subs),
+    [section, mainCategory, subs],
+  )
   const livingMonthlyBreakdown = useMemo(
-    () => buildLivingMonthlyBreakdown(regularFoodItems, subs),
-    [regularFoodItems, subs],
+    () =>
+      buildLivingMonthlyBreakdown(
+        regularFoodItems.filter((item) => item.subCategory !== SNACK_SUB_KEY),
+        regularSubFilters,
+      ),
+    [regularFoodItems, regularSubFilters],
   )
   const livingMonthlyBySub = useMemo(() => {
     const map = new Map<string, number>()
@@ -709,11 +787,26 @@ export function CollectionPageContent() {
 
   const displayProducts = useMemo(() => {
     if (!isSearching && !isFoodSection) return []
+    if (!isSearching && section === 'regular' && urgentSort) {
+      const mixed = allProducts.filter(
+        (product) => product.foodScope === 'regular' && product.subCategory !== SNACK_SUB_KEY,
+      )
+      return sortCollectionProductsByRepurchaseUrgency(filterProductsByHidden(mixed, showHidden))
+    }
     const base = isSearching
       ? allProducts.filter((product) => matchesCollectionProduct(product, trimmedQuery))
       : products
     return filterProductsByHidden(base, showHidden)
-  }, [isSearching, isFoodSection, allProducts, products, trimmedQuery, showHidden])
+  }, [
+    isSearching,
+    isFoodSection,
+    section,
+    urgentSort,
+    allProducts,
+    products,
+    trimmedQuery,
+    showHidden,
+  ])
 
   const displayOwnItems = useMemo(() => {
     if (!isSearching && isFoodSection) return []
@@ -743,6 +836,14 @@ export function CollectionPageContent() {
       )
     }
     if (isFoodSection) {
+      if (section === 'regular' && urgentSort) {
+        return filterProductsByHidden(
+          allProducts.filter(
+            (product) => product.foodScope === 'regular' && product.subCategory !== SNACK_SUB_KEY,
+          ),
+          showHidden,
+        ).length
+      }
       return filterProductsByHidden(products, showHidden).length
     }
     return filterByHiddenVisibility(items, showHidden).length
@@ -755,18 +856,22 @@ export function CollectionPageContent() {
     items,
     trimmedQuery,
     showHidden,
+    section,
+    urgentSort,
   ])
 
   const listLoading = isSearching
     ? (allLoading || allProductsLoading) && allItems.length === 0 && allProducts.length === 0
-    : isFoodSection
-      ? productsLoading
-      : itemsLoading
+    : section === 'regular' && urgentSort
+      ? allProductsLoading && allProducts.length === 0
+      : isFoodSection
+        ? productsLoading
+        : itemsLoading
 
   useEffect(() => {
-    if (subs.some((s) => s.key === subCategory)) return
-    setSubCategory(getFirstSubcategory(mainCategory, subs))
-  }, [subs, mainCategory, subCategory])
+    if (sectionSubFilters.some((s) => s.key === subCategory)) return
+    setSubCategory(sectionSubFilters[0]?.key ?? getFirstSubcategory(mainCategory, subs))
+  }, [sectionSubFilters, mainCategory, subCategory, subs, section])
 
   const formSubCategory = editingItem?.subCategory ?? subCategory
   const useProductForm = editingProduct != null
@@ -1075,9 +1180,10 @@ export function CollectionPageContent() {
   const handleSectionChange = (next: CollectionSectionKey) => {
     setSection(next)
     setShowHidden(false)
+    setUrgentSort(false)
     const nextMain = getDefaultMainForSection(next)
     setMainCategory(nextMain)
-    setSubCategory(getFirstSubcategory(nextMain))
+    setSubCategory(getDefaultSubcategoryForSection(next, nextMain))
   }
 
   return (
@@ -1180,10 +1286,15 @@ export function CollectionPageContent() {
           ) : section === 'regular' ? (
             <LivingMonthlyPanel
               total={livingMonthlyBreakdown.total}
-              subs={getCollectionSubFilters(mainCategory, subs)}
+              subs={regularSubFilters}
               activeSub={subCategory}
               monthlyBySub={livingMonthlyBySub}
-              onSelectSub={setSubCategory}
+              urgentSortActive={urgentSort}
+              onSortModeChange={setUrgentSort}
+              onSelectSub={(key) => {
+                setUrgentSort(false)
+                setSubCategory(key)
+              }}
               subChipLongPress={subChipLongPress}
               wrapSubChipClick={wrapSubChipClick}
               subChipButtonSx={subChipButtonSx}
@@ -1233,9 +1344,11 @@ export function CollectionPageContent() {
         ) : !isSearching && visibleItemCount === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ py: 6, color: 'text.secondary' }}>
             <Typography sx={{ fontWeight: 600 }}>
-              {isConsumableSection(section)
-                ? `${section === 'regular' ? '상시' : '수시'} · ${subLabel} 목록이 비어 있습니다`
-                : `${mainMeta.label} · ${subLabel} 목록이 비어 있습니다`}
+              {section === 'regular' && urgentSort
+                ? '상시 재구매 항목이 없습니다'
+                : isConsumableSection(section)
+                  ? `${section === 'regular' ? '상시' : '수시'} · ${subLabel} 목록이 비어 있습니다`
+                  : `${mainMeta.label} · ${subLabel} 목록이 비어 있습니다`}
             </Typography>
             <Typography variant="body2" sx={{ mt: 0.5 }}>
               + 버튼으로 {isConsumableSection(section) ? '소모품' : '소장품'}을 추가해 보세요
@@ -1258,6 +1371,11 @@ export function CollectionPageContent() {
                 onDetail={setDetailItem}
                 showLivingCost={
                   product.foodScope === 'regular' && (isSearching || section === 'regular')
+                }
+                subLabel={
+                  section === 'regular' && urgentSort && !isSearching
+                    ? getSubcategoryLabel(product.mainCategory, product.subCategory, subs)
+                    : undefined
                 }
               />
             ))}
@@ -1392,8 +1510,11 @@ export function CollectionPageContent() {
         onSave={async (rows) => {
           const saved = await saveSubs(rows)
           setSubCategory((prev) => {
-            if (saved.some((s) => s.key === prev)) return prev
-            return saved[0]?.key ?? prev
+            if (saved.some((s) => s.key === prev && (section !== 'regular' || s.key !== SNACK_SUB_KEY))) {
+              return prev
+            }
+            const visible = getSectionSubFilters(section, mainCategory, saved)
+            return visible[0]?.key ?? prev
           })
           return saved
         }}
