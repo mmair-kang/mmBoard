@@ -1,4 +1,5 @@
 'use client'
+// 수정: mmair — 2026-09-10 02:57 (상시·수시 전환)
 // 수정: Auto — 2026-07-19 02:45 (목록 칩 토글)
 // 수정: Auto — 2026-07-19 02:15 (항목 수정 시 삭제)
 // 수정: Auto — 2026-07-19 01:40 (항목명만 추가·수정)
@@ -6,7 +7,10 @@
 import { AppDialog } from '@/components/common/AppDialog'
 import { FormDialogFooter } from '@/components/common/FormDialogFooter'
 import { FormDialogHeader } from '@/components/common/FormDialogHeader'
-import { sxCollectionFoodMetricChip } from '@/components/collection/collectionStyles'
+import {
+  sxCollectionFoodMetricChip,
+  sxCollectionSectionSegmentItem,
+} from '@/components/collection/collectionStyles'
 import {
   formDialogCompactTextFieldProps,
   formDialogContentScrollSx,
@@ -17,7 +21,13 @@ import {
   formDialogFormSx,
   formDialogSlotProps,
 } from '@/config/formDialogLayout'
-import { getFoodScopeLabel, type FoodScopeKey } from '@/config/collectionCategories'
+import {
+  FOOD_SCOPES,
+  getFoodScopeLabel,
+  isSnackSubKey,
+  type CollectionSubKey,
+  type FoodScopeKey,
+} from '@/config/collectionCategories'
 import {
   COLLECTION_FOOD_LIST_CHIP_OPTIONS,
   defaultFoodListChipFlags,
@@ -37,11 +47,16 @@ type Props = {
   open: boolean
   mode: 'create' | 'rename'
   foodScope: FoodScopeKey
+  subCategory: CollectionSubKey
   subLabel: string
   initialName?: string
   initialListChipFlags?: CollectionFoodListChipFlags
   onClose: () => void
-  onSubmit: (name: string, listChipFlags: CollectionFoodListChipFlags) => Promise<void>
+  onSubmit: (
+    name: string,
+    listChipFlags: CollectionFoodListChipFlags,
+    foodScope: FoodScopeKey,
+  ) => Promise<void>
   onDelete?: () => Promise<void>
 }
 
@@ -49,6 +64,7 @@ export function CollectionProductNameDialog({
   open,
   mode,
   foodScope,
+  subCategory,
   subLabel,
   initialName = '',
   initialListChipFlags,
@@ -57,16 +73,19 @@ export function CollectionProductNameDialog({
   onDelete,
 }: Props) {
   const [name, setName] = useState('')
+  const [formFoodScope, setFormFoodScope] = useState<FoodScopeKey>(foodScope)
   const [listChipFlags, setListChipFlags] = useState<CollectionFoodListChipFlags>(() =>
     defaultFoodListChipFlags(),
   )
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const snackBlocksRegular = isSnackSubKey(subCategory)
 
   useEffect(() => {
     if (!open) {
       setName('')
+      setFormFoodScope(foodScope)
       setListChipFlags(defaultFoodListChipFlags())
       setSubmitting(false)
       setDeleting(false)
@@ -74,6 +93,7 @@ export function CollectionProductNameDialog({
       return
     }
     setName(initialName)
+    setFormFoodScope(foodScope)
     setListChipFlags(initialListChipFlags ?? defaultFoodListChipFlags())
     setSubmitting(false)
     setDeleting(false)
@@ -86,11 +106,15 @@ export function CollectionProductNameDialog({
   const initialFlags = initialListChipFlags ?? defaultFoodListChipFlags()
   const nameUnchanged = mode === 'rename' && trimmed === initialName.trim()
   const chipsUnchanged = foodListChipFlagsEqual(listChipFlags, initialFlags)
+  const scopeUnchanged = formFoodScope === foodScope
+  const snackBlocked =
+    snackBlocksRegular && formFoodScope === 'regular' && (mode === 'create' || foodScope !== 'regular')
   const busy = submitting || deleting
   const canSubmit =
     trimmed.length > 0 &&
     !busy &&
-    (mode === 'create' || !nameUnchanged || !chipsUnchanged)
+    !snackBlocked &&
+    (mode === 'create' || !nameUnchanged || !chipsUnchanged || !scopeUnchanged)
 
   const toggleChip = (key: CollectionFoodListChipKey) => {
     setListChipFlags((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -102,7 +126,7 @@ export function CollectionProductNameDialog({
     setSubmitting(true)
     setFormError(null)
     try {
-      await onSubmit(trimmed, listChipFlags)
+      await onSubmit(trimmed, listChipFlags, formFoodScope)
       onClose()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : '저장에 실패했습니다.')
@@ -131,7 +155,7 @@ export function CollectionProductNameDialog({
         <FormDialogHeader onClose={onClose} closeDisabled={busy}>
           <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
             <Typography component="span" variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-              {getFoodScopeLabel(foodScope)} · {subLabel}
+              {getFoodScopeLabel(formFoodScope)} · {subLabel}
             </Typography>
             <Typography component="span" sx={{ fontSize: '1.05rem', fontWeight: 700 }}>
               {mode === 'create' ? '항목 추가' : '항목 수정'}
@@ -141,6 +165,44 @@ export function CollectionProductNameDialog({
         <DialogContent sx={formDialogContentSx} dividers={false}>
           <Box sx={formDialogContentScrollSx}>
             <Stack spacing={formDialogFieldStackSpacing} sx={formDialogFieldStackSx}>
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontWeight: 700, mb: 0.75, display: 'block' }}
+                >
+                  상시 / 수시
+                </Typography>
+                <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                  {FOOD_SCOPES.map((scope) => {
+                    const regularBlocked = snackBlocksRegular && scope.key === 'regular'
+                    return (
+                      <Box
+                        key={scope.key}
+                        component="button"
+                        type="button"
+                        disabled={busy || regularBlocked}
+                        onClick={() => setFormFoodScope(scope.key)}
+                        sx={{
+                          ...sxCollectionSectionSegmentItem(scope.key, formFoodScope === scope.key),
+                          flex: '0 1 auto',
+                          fontFamily: 'inherit',
+                          opacity: regularBlocked ? 0.45 : 1,
+                          cursor: regularBlocked || busy ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {scope.label}
+                      </Box>
+                    )
+                  })}
+                </Stack>
+                {snackBlocksRegular ? (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75 }}>
+                    간식은 수시 목록에만 둘 수 있습니다
+                  </Typography>
+                ) : null}
+              </Box>
+
               <TextField
                 label="항목 이름"
                 placeholder="예: 체다치즈"

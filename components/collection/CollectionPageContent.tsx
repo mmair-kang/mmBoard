@@ -1,4 +1,5 @@
 'use client'
+// 수정: mmair — 2026-09-10 02:57 (상시·수시 전환)
 // 수정: Auto — 2026-09-08 17:02 (분류순·임박순 아이콘 그룹 한 줄)
 // 수정: Auto — 2026-09-08 12:37 (분류순·임박순 버튼 그룹)
 // 수정: Auto — 2026-09-08 12:23 (상시 간식 제외·D-day 임박순)
@@ -904,6 +905,33 @@ export function CollectionPageContent() {
     setEditingProduct((prev) => (prev?.id === updated.id ? updated : prev))
   }
 
+  const syncProductListKeys = async (
+    updated: CollectionProduct,
+    prev: { subCategory: CollectionSubKey; foodScope: FoodScopeKey },
+  ) => {
+    if (updated.subCategory === prev.subCategory && updated.foodScope === prev.foodScope) return
+    await globalMutate(
+      collectionProductsKey(prev.subCategory, prev.foodScope),
+      (list: CollectionProduct[] | undefined) =>
+        (list ?? []).filter((product) => product.id !== updated.id),
+      { revalidate: false },
+    )
+    await globalMutate(
+      collectionProductsKey(updated.subCategory, updated.foodScope),
+      (list: CollectionProduct[] | undefined) => upsertCollectionProductSorted(list, updated),
+      { revalidate: false },
+    )
+  }
+
+  const revealMovedFoodProduct = (updated: CollectionProduct) => {
+    if (!isConsumableSection(updated.foodScope)) return
+    if (section === updated.foodScope && subCategory === updated.subCategory) return
+    setSection(updated.foodScope)
+    setMainCategory('food')
+    setSubCategory(updated.subCategory)
+    setUrgentSort(false)
+  }
+
   const openAddDialog = () => {
     if (isFoodSection && activeFoodScope) {
       setNameDialogMode('create')
@@ -1003,22 +1031,45 @@ export function CollectionPageContent() {
     return newProduct
   }
 
-  const handleCreateProductName = async (name: string, listChipFlags: CollectionFoodListChipFlags) => {
+  const handleCreateProductName = async (
+    name: string,
+    listChipFlags: CollectionFoodListChipFlags,
+    nextFoodScope: FoodScopeKey,
+  ) => {
     if (!activeFoodScope) return
-    await handleAddProduct({
+    const newProduct = await handleAddProduct({
       name,
       mainCategory: 'food',
       subCategory,
-      foodScope: activeFoodScope,
+      foodScope: nextFoodScope,
       listChipFlags,
       variants: [],
       selectedVariantIndex: 0,
     })
+    if (!isInCurrentProductList(newProduct, subCategory, activeFoodScope)) {
+      await globalMutate(
+        collectionProductsKey(newProduct.subCategory, newProduct.foodScope),
+        (list: CollectionProduct[] | undefined) => upsertCollectionProductSorted(list, newProduct),
+        { revalidate: false },
+      )
+    }
+    revealMovedFoodProduct(newProduct)
   }
 
-  const handleRenameProduct = async (name: string, listChipFlags: CollectionFoodListChipFlags) => {
+  const handleRenameProduct = async (
+    name: string,
+    listChipFlags: CollectionFoodListChipFlags,
+    nextFoodScope: FoodScopeKey,
+  ) => {
     if (!variantsProduct) return
-    const payload = collectionProductToPayload({ ...variantsProduct, name, listChipFlags })
+    const prevSub = variantsProduct.subCategory
+    const prevScope = variantsProduct.foodScope
+    const payload = collectionProductToPayload({
+      ...variantsProduct,
+      name,
+      listChipFlags,
+      foodScope: nextFoodScope,
+    })
     const res = await fetch(`/api/collection-products/${variantsProduct.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1030,6 +1081,8 @@ export function CollectionPageContent() {
     }
     const updated = (await res.json()) as CollectionProduct
     await applyProductCaches(updated)
+    await syncProductListKeys(updated, { subCategory: prevSub, foodScope: prevScope })
+    revealMovedFoodProduct(updated)
   }
 
   const handleUpdateProduct = async (payload: CollectionProductPayload) => {
@@ -1047,20 +1100,8 @@ export function CollectionPageContent() {
     const prevSub = editingProduct.subCategory
     const prevScope = editingProduct.foodScope
     await applyProductCaches(updated)
-
-    if (updated.subCategory !== prevSub || updated.foodScope !== prevScope) {
-      await globalMutate(
-        collectionProductsKey(prevSub, prevScope),
-        (prev: CollectionProduct[] | undefined) =>
-          (prev ?? []).filter((product) => product.id !== updated.id),
-        { revalidate: false },
-      )
-      await globalMutate(
-        collectionProductsKey(updated.subCategory, updated.foodScope),
-        (prev: CollectionProduct[] | undefined) => upsertCollectionProductSorted(prev, updated),
-        { revalidate: false },
-      )
-    }
+    await syncProductListKeys(updated, { subCategory: prevSub, foodScope: prevScope })
+    revealMovedFoodProduct(updated)
   }
 
   const handleDeleteProduct = async (id: number) => {
@@ -1419,8 +1460,21 @@ export function CollectionPageContent() {
         <CollectionProductNameDialog
           open={nameDialogOpen}
           mode={nameDialogMode}
-          foodScope={activeFoodScope}
-          subLabel={subLabel}
+          foodScope={
+            nameDialogMode === 'rename' && variantsProduct
+              ? variantsProduct.foodScope
+              : activeFoodScope
+          }
+          subCategory={
+            nameDialogMode === 'rename' && variantsProduct
+              ? variantsProduct.subCategory
+              : subCategory
+          }
+          subLabel={
+            nameDialogMode === 'rename' && variantsProduct
+              ? getSubcategoryLabel('food', variantsProduct.subCategory, subs)
+              : subLabel
+          }
           initialName={nameDialogMode === 'rename' ? (variantsProduct?.name ?? '') : ''}
           initialListChipFlags={
             nameDialogMode === 'rename'
