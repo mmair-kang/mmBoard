@@ -1,4 +1,5 @@
 'use client'
+// 수정: Auto — 2026-09-11 09:37 (연납 롱프레스 정렬)
 // 수정: Auto — 2026-07-19 17:56 (연납 초록 테마)
 // 수정: Auto — 2026-07-19 17:40 (연 총 고정비 초록·남은금액 회색)
 // 수정: Auto — 2026-07-19 16:10 (목록 칩 단순화)
@@ -16,7 +17,9 @@ import { AnnualCursorProViewDialog } from '@/components/home/AnnualCursorProView
 import { AnnualNaverPlusEditorDialog } from '@/components/home/AnnualNaverPlusEditorDialog'
 import { AnnualNaverPlusViewDialog } from '@/components/home/AnnualNaverPlusViewDialog'
 import { AnnualPaymentFormDialog } from '@/components/home/AnnualPaymentFormDialog'
+import { AnnualPaymentOrderDialog } from '@/components/home/AnnualPaymentOrderDialog'
 import { type AnnualPayment, useAnnualPayments } from '@/hooks/useAnnualPayments'
+import { useLongPress } from '@/hooks/useLongPress'
 import { useMonthlyTasks } from '@/hooks/useMonthlyTasks'
 import { calcAnnualPaymentSummary, formatWon } from '@/lib/annualPaymentCalc'
 import { formatAnnualDueLabel } from '@/lib/annualPaymentLabel'
@@ -197,6 +200,7 @@ export function AnnualPaymentWidget() {
   const { items: monthlyTasks } = useMonthlyTasks()
   const [saving, setSaving] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
+  const [orderOpen, setOrderOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<AnnualPayment | null>(null)
   const [infoItem, setInfoItem] = useState<AnnualPayment | null>(null)
   const [infoEditOpen, setInfoEditOpen] = useState(false)
@@ -215,6 +219,12 @@ export function AnnualPaymentWidget() {
 
   const summary = useMemo(() => calcAnnualPaymentSummary(payments), [payments])
   const allPaid = summary.totalAmount > 0 && summary.remainingAmount === 0
+
+  const { pointerHandlers: listLongPress, wrapClick: wrapItemClick } = useLongPress({
+    onLongPress: () => {
+      if (payments.length > 0) setOrderOpen(true)
+    },
+  })
 
   const openAdd = () => {
     setEditingItem(null)
@@ -259,6 +269,17 @@ export function AnnualPaymentWidget() {
     const id = editingItem.id
     await mutate((prev) => (prev ?? []).filter((row) => row.id !== id), { revalidate: false })
     await fetch(`/api/annual-payments/${id}`, { method: 'DELETE' })
+  }
+
+  const handleSaveOrder = async (order: number[]) => {
+    const res = await fetch('/api/annual-payments', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order }),
+    })
+    if (!res.ok) throw new Error(await readApiErrorMessage(res, '순서 저장에 실패했습니다'))
+    const updated = (await res.json()) as AnnualPayment[]
+    await mutate(updated, { revalidate: false })
   }
 
   const handleSwitch = async (paymentId: number, switchOn: boolean) => {
@@ -477,13 +498,13 @@ export function AnnualPaymentWidget() {
         </Box>
 
         {payments.length > 0 ? (
-          <Stack spacing={0.75} sx={{ px: 1.25, pb: 1.25 }}>
+          <Stack spacing={0.75} sx={{ px: 1.25, pb: 1.25, touchAction: 'pan-y', userSelect: 'none' }} {...listLongPress}>
             {payments.map((payment) => (
               <PaymentRow
                 key={payment.id}
                 payment={payment}
                 saving={saving}
-                onEdit={() => openEdit(payment)}
+                onEdit={wrapItemClick(() => openEdit(payment))}
                 onSwitchChange={(switchOn) => handleSwitch(payment.id, switchOn)}
                 onOpenDetailInfo={() => setInfoItem(payment)}
               />
@@ -503,6 +524,13 @@ export function AnnualPaymentWidget() {
         onClose={closeForm}
         onSubmit={editingItem ? handleUpdate : handleAdd}
         onDelete={editingItem ? handleDelete : undefined}
+      />
+
+      <AnnualPaymentOrderDialog
+        open={orderOpen}
+        items={payments}
+        onClose={() => setOrderOpen(false)}
+        onSave={handleSaveOrder}
       />
 
       <AnnualCarInsuranceViewDialog

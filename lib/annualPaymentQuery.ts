@@ -1,13 +1,15 @@
+// 수정: Auto — 2026-09-11 09:37 (연납 수동 정렬)
 // 수정: Auto — 2026-07-19 16:05 (결제방식·카드)
 // 수정: Auto — 2026-07-19 16:00 (네이버플러스 멤버십)
 // 수정: Auto — 2026-07-19 14:40 (연납 타입·자동차보험)
 // 수정: Auto — 2026-06-08
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 
 import type { AnnualPaymentPayload } from '@/lib/annualPaymentPayload'
 import { annualDetailJsonForDb, annualPaymentDayForDb } from '@/lib/annualPaymentPayload'
 import { annualDayFromDb, annualDueSortKey, currentYear } from '@/lib/annualPaymentLabel'
 import { ensureAnnualPaymentSchema } from '@/lib/annualPaymentSchema'
+import { ensureAppMetaSchema } from '@/lib/appMetaSchema'
 import {
   isValidAnnualPaymentPayType,
   isValidAnnualPaymentType,
@@ -26,8 +28,10 @@ import {
   parseNaverPlusAnnualDetail,
   type NaverPlusAnnualDetail,
 } from '@/lib/naverPlusAnnualDetail'
-import { db } from '@/lib/db'
+import { db, getDbClient } from '@/lib/db'
 import { annualPayments } from '@/lib/schema'
+
+const ANNUAL_SORT_MIGRATED_KEY = 'annual_payments_sort_order_from_due'
 
 export type AnnualPaymentRow = {
   id: number
@@ -116,14 +120,48 @@ export function sortAnnualPayments<T extends { month: number; dayOfMonth: number
   })
 }
 
+async function migrateAnnualPaymentSortFromDueOnce() {
+  await ensureAppMetaSchema()
+  const meta = await getDbClient().execute({
+    sql: `SELECT value FROM app_meta WHERE key = ? LIMIT 1`,
+    args: [ANNUAL_SORT_MIGRATED_KEY],
+  })
+  if (String(meta.rows[0]?.[0] ?? '') === '1') return
+
+  const rows = await db.select().from(annualPayments)
+  const sorted = sortAnnualPayments(rows.map((row) => normalizeRow(row as AnnualPaymentRow)))
+  for (let i = 0; i < sorted.length; i++) {
+    await db.update(annualPayments).set({ sortOrder: i }).where(eq(annualPayments.id, sorted[i].id))
+  }
+
+  await db.run(sql`INSERT OR REPLACE INTO app_meta (key, value) VALUES (${ANNUAL_SORT_MIGRATED_KEY}, '1')`)
+}
+
 export async function loadAnnualPayments(): Promise<NormalizedAnnualPayment[]> {
   await ensureAnnualPaymentSchema()
+  await migrateAnnualPaymentSortFromDueOnce()
   const rows = await db
     .select()
     .from(annualPayments)
     .orderBy(asc(annualPayments.sortOrder), asc(annualPayments.id))
 
-  return sortAnnualPayments(rows.map((row) => normalizeRow(row as AnnualPaymentRow)))
+  return rows.map((row) => normalizeRow(row as AnnualPaymentRow))
+}
+
+export async function syncAnnualPaymentOrder(ids: number[]) {
+  await ensureAnnualPaymentSchema()
+  const existing = await db.select().from(annualPayments)
+  const existingIds = new Set(existing.map((row) => row.id))
+
+  if (ids.length !== existing.length || !ids.every((id) => existingIds.has(id))) {
+    throw new Error('invalid order')
+  }
+
+  for (let i = 0; i < ids.length; i++) {
+    await db.update(annualPayments).set({ sortOrder: i }).where(eq(annualPayments.id, ids[i]))
+  }
+
+  return loadAnnualPayments()
 }
 
 export async function syncAnnualPayments(payments: AnnualPaymentPayload[]) {

@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-09-11 09:37 (연납 순서 파싱)
 // 수정: Auto — 2026-07-19 16:05 (결제방식·카드)
 // 수정: Auto — 2026-07-19 16:00 (네이버플러스 멤버십)
 // 수정: Auto — 2026-07-19 15:10 (Cursor PRO)
@@ -149,6 +150,20 @@ export function parseAnnualPaymentPayload(value: unknown): AnnualPaymentPayload 
     cursorProDetail: paymentType === 'cursorPro' ? cursorProDetail : null,
     naverPlusDetail: paymentType === 'naverPlus' ? naverPlusDetail : null,
   }
+}
+
+export function parseAnnualPaymentOrder(body: Record<string, unknown>): number[] | null {
+  if (!Array.isArray(body.order) || body.order.length === 0) return null
+  const ids: number[] = []
+  const seen = new Set<number>()
+
+  for (const id of body.order) {
+    if (typeof id !== 'number' || !Number.isFinite(id) || seen.has(id)) return null
+    seen.add(id)
+    ids.push(id)
+  }
+
+  return ids
 }
 
 export function parseAnnualPaymentsPayload(body: Record<string, unknown>): AnnualPaymentPayload[] | null {

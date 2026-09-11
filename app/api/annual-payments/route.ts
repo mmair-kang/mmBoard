@@ -1,9 +1,19 @@
+// 수정: Auto — 2026-09-11 09:37 (연납 순서 저장)
 // 수정: Auto — 2026-07-19 14:50 (연납 개별 생성 응답)
 // 수정: Auto — 2026-06-08
 import { NextResponse } from 'next/server'
 
-import { parseAnnualPaymentPayload, parseAnnualPaymentsPayload } from '@/lib/annualPaymentPayload'
-import { createAnnualPayment, loadAnnualPayments, syncAnnualPayments } from '@/lib/annualPaymentQuery'
+import {
+  parseAnnualPaymentOrder,
+  parseAnnualPaymentPayload,
+  parseAnnualPaymentsPayload,
+} from '@/lib/annualPaymentPayload'
+import {
+  createAnnualPayment,
+  loadAnnualPayments,
+  syncAnnualPaymentOrder,
+  syncAnnualPayments,
+} from '@/lib/annualPaymentQuery'
 
 export async function GET() {
   const payments = await loadAnnualPayments()
@@ -29,6 +39,16 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>
+    if ('order' in body) {
+      const order = parseAnnualPaymentOrder(body)
+      if (!order) {
+        return NextResponse.json({ message: 'invalid request' }, { status: 400 })
+      }
+
+      const items = await syncAnnualPaymentOrder(order)
+      return NextResponse.json(items)
+    }
+
     const payments = parseAnnualPaymentsPayload(body)
     if (payments === null) {
       return NextResponse.json({ message: 'invalid request' }, { status: 400 })
@@ -37,6 +57,9 @@ export async function PATCH(request: Request) {
     await syncAnnualPayments(payments)
     return NextResponse.json(await loadAnnualPayments())
   } catch (error) {
+    if (error instanceof Error && error.message === 'invalid order') {
+      return NextResponse.json({ message: 'invalid order' }, { status: 400 })
+    }
     console.error('[annual-payments PATCH]', error)
     return NextResponse.json({ message: 'server error' }, { status: 500 })
   }
