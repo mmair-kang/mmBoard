@@ -1,4 +1,5 @@
 'use client'
+// 수정: mmair — 2026-09-21 00:05 (쇼핑 제거: 관리·정리·건강·설정)
 // 수정: Auto — 2026-09-08 12:11 (하단 네비: 관리·정리·쇼핑·건강·설정)
 // 수정: Auto — 2026-08-24 22:20 (관리 오른쪽에 정리 추가)
 // 수정: Auto — 2026-08-19 15:40 (PC도 모바일과 동일한 타이포)
@@ -10,7 +11,6 @@ import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
-import ShoppingCartRoundedIcon from '@mui/icons-material/ShoppingCartRounded'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Box from '@mui/material/Box'
@@ -22,9 +22,8 @@ export function AppBottomNav() {
   const pathname = usePathname()
 
   const tab: number | false = (() => {
-    if (pathname === '/settings') return 4
-    if (pathname === '/health' || pathname.startsWith('/health/')) return 3
-    if (pathname === '/shopping' || pathname === '/collection') return 2
+    if (pathname === '/settings') return 3
+    if (pathname === '/health' || pathname.startsWith('/health/')) return 2
     if (pathname === '/organize' || pathname.startsWith('/organize/')) return 1
     return 0
   })()
@@ -53,12 +52,6 @@ export function AppBottomNav() {
             icon={<Inventory2RoundedIcon />}
             component={Link}
             href="/organize"
-          />
-          <BottomNavigationAction
-            label="쇼핑"
-            icon={<ShoppingCartRoundedIcon />}
-            component={Link}
-            href="/shopping"
           />
           <BottomNavigationAction
             label="건강"
