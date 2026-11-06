@@ -1,3 +1,5 @@
+// 수정: Auto — 2026-11-06 00:50 (스크롤바 숨김)
+// 수정: Auto — 2026-11-06 00:50 (스크롤바 숨김)
 // 수정: Auto — 2026-08-19 15:40 (PC 프레임만 분리, 내부는 모바일과 동일)
 
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -50,7 +52,28 @@ export const sxPageScrollBody: SxProps<Theme> = {
   overflowY: 'auto',
   overflowX: 'hidden',
   WebkitOverflowScrolling: 'touch',
+  // 스크롤바 숨김 (스크롤은 동작)
+  scrollbarWidth: 'none',
+  msOverflowStyle: 'none',
+  '&::-webkit-scrollbar': { display: 'none' },
   px: { xs: 1, sm: 1.5 },
+  py: 1.25,
+  pb: 2.5,
+}
+
+/** 좌우 여백 없는 스크롤 본문 (투자·배당 탭 표 가로 꽉 채움용) */
+export const sxPageScrollBodyFlush: SxProps<Theme> = {
+  flex: 1,
+  minHeight: 0,
+  minWidth: 0,
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  WebkitOverflowScrolling: 'touch',
+  // 스크롤바 숨김 (스크롤은 동작)
+  scrollbarWidth: 'none',
+  msOverflowStyle: 'none',
+  '&::-webkit-scrollbar': { display: 'none' },
+  px: 0,
   py: 1.25,
   pb: 2.5,
 }

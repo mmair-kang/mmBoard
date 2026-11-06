@@ -1,3 +1,7 @@
+// 수정: Auto — 2026-11-06 01:05 (상단 요약 박스 좌우 여백 래퍼 Box로 수정)
+// 수정: Auto — 2026-11-06 01:00 (상단 요약 박스 라운딩·좌우 여백 복원)
+// 수정: Auto — 2026-11-06 00:55 (요약 배경 연하게)
+// 수정: Auto — 2026-11-06 00:45 (가로 꽉 채움)
 'use client'
 // 수정: Auto — 2026-07-24 15:40 (배당 캐시 무효화)
 // 수정: Auto — 2026-07-14 01:39 (표 클릭 수정·예수금 인라인)
@@ -77,13 +81,15 @@ export function InvestmentWidget() {
   return (
     <>
       <Stack spacing={1.25} sx={{ width: '100%', minWidth: 0 }}>
+        {/* Stack가 자식 margin을 0으로 덮어쓰므로 래퍼 Box의 padding으로 좌우 여백 */}
+        <Box sx={{ px: { xs: 1, sm: 1.5 } }}>
         <Paper
           variant="outlined"
           sx={{
             px: 1,
             py: 0.85,
             borderRadius: 2,
-            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
+            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.02),
             borderColor: 'divider',
           }}
         >
@@ -130,6 +136,7 @@ export function InvestmentWidget() {
             </Box>
           </Stack>
         </Paper>
+        </Box>
 
         <Box sx={sxDesktopTwoColumnGrid}>
           {accounts.map((account) => (

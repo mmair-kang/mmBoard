@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-11-06 00:45 (가로 꽉 채움)
 'use client'
 // 수정: Auto — 2026-08-03 10:13 (종목 옆 G(지급일) 열·금융소득/세후 width)
 // 수정: Auto — 2026-07-25 01:04 ($ 우측·단위 크기·보유표 동일 포맷)
@@ -137,7 +138,10 @@ export function DividendMonthCard({ month, holdings, onEdit }: Props) {
       variant="outlined"
       onClick={onEdit}
       sx={{
-        borderRadius: 2,
+        // 가로 꽉 채움: 좌우 테두리·라운드 제거
+        borderRadius: 0,
+        borderLeftWidth: 0,
+        borderRightWidth: 0,
         overflow: 'hidden',
         cursor: 'pointer',
         borderColor: 'divider',
@@ -198,7 +202,14 @@ export function DividendMonthCard({ month, holdings, onEdit }: Props) {
         </Stack>
       </Stack>
 
-      <TableContainer sx={{ overflowX: 'hidden' }}>
+      <TableContainer
+        sx={{
+          overflowX: 'hidden',
+          // 표 좌우 끝 여백
+          '& .MuiTableCell-root:first-of-type': { pl: 1 },
+          '& .MuiTableCell-root:last-of-type': { pr: 1 },
+        }}
+      >
         <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>

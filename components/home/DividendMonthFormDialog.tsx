@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-11-06 00:35 (입력한 종목만 저장·표시, 미입력 종목은 제외)
 'use client'
 // 수정: Auto — 2026-07-24 18:15 (월별 배당 입력 단순화)
 // 수정: Auto — 2026-07-14 23:37
@@ -45,6 +46,11 @@ type Props = {
   onClose: () => void
   onSubmit: (payload: DividendMonthFormPayload) => Promise<void>
   onDelete?: () => Promise<void>
+}
+
+/** 세전 배당금(원)이 입력된 항목만 "입력됨"으로 간주 — 나머지는 저장/표시하지 않음 */
+function isDraftFilled(row: DividendEntryDraft): boolean {
+  return Math.round(parseDecimalText(row.grossKrwText)) > 0
 }
 
 function validateDrafts(
@@ -109,7 +115,16 @@ export function DividendMonthFormDialog({
 
     if (month) {
       setYearMonth(month.yearMonth)
-      setEntryDrafts(entriesToDrafts(month.entries, holdings))
+      // 수정 시: 저장된 항목 + 아직 입력 안 된 보유 종목(빈 칸)도 보여 추가 입력 가능
+      const saved = entriesToDrafts(month.entries, holdings)
+      const savedTickers = new Set(month.entries.map((row) => row.ticker.trim().toUpperCase()))
+      const missingHoldings = holdings.filter(
+        (row) => !savedTickers.has(row.ticker.trim().toUpperCase()),
+      )
+      const placeholders = entriesToDrafts(entriesFromHoldings(missingHoldings), missingHoldings).map(
+        (draft, index) => ({ ...draft, key: `placeholder-${index}` }),
+      )
+      setEntryDrafts([...saved, ...placeholders])
       return
     }
 
@@ -129,12 +144,18 @@ export function DividendMonthFormDialog({
       setFormError('이미 등록된 달입니다.')
       return
     }
-    if (!validateDrafts(entryDrafts, holdings, usdKrwRate)) {
-      setFormError('모든 항목의 배당 지급일·종목·보유주수·세전 배당금(원)을 확인해 주세요. (해외는 주당 $도 필요)')
+    // 세전 배당금이 입력된 항목만 저장 (미입력 종목은 제외)
+    const filledDrafts = entryDrafts.filter(isDraftFilled)
+    if (filledDrafts.length === 0) {
+      setFormError('최소 한 종목의 세전 배당금(원)을 입력해 주세요.')
+      return
+    }
+    if (!validateDrafts(filledDrafts, holdings, usdKrwRate)) {
+      setFormError('입력한 항목의 배당 지급일·종목·보유주수·세전 배당금(원)을 확인해 주세요. (해외는 주당 $도 필요)')
       return
     }
 
-    const entries = draftsToEntries(entryDrafts, holdings, usdKrwRate)
+    const entries = draftsToEntries(filledDrafts, holdings, usdKrwRate)
     if (entries.length === 0) {
       setFormError('저장할 배당 항목이 없습니다.')
       return
@@ -202,7 +223,7 @@ export function DividendMonthFormDialog({
               />
               {!isEdit ? (
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                  보유 배당주가 자동으로 채워집니다. 주수·세전 배당금(원)만 달마다 입력하면 됩니다.
+                  세전 배당금(원)을 입력한 종목만 저장됩니다. 입력하지 않은 종목은 제외돼요.
                 </Typography>
               ) : null}
               <DividendEntriesEditor

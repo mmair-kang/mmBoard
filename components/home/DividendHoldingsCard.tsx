@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-11-06 00:45 (가로 꽉 채움)
 'use client'
 // 수정: Auto — 2026-08-19 15:48 (종목 클릭 시 링크 새 창)
 // 수정: Auto — 2026-08-03 10:21 (종목 옆 B(배당 기준일) 열·월별과 동일 width)
@@ -116,11 +117,14 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
     <Paper
       variant="outlined"
       sx={{
-        borderRadius: 2,
         minWidth: 0,
         overflow: 'hidden',
         borderColor: (theme) => alpha(theme.palette.common.black, 0.22),
         borderWidth: 1.5,
+        // 가로 꽉 채움: 좌우 테두리·라운드 제거
+        borderRadius: 0,
+        borderLeftWidth: 0,
+        borderRightWidth: 0,
         bgcolor: (theme) => alpha(theme.palette.common.black, 0.02),
       }}
     >
@@ -146,7 +150,14 @@ export function DividendHoldingsCard({ holdings, onEdit }: Props) {
         </Tooltip>
       </Stack>
 
-      <TableContainer sx={{ overflowX: 'hidden' }}>
+      <TableContainer
+        sx={{
+          overflowX: 'hidden',
+          // 표 좌우 끝 여백
+          '& .MuiTableCell-root:first-of-type': { pl: 1 },
+          '& .MuiTableCell-root:last-of-type': { pr: 1 },
+        }}
+      >
         <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>

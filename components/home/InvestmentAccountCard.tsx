@@ -1,3 +1,5 @@
+// 수정: Auto — 2026-11-06 00:55 (배경·테두리·칩 톤 연하게)
+// 수정: Auto — 2026-11-06 00:45 (가로 꽉 채움)
 'use client'
 // 수정: Auto — 2026-09-02 17:00 (국내·해외 파랑, 연금·IRP 초록)
 // 수정: Auto — 2026-07-18 01:48 (주 열 너비)
@@ -84,11 +86,11 @@ const ACCOUNT_THEME: Record<InvestmentAccountView['id'], { color: AccountAccent;
 }
 
 function sectionBg(theme: Theme, color: AccountAccent) {
-  return alpha(theme.palette[color].main, 0.06)
+  return alpha(theme.palette[color].main, 0.02)
 }
 
 function sectionHeadBg(theme: Theme, color: AccountAccent) {
-  return alpha(theme.palette[color].main, 0.12)
+  return alpha(theme.palette[color].main, 0.06)
 }
 
 function toneColor(tone: ReturnType<typeof returnTone>) {
@@ -114,11 +116,14 @@ export function InvestmentAccountCard({ account, cashSaving, onOpenEdit, onCashC
     <Paper
       variant="outlined"
       sx={{
-        borderRadius: 2,
         minWidth: 0,
         overflow: 'hidden',
-        borderColor: `${themeMeta.color}.light`,
-        borderWidth: 1.5,
+        borderColor: (theme) => alpha(theme.palette[themeMeta.color].main, 0.28),
+        borderWidth: 1,
+        // 가로 꽉 채움: 좌우 테두리·라운드 제거
+        borderRadius: 0,
+        borderLeftWidth: 0,
+        borderRightWidth: 0,
         bgcolor: (theme) => sectionBg(theme, themeMeta.color),
         transition: 'box-shadow 0.15s ease',
       }}
@@ -140,9 +145,10 @@ export function InvestmentAccountCard({ account, cashSaving, onOpenEdit, onCashC
           <Chip
             size="small"
             label={account.label}
-            color={themeMeta.color}
             sx={{
               height: { xs: 18, md: 20 },
+              bgcolor: (theme) => alpha(theme.palette[themeMeta.color].main, 0.14),
+              color: `${themeMeta.color}.dark`,
               fontWeight: 700,
               fontSize: { xs: '0.62rem', md: '0.64rem' },
               '& .MuiChip-label': { px: 0.6 },
@@ -202,7 +208,13 @@ export function InvestmentAccountCard({ account, cashSaving, onOpenEdit, onCashC
       >
         <TableContainer
           className="investment-table-body"
-          sx={{ width: '100%', overflow: 'hidden' }}
+          sx={{
+            width: '100%',
+            overflow: 'hidden',
+            // 표 좌우 끝 여백
+            '& .MuiTableCell-root:first-of-type': { pl: 1 },
+            '& .MuiTableCell-root:last-of-type': { pr: 1 },
+          }}
         >
           <Table
             size="small"
@@ -299,7 +311,7 @@ export function InvestmentAccountCard({ account, cashSaving, onOpenEdit, onCashC
             py: 0.55,
             borderTop: 1,
             borderColor: 'divider',
-            bgcolor: (theme) => alpha(theme.palette[themeMeta.color].main, 0.05),
+            bgcolor: (theme) => alpha(theme.palette[themeMeta.color].main, 0.03),
           }}
         >
           <Stack direction="row" alignItems="baseline" spacing={0.65} sx={{ minWidth: 0 }}>

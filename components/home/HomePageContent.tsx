@@ -1,3 +1,4 @@
+// 수정: Auto — 2026-11-06 00:45 (투자·배당 탭 좌우 여백 제거)
 'use client'
 // 수정: Auto — 2026-07-19 14:30 (날씨 삭제·달력 추가)
 // 수정: Auto — 2026-07-13 23:43 (자산 탭)
@@ -21,7 +22,7 @@ import { useLongPress } from '@/hooks/useLongPress'
 import type { ManageTabId } from '@/lib/manageTabOrder'
 // 수정: Auto — 2026-06-15 (메인탭 PC 레이아웃)
 
-import { sxMainTabLayout, sxMainTabTopRow, sxPageScrollBody } from '@/config/responsiveLayout'
+import { sxMainTabLayout, sxMainTabTopRow, sxPageScrollBody, sxPageScrollBodyFlush } from '@/config/responsiveLayout'
 import Box from '@mui/material/Box'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -127,7 +128,10 @@ export function HomePageContent() {
         </Tabs>
       </Box>
 
-      <Box sx={sxPageScrollBody}>
+      <Box
+        // 투자·배당 탭: 표를 좌우 여백 없이 가로 꽉 채움
+        sx={tab === 'investment' || tab === 'dividend' ? sxPageScrollBodyFlush : sxPageScrollBody}
+      >
         {renderTabPanel(tab)}
       </Box>
 

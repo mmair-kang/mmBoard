@@ -1,3 +1,6 @@
+// 수정: Auto — 2026-11-06 01:05 (상단 요약 박스 좌우 여백 래퍼 Box로 수정)
+// 수정: Auto — 2026-11-06 01:00 (상단 요약 박스 라운딩·좌우 여백 복원)
+// 수정: Auto — 2026-11-06 00:45 (가로 꽉 채움)
 'use client'
 // 수정: Auto — 2026-07-15 01:05 (예상 연 금융소득 라벨)
 // 수정: Auto — 2026-07-15 00:58 (연도 전환·카드 헤더)
@@ -156,6 +159,8 @@ export function DividendWidget() {
   return (
     <>
       <Stack spacing={1.25} sx={{ width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+        {/* Stack가 자식 margin을 0으로 덮어쓰므로 래퍼 Box의 padding으로 좌우 여백 */}
+        <Box sx={{ px: { xs: 1, sm: 1.5 } }}>
         <Paper
           variant="outlined"
           sx={{
@@ -192,10 +197,11 @@ export function DividendWidget() {
             세전 · 월별 {(MONTHLY_FINANCIAL_INCOME_LIMIT / 10_000).toLocaleString('ko-KR')}만원 이하 유지
           </Typography>
         </Paper>
+        </Box>
 
         <DividendHoldingsCard holdings={holdings} onEdit={() => setHoldingsEditOpen(true)} />
 
-        <Stack direction="row" alignItems="center" sx={{ pt: 0.25, minHeight: 36 }}>
+        <Stack direction="row" alignItems="center" sx={{ pt: 0.25, px: { xs: 1, sm: 1.5 }, minHeight: 36 }}>
           <Typography sx={{ fontWeight: 900, fontSize: '0.95rem', flex: 1, minWidth: 0 }}>월별 배당</Typography>
           <Stack direction="row" alignItems="center" spacing={0.15} sx={{ flexShrink: 0 }}>
             <IconButton
